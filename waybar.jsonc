@@ -1,0 +1,115 @@
+{
+    "layer": "top",
+    "position": "top",
+    "margin-top": 5,
+    // Ekran genişliğine göre bu değeri değiştirebilir veya silebilirsin
+    "width": 1340, 
+    
+    // Fotoğraftaki sıralama: Saat -> Menü -> Tray -> Workspaces -> Medya
+    "modules-left": [ "clock", "custom/omarchy", "tray", "hyprland/workspaces", "mpris"],
+    "modules-center": [ ],
+    "modules-right": [ "custom/update", "network", "pulseaudio", "battery", "custom/power" ],
+
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "on-click": "activate",
+        "format-icons": {
+            "1": "A",
+            "2": "B",
+            "3": "C",
+            "4": "D",
+            "5": "E",
+            "6": "F",
+            "7": "G",
+            "8": "H",
+            "9": "I",
+            "10": "J"
+        },
+        "on-scroll-up": "hyprctl dispatch workspace e+1",
+        "on-scroll-down": "hyprctl dispatch workspace e-1",
+        "persistent-workspaces": {
+            "*": 5
+        }
+    },
+
+    "custom/omarchy": {
+        "format": " 󰣇 ",
+        "on-click": "omarchy-menu",
+        "on-click-right": "xdg-terminal-exec",
+        "tooltip-format": "Omarchy Menu\n\nSuper + Alt + Space"
+    },
+
+    "clock": {
+        "format": " {:%I:%M %p}",
+        "format-alt": "{:%A  |  %H:%M  |  %e %B}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+    },
+
+    "tray": {
+        "icon-size": 14,
+        "spacing": 8
+    },
+
+    "mpris": {
+        "interval": 1,
+        "format": "{player_icon} {dynamic}",
+        "format-paused": "{status_icon} {artist} {title}",
+        "on-click-middle": "playerctl play-pause",
+        "on-click": "playerctl previous",
+        "on-click-right": "playerctl next",
+        "scroll-step": 5.0,
+        "tooltip": true,
+        "tooltip-format": "{status_icon} {dynamic}",
+        "player-icons": {
+            "default": "",
+            "spotify": "",
+            "firefox": "",
+            "vlc": "󰕼"
+        },
+        "status-icons": {
+            "paused": "",
+            "playing": "",
+            "stopped": ""
+        },
+        "max-length": 40
+    },
+
+    "network": {
+        "format": "{icon}",
+        "format-wifi": "{icon}",
+        "format-ethernet": "󰀂",
+        "format-disconnected": "󰤮",
+        "tooltip-format-wifi": "{essid} ({signalStrength}%)",
+        "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+        "on-click": "omarchy-launch-wifi"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "󰝟",
+        "format-icons": {
+            "headphone": "",
+            "default": ["", "", ""]
+        },
+        "on-click": "omarchy-launch-or-focus-tui wiremix"
+    },
+
+    "battery": {
+        "format": "{capacity}% {icon}",
+        "format-icons": ["", "", "", "", ""],
+        "on-click": "omarchy-menu power"
+    },
+
+    "custom/update": {
+        "format": "",
+        "exec": "omarchy-update-available",
+        "on-click": "omarchy-launch-floating-terminal-with-presentation omarchy-update",
+        "interval": 21600
+    },
+
+    "custom/power": {
+        "format": "⏻",
+        "on-click": "omarchy-menu power",
+        "tooltip": false
+    }
+}

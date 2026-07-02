@@ -1,0 +1,70 @@
+# ────────────────────────────────────────────────────────────
+# BTOP THEME — Rainynight
+# ────────────────────────────────────────────────────────────
+
+# Base night background
+theme[main_bg]="#101010"
+
+# Main text – soft grey-blue
+theme[main_fg]="#cdd6f4"
+
+# Titles – cyan highlight
+theme[title]="#5de4c7"
+
+# Highlight text
+theme[hi_fg]="#5de4c7"
+
+# Selected row – deep navy
+theme[selected_bg]="#303463"
+
+# Selected row text
+theme[selected_fg]="#cdd6f4"
+
+# Inactive/dim text
+theme[inactive_fg]="#7d8291"
+
+# Misc text
+theme[proc_misc]="#9a7ecc"
+
+# Box outlines – navy
+theme[cpu_box]="#303463"
+theme[mem_box]="#303463"
+theme[net_box]="#303463"
+theme[proc_box]="#303463"
+
+# Divider lines
+theme[div_line]="#303463"
+
+# Temp graph – green → yellow → red (heat)
+theme[temp_start]="#8f9d6a"
+theme[temp_mid]="#f9c74f"
+theme[temp_end]="#cf6a4c"
+
+# CPU graph – navy → cyan → light
+theme[cpu_start]="#303463"
+theme[cpu_mid]="#5de4c7"
+theme[cpu_end]="#cdd6f4"
+
+theme[free_start]="#303463"
+theme[free_mid]="#5de4c7"
+theme[free_end]="#cdd6f4"
+
+theme[cached_start]="#303463"
+theme[cached_mid]="#5de4c7"
+theme[cached_end]="#cdd6f4"
+
+theme[available_start]="#303463"
+theme[available_mid]="#5de4c7"
+theme[available_end]="#cdd6f4"
+
+theme[used_start]="#303463"
+theme[used_mid]="#5de4c7"
+theme[used_end]="#cdd6f4"
+
+theme[download_start]="#303463"
+theme[download_mid]="#5de4c7"
+theme[download_end]="#cdd6f4"
+
+theme[upload_start]="#303463"
+theme[upload_mid]="#5de4c7"
+theme[upload_end]="#cdd6f4"

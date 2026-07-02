@@ -1,0 +1,26 @@
+name: Rainynight
+accent: "#5de4c7"
+cursor: "#cdd6f4"
+background: "#101010"
+foreground: "#cdd6f4"
+details: darker
+
+terminal_colors:
+  normal:
+    black:   "#101010"
+    red:     "#cf6a4c"
+    green:   "#8f9d6a"
+    yellow:  "#f9c74f"
+    blue:    "#303463"
+    magenta: "#9a7ecc"
+    cyan:    "#5de4c7"
+    white:   "#cdd6f4"
+  bright:
+    black:   "#434343"
+    red:     "#cf6a4c"
+    green:   "#8f9d6a"
+    yellow:  "#f9c74f"
+    blue:    "#303463"
+    magenta: "#9a7ecc"
+    cyan:    "#5de4c7"
+    white:   "#ffffff"
