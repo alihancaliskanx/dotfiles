@@ -1,0 +1,6 @@
+\.git
+\.gitignore
+^/extras
+^/install-hyprland\.sh
+^/README.*
+^/\.stow-local-ignore

@@ -1,81 +1,85 @@
 #!/usr/bin/env bash
-#
-# install-hyprland.sh — CachyOS/Arch üzerine Hyprland ekosistemini kurar.
-# Proxy üzerinden çalışır (telefon/USB tethering). KDE'ye DOKUNMAZ; yan yana kurulur,
-# oturumu girişte (SDDM/plasmalogin) seçersin.
-#
-# Kullanım:   ./install-hyprland.sh
-# (sudo şifresi sorulur; proxy pacman'e sudo env ile geçirilir)
-
 set -euo pipefail
 
-# ─────────────────────────────────────────────────────────────
-# Proxy (telefon tethering). Değiştirmek istersen burayı düzenle.
-# ─────────────────────────────────────────────────────────────
-PROXY="${PROXY:-http://192.168.49.1:8000}"
+PROXY="${PROXY:-${http_proxy:-${https_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-}}}}}"
 
-export http_proxy="$PROXY"  https_proxy="$PROXY"  ftp_proxy="$PROXY"  all_proxy="$PROXY"
-export HTTP_PROXY="$PROXY"  HTTPS_PROXY="$PROXY"
-export no_proxy="localhost,127.0.0.1,::1,192.168.49.1"
-export NO_PROXY="$no_proxy"
+if [[ -n "$PROXY" ]]; then
+  export http_proxy="$PROXY" https_proxy="$PROXY" ftp_proxy="$PROXY" all_proxy="$PROXY"
+  export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY"
+  export no_proxy="localhost,127.0.0.1,::1"
+  export NO_PROXY="$no_proxy"
+fi
 
-# ─────────────────────────────────────────────────────────────
-# Paketler (hepsi CachyOS/extra depolarında; AUR gerekmez)
-# ─────────────────────────────────────────────────────────────
 PKGS=(
-  # Hyprland çekirdek
   hyprland hyprlock hypridle hyprpaper
-  xdg-desktop-portal-hyprland hyprpolkitagent
-  # Bar / bildirim / OSD / launcher   (mako zaten kurulu)
-  waybar swayosd walker
-  # Terminal                          (alacritty zaten kurulu)
-  kitty
-  # Wayland / Qt
+  xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpolkitagent
+  waybar swayosd walker mako
+  kitty alacritty ghostty
   qt5-wayland qt6-wayland
-  # Araçlar: parlaklık, medya, ses, pano, ekran görüntüsü, renk seçici
   brightnessctl playerctl pamixer
   wl-clipboard cliphist grim slurp swappy hyprpicker
-  # Font
+  btop cava neovim
+  nautilus pavucontrol nm-connection-editor
+  stow
   ttf-jetbrains-mono-nerd
 )
 
+AUR_PKGS=(
+  elephant-bin
+  elephant-desktopapplications-bin
+  elephant-runner-bin
+  elephant-calc-bin
+  elephant-symbols-bin
+  elephant-websearch-bin
+  elephant-files-bin
+  elephant-menus-bin
+  elephant-clipboard-bin
+)
+
 echo "════════════════════════════════════════════════════════════"
-echo "  Hyprland kurulumu (CachyOS)  —  proxy: $PROXY"
-echo "  Paketler: ${#PKGS[@]} adet"
+if [[ -n "$PROXY" ]]; then
+  echo "  Hyprland kurulumu (CachyOS)  —  proxy: $PROXY"
+else
+  echo "  Hyprland kurulumu (CachyOS)  —  doğrudan bağlantı"
+fi
+echo "  Paketler: ${#PKGS[@]} adet + ${#AUR_PKGS[@]} AUR"
 echo "════════════════════════════════════════════════════════════"
 
-# ─────────────────────────────────────────────────────────────
-# 1) Proxy erişilebilir mi? (10 sn timeout)
-# ─────────────────────────────────────────────────────────────
-echo ">> Proxy bağlantısı test ediliyor..."
-if curl -x "$PROXY" -s -o /dev/null -w '%{http_code}' --max-time 10 https://archlinux.org | grep -qE '^(200|301|302)$'; then
-  echo "   ✔ Proxy çalışıyor."
+echo ">> İnternet bağlantısı test ediliyor..."
+if curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://archlinux.org | grep -qE '^(200|301|302)$'; then
+  echo "   ✔ Bağlantı çalışıyor."
 else
-  echo "   ✗ Proxy üzerinden internete ulaşılamadı ($PROXY)."
-  echo "     Telefonda proxy/hotspot açık mı? IP:port doğru mu? Kontrol edip tekrar dene."
+  echo "   ✗ İnternete ulaşılamadı${PROXY:+ (proxy: $PROXY)}."
   read -rp "   Yine de devam edilsin mi? [e/H] " ans
   [[ "${ans,,}" == "e" ]] || { echo "İptal edildi."; exit 1; }
 fi
 
-# ─────────────────────────────────────────────────────────────
-# 2) pacman ile kurulum
-#    pacman root olarak çalışır → proxy env'ini 'sudo env' ile içeri veriyoruz.
-#    -Syu: kısmi yükseltme (partial upgrade) riskini önlemek için tam senkron+yükseltme
-#          (Arch'te doğru yöntem). Sadece kurmak istersen -Syu yerine -S kullan.
-# ─────────────────────────────────────────────────────────────
 echo ">> pacman başlatılıyor (sudo şifresi sorulabilir)..."
-sudo env \
-  http_proxy="$PROXY"   https_proxy="$PROXY" \
-  HTTP_PROXY="$PROXY"   HTTPS_PROXY="$PROXY" \
-  all_proxy="$PROXY"    no_proxy="$no_proxy" \
-  pacman -Syu --needed "${PKGS[@]}"
+if [[ -n "$PROXY" ]]; then
+  sudo env \
+    http_proxy="$PROXY" https_proxy="$PROXY" \
+    HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" \
+    all_proxy="$PROXY" no_proxy="$no_proxy" \
+    pacman -Syu --needed "${PKGS[@]}"
+else
+  sudo pacman -Syu --needed "${PKGS[@]}"
+fi
+
+echo ">> AUR paketleri kuruluyor..."
+if command -v paru >/dev/null; then
+  paru -S --needed "${AUR_PKGS[@]}"
+elif command -v yay >/dev/null; then
+  yay -S --needed "${AUR_PKGS[@]}"
+else
+  echo "   ! paru/yay bulunamadı, AUR paketlerini elle kur: ${AUR_PKGS[*]}"
+fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
-echo "  ✅ Kurulum bitti."
+echo "  ✅ Paket kurulumu bitti."
 echo ""
-echo "  Sıradaki adımlar:"
-echo "   • Henüz config YOK → çıkış yapıp Hyprland oturumuna geçme."
-echo "     Önce dotfiles yapısını + configleri kuracağız (bir sonraki adım)."
-echo "   • KDE oturumun olduğu gibi duruyor; hiçbir KDE dosyasına dokunulmadı."
+echo "  Configleri bağlamak için:"
+echo "    cd $(dirname "${BASH_SOURCE[0]}") && stow -t ~ ."
+echo ""
+echo "  • KDE oturumuna dokunulmadı; girişte Hyprland'i seçebilirsin."
 echo "════════════════════════════════════════════════════════════"
