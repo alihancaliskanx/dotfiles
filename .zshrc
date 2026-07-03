@@ -370,6 +370,7 @@ export NVM_DIR="$HOME/.nvm"
 
 export PATH="$HOME/.local/bin:$PATH"
 export PATH=/home/sups/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH
+export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
