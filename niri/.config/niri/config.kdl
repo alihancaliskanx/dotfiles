@@ -152,8 +152,8 @@ binds {
     Mod+L            { spawn "hyprlock"; }
     Mod+Shift+H      { quit; }
     Mod+V            { spawn "sh" "-c" "cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy"; }
-    Print            { spawn "sh" "-c" "grim - | swappy -f -"; }
-    Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | swappy -f -"; }
+    Print            { spawn "sh" "-c" "grim - | satty -f -"; }
+    Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | satty -f -"; }
 
     // ── focus ───────────────────────────────────────────────────────────────
     // DIFF: niri is column based. Left/right moves between columns, up/down

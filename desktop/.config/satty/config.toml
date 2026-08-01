@@ -1,0 +1,33 @@
+# satty — screenshot annotation, replaces swappy.
+#
+# grim captures and pipes into satty on stdin; everything below is what happens
+# after that. Field names were checked against satty 0.21.1 by feeding it the
+# file — an unknown key makes it print the accepted ones, which is how the
+# [color-palette] shape was pinned down.
+
+[general]
+# Enter copies to the clipboard and closes, which is the common case. Escape
+# just leaves without saving.
+actions-on-enter = ["save-to-clipboard", "exit"]
+actions-on-escape = ["exit"]
+early-exit = true
+
+copy-command = "wl-copy"
+
+# The directory has to exist; install.sh creates it.
+output-filename = "~/Pictures/Screenshots/Screenshot-%Y-%m-%d_%H-%M-%S.png"
+
+initial-tool = "arrow"
+primary-highlighter = "block"
+annotation-size-factor = 1.5
+default-hide-toolbars = false
+
+[font]
+family = "JetBrainsMono Nerd Font"
+style = "Bold"
+
+# rainynight. The first five are the ones on the toolbar; `custom` adds the
+# darker pair for drawing on light screenshots.
+[color-palette]
+palette = ["#cf6a4c", "#f9c74f", "#5de4c7", "#9a7ecc", "#8f9d6a", "#cdd6f4"]
+custom = ["#303463", "#101010"]

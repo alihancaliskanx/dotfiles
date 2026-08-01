@@ -56,7 +56,7 @@ PKGS=(
   # wayland common
   qt5-wayland qt6-wayland
   brightnessctl playerctl pamixer
-  wl-clipboard cliphist grim slurp swappy
+  wl-clipboard cliphist grim slurp satty
   # gui helpers
   dolphin pavucontrol nm-connection-editor
   ttf-jetbrains-mono-nerd
