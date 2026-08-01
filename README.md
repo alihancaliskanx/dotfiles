@@ -45,7 +45,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `fish`     | `config.fish` + `~/.config/fish/modules/` — *not part of a profile* |
 | `hypr`     | `hyprland.conf`, `hypridle.conf`, `hyprlock.conf`               |
 | `niri`     | `config.kdl`                                                    |
-| `desktop`  | waybar (Hyprland + niri variants), fuzzel, mako, swayosd        |
+| `desktop`  | waybar (Hyprland + niri variants), fuzzel, mako, swayosd, satty |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
 | `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
@@ -156,6 +156,7 @@ bash script under `scripts/.local/bin/`:
 | `gclink`       | clone an AUR package and install it with `makepkg -si`          |
 | `ros-docker`   | enter / create the ROS Noetic container                         |
 | `sha256-check` | verify a file's sha256                                          |
+| `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
 change its parent's environment, so these cannot be scripts: `proxy_on/off`,
@@ -210,6 +211,30 @@ is pointless.
 **Do not use `systemctl --user reenable`.**
 Because the unit file is a symlink, the `disable` step deletes it. If you need to:
 `./link.sh link services && systemctl --user enable ssh-agent`
+
+**The compositors set PATH themselves.**
+Hyprland is launched by `start-hyprland`, not a login shell, so it never sources
+`.zshrc` and its PATH stops at `/usr/bin`. Anything bound to a script from the
+`scripts` package would fail to resolve and die silently — no window, no error.
+`hyprland.conf` therefore carries `env = PATH,$HOME/.local/bin:$PATH`; niri gets
+the same effect by routing the binding through `sh` so `$HOME` expands. Bind a
+new script and it will just work; move the scripts elsewhere and it will not.
+
+**The Settings portal backend is pinned per compositor.**
+`xdg-desktop-portal-hyprland` does not implement
+`org.freedesktop.impl.portal.Settings`, and with kde, gtk and gnome backends all
+installed nothing decided which one answers. The portal cached
+`org.freedesktop.appearance color-scheme` as "prefer light" at login and never
+noticed the desktop was dark, so Firefox-based apps drew white context menus.
+`hypr/` and `niri/` each ship a `<desktop>-portals.conf` pinning Settings to the
+gtk backend. They are separate files on purpose: one shared
+`~/.config/xdg-desktop-portal/portals.conf` would apply to both sessions, and
+Hyprland needs `default=hyprland;gtk` for screencasting while niri needs
+`gnome;gtk`.
+
+**Screenshots go through grim + satty.** Spectacle was tried and does not work
+here: it drives KWin's own `org.kde.KWin.ScreenShot2` API, and with no KWin
+under Hyprland it produces no file and no error at all.
 
 **The conda/mamba blocks** run if `$HOME/miniforge3` exists, and are skipped otherwise.
 Without the guard they tried to run a non-existent binary on every shell startup.
