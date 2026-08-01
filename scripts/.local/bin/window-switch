@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# window-switch — pick any open window, across every workspace, with fuzzel.
+#
+# Alt+Tab cycles inside the current workspace, which the compositor does on its
+# own. This is the other half: everything that is open, anywhere, in one list.
+#
+# Works under Hyprland and niri; the compositor is detected from the running
+# session rather than configured.
+
+set -uo pipefail
+
+die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+command -v fuzzel >/dev/null || die "fuzzel is not installed"
+command -v jq     >/dev/null || die "jq is not installed"
+
+pick() { fuzzel --dmenu --prompt "$1 " --width 70 --lines 15; }
+
+case "${XDG_CURRENT_DESKTOP:-}" in
+  Hyprland)
+    command -v hyprctl >/dev/null || die "hyprctl not found"
+    # address is carried in the line so the choice can be resolved without a
+    # second lookup; it is cut off again before display.
+    sel=$(hyprctl clients -j | jq -r '
+        .[]
+        | select(.mapped and .title != "")
+        | "\(.workspace.name)	\(.class)	\(.title)	\(.address)"' \
+      | sort -V \
+      | awk -F'\t' '{ printf "%-4s %-22s %s\t%s\n", $1, $2, $3, $4 }' \
+      | pick "Window") || exit 0
+    [ -n "$sel" ] || exit 0
+    hyprctl dispatch focuswindow "address:${sel##*$'\t'}" >/dev/null
+    ;;
+
+  niri)
+    command -v niri >/dev/null || die "niri not found"
+    sel=$(niri msg -j windows | jq -r '
+        .[]
+        | "\(.workspace_id)	\(.app_id // "?")	\(.title // "")	\(.id)"' \
+      | sort -V \
+      | awk -F'\t' '{ printf "%-4s %-22s %s\t%s\n", $1, $2, $3, $4 }' \
+      | pick "Window") || exit 0
+    [ -n "$sel" ] || exit 0
+    niri msg action focus-window --id "${sel##*$'\t'}" >/dev/null
+    ;;
+
+  *)
+    die "unsupported session: ${XDG_CURRENT_DESKTOP:-unset} (Hyprland or niri)"
+    ;;
+esac
