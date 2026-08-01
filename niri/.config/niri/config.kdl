@@ -11,6 +11,9 @@ input {
         xkb {
             layout "tr"
         }
+        // Defaults feel sluggish when holding a key.
+        repeat-delay 250
+        repeat-rate 40
     }
 
     touchpad {
@@ -101,6 +104,20 @@ window-rule {
     clip-to-geometry true
 }
 
+// Settings dialogs are the wrong shape for tiling.
+window-rule {
+    match app-id=r#"^(pavucontrol|nm-connection-editor|blueman-manager)$"#
+    open-floating true
+}
+
+// Picture-in-Picture floats, small, out of the way.
+window-rule {
+    match title=r#"^(Picture-in-Picture)$"#
+    open-floating true
+    default-window-height { fixed 270; }
+    default-column-width { fixed 480; }
+}
+
 // hyprland.conf: active_opacity = 0.95 / inactive_opacity = 0.90
 window-rule {
     match is-active=true
@@ -129,10 +146,11 @@ binds {
     Mod+B            { spawn "sh" "-c" "gtk-launch $(xdg-settings get default-web-browser)"; }
     Mod+E            { spawn "sh" "-c" "xdg-open ~"; }
     Mod+W            { close-window; }
+    Mod+Q            { close-window; }
     Mod+F            { fullscreen-window; }
     Mod+T            { toggle-window-floating; }
     Mod+L            { spawn "hyprlock"; }
-    Mod+Shift+E      { quit; }
+    Mod+Shift+H      { quit; }
     Mod+V            { spawn "sh" "-c" "cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy"; }
     Print            { spawn "sh" "-c" "grim - | swappy -f -"; }
     Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | swappy -f -"; }
@@ -191,7 +209,40 @@ binds {
     Mod+Period       { expel-window-from-column; }
     Mod+Home         { focus-column-first; }
     Mod+End          { focus-column-last; }
-    Mod+Tab          { focus-workspace-previous; }
+
+    // ── parity with the Hyprland config ─────────────────────────────────────
+    // Alt+Tab cycles inside the current workspace, Mod+Tab lists every window
+    // on every workspace through the shared window-switch script.
+    Alt+Tab          { focus-window-or-workspace-down; }
+    Alt+Shift+Tab    { focus-window-or-workspace-up; }
+    Mod+Tab          { spawn "window-switch"; }
+
+    // DIFF: niri has no special/scratchpad workspace. The overview is the
+    // nearest thing — every workspace and window at a glance.
+    Mod+S            { toggle-overview; }
+
+    // DIFF: no `pin` in niri; a floating window belongs to one workspace and
+    // cannot be shown on all of them.
+
+    Mod+Shift+C      { center-visible-columns; }
+    Mod+U            { focus-window-previous; }
+
+    Mod+Ctrl+Left    { set-column-width "-5%"; }
+    Mod+Ctrl+Right   { set-column-width "+5%"; }
+    Mod+Ctrl+Up      { set-window-height "-5%"; }
+    Mod+Ctrl+Down    { set-window-height "+5%"; }
+
+    Mod+Alt+Left     { swap-window-left; }
+    Mod+Alt+Right    { swap-window-right; }
+
+    // DIFF: Hyprland puts monitor focus on Mod+Comma / Mod+Period, but niri
+    // already needs those two for consume/expel-window-from-column, which are
+    // core to a scrollable layout. Ctrl is added here rather than moving
+    // niri's own bindings.
+    Mod+Ctrl+Comma        { focus-monitor-left; }
+    Mod+Ctrl+Period       { focus-monitor-right; }
+    Mod+Ctrl+Shift+Comma  { move-workspace-to-monitor-left; }
+    Mod+Ctrl+Shift+Period { move-workspace-to-monitor-right; }
 
     // ── media / hardware keys ───────────────────────────────────────────────
     XF86AudioRaiseVolume  allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }

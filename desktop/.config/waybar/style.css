@@ -43,7 +43,7 @@
    left and only a small gap to the screen edge. */
 #tray {
   margin-left: 14px;
-  margin-right: 10px;
+  margin-right: 4px;
 }
 
 /* An app asking for attention should stand out rather than just sit there. */
@@ -63,8 +63,10 @@ tooltip {
   padding: 2px;
 }
 
+/* Far right of the bar, just past the tray. */
 #clock {
-  margin-left: 8.75px;
+  margin-left: 10px;
+  margin-right: 12px;
 }
 
 .hidden {
@@ -72,11 +74,9 @@ tooltip {
 }
 
 
-#clock.vertical {
-  opacity: 0;
-  font-size: 0;
-  min-width: 0;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
+
+/* Focused window title, centre of the bar. Dimmed so it reads as context
+   rather than competing with the status icons. */
+#window {
+  color: #7d8291;
 }

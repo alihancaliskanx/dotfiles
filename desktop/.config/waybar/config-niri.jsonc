@@ -15,7 +15,7 @@
   "height": 26,
   "width": 0,
   "modules-left": ["custom/omarchy", "niri/workspaces"],
-  "modules-center": ["clock#horizontal", "clock#vertical"],
+  "modules-center": ["niri/window"],
   // tray is last so the app icons sit at the far right, like the KDE system
   // tray. It used to be wrapped in a group/tray-expander drawer, which kept
   // every icon hidden behind a chevron until you clicked it.
@@ -25,7 +25,8 @@
     "pulseaudio",
     "cpu",
     "battery",
-    "tray"
+    "tray",
+    "clock"
   ],
   "niri/workspaces": {
     "format": "{icon}",
@@ -55,13 +56,14 @@
     "format": "󰍛",
     "on-click": "kitty -e btop"
   },
-  "clock#horizontal": {
-    "format": "{:L%A %H:%M}",
-    "format-alt": "{:L%d %B W%V %Y}",
+  "niri/window": {
+    "format": "{title}",
+    "max-length": 70,
+    "separate-outputs": true,
     "tooltip": false
   },
-  "clock#vertical": {
-    "format": "{:%H\n  —\n%M}",
+  "clock": {
+    "format": "{:L%A %H:%M}",
     "format-alt": "{:L%d %B W%V %Y}",
     "tooltip": false
   },
