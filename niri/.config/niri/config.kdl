@@ -73,6 +73,7 @@ environment {
     XCURSOR_SIZE "24"
     XCURSOR_THEME "Adwaita"
     ELECTRON_OZONE_PLATFORM_HINT "auto"
+    QT_QPA_PLATFORMTHEME "kde"
     // DIFF: AQ_DRM_DEVICES is specific to Hyprland's aquamarine backend, absent in niri.
 }
 
