@@ -1,7 +1,7 @@
-# Omarchy Core ayarlarını dahil et (Animasyonlar ve fontlar buradan gelir)
+# Include the Omarchy Core settings (animations and fonts come from here)
 include=~/.local/share/omarchy/default/mako/core.ini
 
-# Rainynight Renkleri
+# Rainynight colours
 [mode=default]
 text-color=#cdd6f4
 border-color=#303463

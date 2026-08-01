@@ -42,9 +42,9 @@
   },
   "custom/omarchy": {
     "format": "󰣇",
-    "on-click": "walker",
+    "on-click": "fuzzel",
     "on-click-right": "kitty",
-    "tooltip-format": "Menü\n\nSuper + Space"
+    "tooltip-format": "Menu\n\nAlt + Space"
   },
   "cpu": {
     "interval": 5,
@@ -88,7 +88,7 @@
     "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
     "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
     "interval": 5,
-    "on-click": "sh -c 'sel=$(printf \"Kilitle\\nOturumu Kapat\\nYeniden Başlat\\nBilgisayarı Kapat\" | walker --dmenu); case $sel in Kilitle) hyprlock;; \"Oturumu Kapat\") hyprctl dispatch exit;; \"Yeniden Başlat\") systemctl reboot;; \"Bilgisayarı Kapat\") systemctl poweroff;; esac'",
+    "on-click": "sh -c 'sel=$(printf \"Lock\\nLog Out\\nReboot\\nPower Off\" | fuzzel --dmenu --prompt \"Power \"); case $sel in Lock) hyprlock;; \"Log Out\") hyprctl dispatch exit;; Reboot) systemctl reboot;; \"Power Off\") systemctl poweroff;; esac'",
     "states": {
       "warning": 20,
       "critical": 10
@@ -109,11 +109,11 @@
     "on-click-right": "pamixer -t",
     "tooltip-format": "Playing at {volume}%",
     "scroll-step": 5,
-    "format-muted": "",
+    "format-muted": "󰖁",
     "format-icons": {
-      "headphone": "",
-      "headset": "",
-      "default": ["", "", ""]
+      "headphone": "󰋋",
+      "headset": "󰋎",
+      "default": ["󰕿", "󰖀", "󰕾"]
     }
   },
   "group/tray-expander": {
