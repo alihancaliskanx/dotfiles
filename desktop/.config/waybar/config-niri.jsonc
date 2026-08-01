@@ -16,16 +16,16 @@
   "width": 0,
   "modules-left": ["custom/omarchy", "niri/workspaces"],
   "modules-center": ["niri/window"],
-  // tray is last so the app icons sit at the far right, like the KDE system
-  // tray. It used to be wrapped in a group/tray-expander drawer, which kept
-  // every icon hidden behind a chevron until you clicked it.
+  // tray is first so the app icons sit to the left of the status icons, like
+  // the Windows taskbar. It used to be wrapped in a group/tray-expander
+  // drawer, which kept every icon hidden behind a chevron until you clicked it.
   "modules-right": [
+    "tray",
     "bluetooth",
     "network",
     "pulseaudio",
     "cpu",
     "battery",
-    "tray",
     "clock"
   ],
   "niri/workspaces": {
