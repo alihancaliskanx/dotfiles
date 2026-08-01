@@ -57,6 +57,8 @@ alias gc='git commit -m'
 alias gco='git checkout'
 alias trnt='tornet --count 0 --interval'
 alias pc='proxychains'
+alias pct='proxychains -f ~/.proxychains/tor.conf'   # Tor uzerinden (SOCKS5 9050)
+alias vmproxy='sudo /usr/local/bin/vm-proxy'   # VM proxy: on/off/status/test
 alias v='vim'
 alias n='nvim'
 alias uconfig='nvim .config/hypr/userconfig.conf'
@@ -69,7 +71,7 @@ alias f='flatpak'
 alias gconfig='nvim ~/.config/git/config'
 alias pconfig='sudo nvim /etc/proxychains.conf'
 alias tconfig='sudo nvim /etc/tor/torrc'
-alias stmcube='pc /home/sups/st/stm32cubeide_1.19.0_2/stm32cubeide_wayland'
+alias stmcube='pc /home/sups/st/stm32cubeide_1.19.0/stm32cubeide_wayland'
 alias s='sudo'
 alias pacsil='sudo rm -rf /var/lib/pacman/db.lck'
 alias goo=google
@@ -130,34 +132,67 @@ function tor_off() {
 }
 
 function http_tor() {
-    echo "⚙️  Tor ayarları düzenleniyor (Upstream Proxy: 192.168.49.1:8000)..."
-    sudo sed -i '/^HTTPProxy/d' /etc/tor/torrc
-    sudo sed -i '/^HTTPSProxy/d' /etc/tor/torrc
-    sudo sed -i '/^ReachableAddresses/d' /etc/tor/torrc
-    echo "HTTPProxy 192.168.49.1:8000" | sudo tee -a /etc/tor/torrc > /dev/null
-    echo "HTTPSProxy 192.168.49.1:8000" | sudo tee -a /etc/tor/torrc > /dev/null
-    echo "ReachableAddresses *:80,*:443" | sudo tee -a /etc/tor/torrc > /dev/null
-    echo "🔄 Tor servisi yeniden başlatılıyor..."
-    sudo systemctl restart tor
-    if systemctl is-active --quiet tor; then
-        echo "✅ BAŞARILI: Tor artık 192.168.49.1:8000 üzerinden tünelleniyor."
-    else
-        echo "❌ HATA: Tor başlatılamadı!"
+    local upstream="192.168.49.1:8000"
+    echo "⚙️  Tor upstream proxy ayarlanıyor: $upstream"
+
+    # Temizlik. Not: HTTPProxy Tor 0.4.6+ ile deprecated ve SADECE şifresiz dizin
+    # bağlantılarını proxy'ler -- relay trafiğini tünellemez, o yüzden artık yazılmıyor.
+    # ReachableAddresses da yazılmıyor: bu proxy her porta CONNECT'e izin veriyor,
+    # kısıtlamak sadece kullanılabilir relay havuzunu daraltır.
+    sudo sed -i '/^HTTPProxy/d;/^HTTPSProxy/d;/^ReachableAddresses/d;/^SocksPort/d' /etc/tor/torrc
+
+    # HTTPSProxy = "HTTP CONNECT ile tünelle" demek; tüm OR bağlantıları buradan geçer.
+    printf 'HTTPSProxy %s\nSocksPort 127.0.0.1:9050\n' "$upstream" | sudo tee -a /etc/tor/torrc > /dev/null
+
+    if ! sudo tor --verify-config -f /etc/tor/torrc > /dev/null 2>&1; then
+        echo "❌ torrc geçersiz! Değişiklik geri alınıyor."
+        sudo sed -i '/^HTTPSProxy/d;/^SocksPort/d' /etc/tor/torrc
+        return 1
     fi
+
+    echo "🔄 Tor yeniden başlatılıyor..."
+    sudo systemctl restart tor || { echo "❌ Tor başlatılamadı!"; return 1; }
+
+    printf "⏳ Bootstrap bekleniyor"
+    local i
+    for i in {1..90}; do
+        if sudo journalctl -u tor --since "-3 min" -q --no-pager 2>/dev/null | grep -q "Bootstrapped 100%"; then
+            printf "\n✅ Tor hazır: SOCKS5 127.0.0.1:9050 → %s → internet\n" "$upstream"
+            echo "   Test için: tor_check"
+            return 0
+        fi
+        sleep 1
+        printf "."
+    done
+
+    printf "\n⚠️  90 sn'de bootstrap bitmedi. Log: journalctl -u tor -n 30\n"
+    echo "   Proxy port kısıtlıyorsa torrc'ye ekle: ReachableAddresses *:443"
+    return 1
 }
 
 function normal_tor() {
-    echo "⚙️  Tor ayarları varsayılana döndürülüyor..."
-    sudo sed -i '/^HTTPProxy/d' /etc/tor/torrc
-    sudo sed -i '/^HTTPSProxy/d' /etc/tor/torrc
-    sudo sed -i '/^ReachableAddresses/d' /etc/tor/torrc
+    echo "⚙️  Tor upstream proxy kaldırılıyor (doğrudan bağlantı modu)..."
+    echo "⚠️  PdaNet WiFi Direct modundaysan doğrudan internet YOK, Tor bağlanamaz."
+    sudo sed -i '/^HTTPProxy/d;/^HTTPSProxy/d;/^ReachableAddresses/d' /etc/tor/torrc
     echo "🔄 Tor servisi yeniden başlatılıyor..."
     sudo systemctl restart tor
     if systemctl is-active --quiet tor; then
-        echo "✅ BAŞARILI: Tor standart modda çalışıyor."
+        echo "✅ Tor standart modda çalışıyor (SocksPort 127.0.0.1:9050 korundu)."
     else
-        echo "❌ HATA: Tor başlatılamadı!"
+        echo "❌ HATA: Tor başlatılamadı! journalctl -u tor -n 30"
     fi
+}
+
+function tor_check() {
+    if ! ss -ltn 2>/dev/null | grep -q '127.0.0.1:9050'; then
+        echo "❌ 9050 dinlenmiyor, tor çalışmıyor → sudo systemctl start tor"
+        return 1
+    fi
+    echo "🧅 Tor üzerinden  :"
+    curl -s --max-time 25 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip
+    printf "\n📱 Doğrudan proxy :"
+    curl -s --max-time 15 -x http://192.168.49.1:8000 https://check.torproject.org/api/ip
+    printf "\n→ Birincide IsTor:true ve farklı bir IP olmalı.\n"
 }
 
 function gclink() {
