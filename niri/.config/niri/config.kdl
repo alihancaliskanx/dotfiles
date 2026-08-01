@@ -66,7 +66,15 @@ layer-rule {
     place-within-backdrop true
 }
 
-workspace "scratch"
+workspace "w1"
+workspace "w2"
+workspace "w3"
+workspace "w4"
+workspace "w5"
+workspace "w6"
+workspace "w7"
+workspace "w8"
+workspace "w9"
 
 // ─── environment variables ───────────────────────────────────────────────────
 environment {
@@ -272,8 +280,6 @@ binds {
     Mod+WheelScrollRight cooldown-ms=150 { focus-column-right; }
     Mod+WheelScrollLeft  cooldown-ms=150 { focus-column-left; }
     Mod+Shift+P      { power-off-monitors; }
-    Mod+Shift+Return { move-column-to-workspace "scratch"; }
-    Mod+D            { focus-workspace "scratch"; }
 
     // ── media / hardware keys ───────────────────────────────────────────────
     XF86AudioRaiseVolume  allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
