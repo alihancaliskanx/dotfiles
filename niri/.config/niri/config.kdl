@@ -1,0 +1,206 @@
+// niri — scrollable-tiling Wayland compositor
+//
+// Translated from hyprland.conf; same key layout, same rainynight colours, same
+// helper programs (waybar, mako, fuzzel, swayosd, hypridle, hyprlock).
+//
+// Differences from Hyprland are marked below with "// DIFF:".
+// To validate it:  niri validate -c ~/.config/niri/config.kdl
+
+input {
+    keyboard {
+        xkb {
+            layout "tr"
+        }
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+    }
+
+    // hyprland.conf: follow_mouse = 1
+    focus-follows-mouse
+}
+
+// hyprland.conf: monitor = , preferred, auto, 1
+// niri detects connected outputs by itself; if you need custom settings:
+//   output "eDP-1" { mode "1920x1080@60"; scale 1; position x=0 y=0 }
+
+layout {
+    // hyprland.conf: gaps_in = 5, gaps_out = 10
+    gaps 10
+
+    center-focused-column "never"
+
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+    default-column-width { proportion 0.5; }
+
+    // hyprland.conf: border_size = 2, col.active_border / col.inactive_border
+    focus-ring {
+        width 2
+        active-color "#303463"
+        inactive-color "#1e2030"
+    }
+
+    border {
+        off
+    }
+
+    // hyprland.conf: decoration { shadow { enabled = false } }
+    shadow {
+        off
+    }
+}
+
+// hyprland.conf: misc { background_color = rgb(101010) }
+layer-rule {
+    match namespace="^wallpaper$"
+    place-within-backdrop true
+}
+
+// ─── environment variables ───────────────────────────────────────────────────
+environment {
+    XCURSOR_SIZE "24"
+    XCURSOR_THEME "Adwaita"
+    ELECTRON_OZONE_PLATFORM_HINT "auto"
+    // DIFF: AQ_DRM_DEVICES is specific to Hyprland's aquamarine backend, absent in niri.
+}
+
+cursor {
+    xcursor-theme "Adwaita"
+    xcursor-size 24
+}
+
+// ─── run at startup ──────────────────────────────────────────────────────────
+// The equivalent of the exec-once lines in hyprland.conf.
+spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
+spawn-at-startup "sh" "-c" "waybar -c ~/.config/waybar/config-niri.jsonc -s ~/.config/waybar/style.css"
+spawn-at-startup "mako"
+spawn-at-startup "swayosd-server"
+spawn-at-startup "hypridle"
+spawn-at-startup "sh" "-c" "wl-paste --type text --watch cliphist store"
+spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
+
+prefer-no-csd
+
+screenshot-path "~/Pictures/Screenshots/Screenshot-%Y-%m-%d-%H%M%S.png"
+
+hotkey-overlay {
+    skip-at-startup
+}
+
+// ─── window rules ────────────────────────────────────────────────────────────
+// hyprland.conf: decoration { rounding = 14 }
+window-rule {
+    geometry-corner-radius 14
+    clip-to-geometry true
+}
+
+// hyprland.conf: active_opacity = 0.95 / inactive_opacity = 0.90
+window-rule {
+    match is-active=true
+    opacity 0.95
+}
+
+window-rule {
+    match is-active=false
+    opacity 0.90
+}
+
+// DIFF: the blur { } block from Hyprland has no equivalent in niri — niri does
+// not apply blur. Transparency is kept, blur is not.
+
+animations {
+    slowdown 1.0
+}
+
+// ─── key bindings ────────────────────────────────────────────────────────────
+binds {
+    // Mod = Super ($mod in hyprland.conf)
+
+    Mod+Return       { spawn "kitty"; }
+    Alt+Space        { spawn "fuzzel"; }
+    Mod+Shift+Space  { spawn "pkill" "-SIGUSR1" "waybar"; }
+    Mod+B            { spawn "sh" "-c" "gtk-launch $(xdg-settings get default-web-browser)"; }
+    Mod+E            { spawn "sh" "-c" "xdg-open ~"; }
+    Mod+W            { close-window; }
+    Mod+F            { fullscreen-window; }
+    Mod+T            { toggle-window-floating; }
+    Mod+L            { spawn "hyprlock"; }
+    Mod+Shift+E      { quit; }
+    Mod+V            { spawn "sh" "-c" "cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy"; }
+    Print            { spawn "sh" "-c" "grim - | swappy -f -"; }
+    Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | swappy -f -"; }
+
+    // ── focus ───────────────────────────────────────────────────────────────
+    // DIFF: niri is column based. Left/right moves between columns, up/down
+    // moves between the windows inside a column.
+    Mod+Left         { focus-column-left; }
+    Mod+Right        { focus-column-right; }
+    Mod+Up           { focus-window-up; }
+    Mod+Down         { focus-window-down; }
+
+    Mod+Shift+Left   { move-column-left; }
+    Mod+Shift+Right  { move-column-right; }
+    Mod+Shift+Up     { move-window-up; }
+    Mod+Shift+Down   { move-window-down; }
+
+    // ── workspaces ──────────────────────────────────────────────────────────
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+0 { focus-workspace 10; }
+
+    Mod+Shift+1 { move-column-to-workspace 1; }
+    Mod+Shift+2 { move-column-to-workspace 2; }
+    Mod+Shift+3 { move-column-to-workspace 3; }
+    Mod+Shift+4 { move-column-to-workspace 4; }
+    Mod+Shift+5 { move-column-to-workspace 5; }
+    Mod+Shift+6 { move-column-to-workspace 6; }
+    Mod+Shift+7 { move-column-to-workspace 7; }
+    Mod+Shift+8 { move-column-to-workspace 8; }
+    Mod+Shift+9 { move-column-to-workspace 9; }
+    Mod+Shift+0 { move-column-to-workspace 10; }
+
+    // hyprland.conf: bind = $mod, mouse_down/up, workspace, e+1 / e-1
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp   cooldown-ms=150 { focus-workspace-up; }
+
+    // DIFF: Mod+left click = move window, Mod+right click = resize are built
+    // into niri; the bindm lines in hyprland.conf need no config equivalent.
+
+    // ── niri specific: scrollable layout controls ───────────────────────────
+    // No Hyprland equivalent, but scrollable tiling is hard to use without them.
+    Mod+R            { switch-preset-column-width; }
+    Mod+Shift+R      { reset-window-height; }
+    Mod+C            { center-column; }
+    Mod+Minus        { set-column-width "-10%"; }
+    Mod+Equal        { set-column-width "+10%"; }
+    Mod+Comma        { consume-window-into-column; }
+    Mod+Period       { expel-window-from-column; }
+    Mod+Home         { focus-column-first; }
+    Mod+End          { focus-column-last; }
+    Mod+Tab          { focus-workspace-previous; }
+
+    // ── media / hardware keys ───────────────────────────────────────────────
+    XF86AudioRaiseVolume  allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
+    XF86AudioLowerVolume  allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
+    XF86AudioMute         allow-when-locked=true { spawn "swayosd-client" "--output-volume" "mute-toggle"; }
+    XF86AudioMicMute      allow-when-locked=true { spawn "swayosd-client" "--input-volume" "mute-toggle"; }
+    XF86MonBrightnessUp   allow-when-locked=true { spawn "swayosd-client" "--brightness" "raise"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "swayosd-client" "--brightness" "lower"; }
+    XF86AudioPlay         allow-when-locked=true { spawn "playerctl" "play-pause"; }
+    XF86AudioNext         allow-when-locked=true { spawn "playerctl" "next"; }
+    XF86AudioPrev         allow-when-locked=true { spawn "playerctl" "previous"; }
+}
