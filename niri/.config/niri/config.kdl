@@ -66,6 +66,8 @@ layer-rule {
     place-within-backdrop true
 }
 
+workspace "scratch"
+
 // ─── environment variables ───────────────────────────────────────────────────
 environment {
     XCURSOR_SIZE "24"
@@ -154,6 +156,7 @@ binds {
     Mod+V            { spawn "sh" "-c" "cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy"; }
     Print            { spawn "sh" "-c" "grim - | satty -f -"; }
     Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | satty -f -"; }
+    Mod+Print        { screenshot-window; }
 
     // ── focus ───────────────────────────────────────────────────────────────
     // DIFF: niri is column based. Left/right moves between columns, up/down
@@ -194,6 +197,13 @@ binds {
     // hyprland.conf: bind = $mod, mouse_down/up, workspace, e+1 / e-1
     Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
     Mod+WheelScrollUp   cooldown-ms=150 { focus-workspace-up; }
+
+    Mod+Page_Down       { focus-workspace-down; }
+    Mod+Page_Up         { focus-workspace-up; }
+    Mod+Shift+Page_Down { move-column-to-workspace-down; }
+    Mod+Shift+Page_Up   { move-column-to-workspace-up; }
+    Mod+Ctrl+Page_Down  { move-workspace-down; }
+    Mod+Ctrl+Page_Up    { move-workspace-up; }
 
     // DIFF: Mod+left click = move window, Mod+right click = resize are built
     // into niri; the bindm lines in hyprland.conf need no config equivalent.
@@ -245,6 +255,24 @@ binds {
     Mod+Ctrl+Period       { focus-monitor-right; }
     Mod+Ctrl+Shift+Comma  { move-workspace-to-monitor-left; }
     Mod+Ctrl+Shift+Period { move-workspace-to-monitor-right; }
+    Mod+Alt+Comma         { move-column-to-monitor-left; }
+    Mod+Alt+Period        { move-column-to-monitor-right; }
+
+    Mod+G            { toggle-column-tabbed-display; }
+    Mod+X            { maximize-column; }
+    Mod+Ctrl+F       { expand-column-to-available-width; }
+    Mod+Escape       { focus-workspace-previous; }
+    Mod+O            { toggle-window-rule-opacity; }
+    Mod+F1           { show-hotkey-overlay; }
+    Mod+Shift+Home   { move-column-to-first; }
+    Mod+Shift+End    { move-column-to-last; }
+    Mod+Shift+Minus  { set-window-height "-10%"; }
+    Mod+Shift+Equal  { set-window-height "+10%"; }
+    Mod+WheelScrollRight cooldown-ms=150 { focus-column-right; }
+    Mod+WheelScrollLeft  cooldown-ms=150 { focus-column-left; }
+    Mod+Shift+P      { power-off-monitors; }
+    Mod+Shift+Return { move-column-to-workspace "scratch"; }
+    Mod+D            { focus-workspace "scratch"; }
 
     // ── media / hardware keys ───────────────────────────────────────────────
     XF86AudioRaiseVolume  allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
