@@ -39,8 +39,16 @@
   margin: 0 7.5px;
 }
 
+/* Sits at the far right end of the bar, so it needs breathing room on its
+   left and only a small gap to the screen edge. */
 #tray {
-  margin-right: 16px;
+  margin-left: 14px;
+  margin-right: 10px;
+}
+
+/* An app asking for attention should stand out rather than just sit there. */
+#tray > .needs-attention {
+  -gtk-icon-effect: highlight;
 }
 
 #bluetooth {
@@ -49,10 +57,6 @@
 
 #network {
   margin-right: 13px;
-}
-
-#custom-expand-icon {
-  margin-right: 18px;
 }
 
 tooltip {
@@ -67,14 +71,6 @@ tooltip {
   opacity: 0;
 }
 
-#custom-expand-icon.vertical {
-  opacity: 0;
-  font-size: 0;
-  min-width: 0;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-}
 
 #clock.vertical {
   opacity: 0;

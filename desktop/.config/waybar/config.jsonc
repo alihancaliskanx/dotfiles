@@ -7,13 +7,16 @@
   "width": 0,
   "modules-left": ["custom/omarchy", "hyprland/workspaces"],
   "modules-center": ["clock#horizontal", "clock#vertical"],
+  // tray is last so the app icons sit at the far right, like the KDE system
+  // tray. It used to be wrapped in a group/tray-expander drawer, which kept
+  // every icon hidden behind a chevron until you clicked it.
   "modules-right": [
-    "group/tray-expander",
     "bluetooth",
     "network",
     "pulseaudio",
     "cpu",
-    "battery"
+    "battery",
+    "tray"
   ],
   "hyprland/workspaces": {
     "on-click": "activate",
@@ -116,37 +119,11 @@
       "default": ["󰕿", "󰖀", "󰕾"]
     }
   },
-  "group/tray-expander": {
-    "orientation": "inherit",
-    "drawer": {
-      "transition-duration": 600,
-      "children-class": "tray-group-item"
-    },
-    "modules": ["group/expand-icons", "tray"]
-  },
-  "group/expand-icons": {
-    "orientation": "inherit",
-    "modules": ["custom/expand-icon#horizontal", "custom/expand-icon#vertical"]
-  },
-  "custom/expand-icon#horizontal": {
-    "format": "",
-    "tooltip": false,
-    "on-scroll-up": "",
-    "on-scroll-down": "",
-    "on-scroll-left": "",
-    "on-scroll-right": ""
-  },
-  "custom/expand-icon#vertical": {
-    "format": "",
-    "rotate": 270,
-    "tooltip": false,
-    "on-scroll-up": "",
-    "on-scroll-down": "",
-    "on-scroll-left": "",
-    "on-scroll-right": ""
-  },
   "tray": {
-    "icon-size": 12,
-    "spacing": 17
+    "icon-size": 16,
+    "spacing": 10,
+    // Keep icons of apps that are running but not currently asking for
+    // attention, i.e. behave like the KDE tray rather than hiding them.
+    "show-passive-items": true
   }
 }
