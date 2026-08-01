@@ -1,9 +1,57 @@
-# Include the Omarchy Core settings (animations and fonts come from here)
-include=~/.local/share/omarchy/default/mako/core.ini
+# mako — rainynight
+#
+# This used to be four colour lines plus
+#   include=~/.local/share/omarchy/default/mako/core.ini
+# which is where the font, sizing, padding and rounding were supposed to come
+# from. That file has never existed on this machine, so mako fell back to its
+# built-in defaults and the popups looked nothing like the rest of the desktop.
+# Everything is spelled out here now, no includes.
 
-# Rainynight colours
-[mode=default]
+font=JetBrainsMono Nerd Font 10
+
+# Under the bar (26px tall) on the right, lining up with the tray and clock.
+anchor=top-right
+layer=overlay
+margin=10,14,0
+width=380
+height=160
+padding=14,16
+
+# Matches decoration:rounding and general:border_size in hyprland.conf.
+border-radius=10
+border-size=2
+
+background-color=#101010ee
 text-color=#cdd6f4
 border-color=#303463
-background-color=#101010cc
 progress-color=over #303463
+
+icons=1
+max-icon-size=48
+icon-location=left
+
+default-timeout=5000
+ignore-timeout=0
+markup=1
+actions=1
+format=<b>%s</b>\n%b
+
+# Stack repeats from the same app instead of filling the screen.
+group-by=app-name
+
+# Low is quieter; critical turns red and stays until dismissed.
+[urgency=low]
+text-color=#7d8291
+border-color=#1e2030
+default-timeout=3000
+
+[urgency=critical]
+border-color=#cf6a4c
+progress-color=over #cf6a4c
+default-timeout=0
+
+# Left click dismisses, right click clears everything.
+[mode=default]
+on-button-left=dismiss
+on-button-right=dismiss-all
+on-button-middle=invoke-default-action
