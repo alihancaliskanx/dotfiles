@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# ros-docker — enter the ROS Noetic container; create it if missing, wake it if asleep.
+
+set -uo pipefail
+
+NAME="${ROS_CONTAINER:-ros_noetic_clean}"
+IMAGE="${ROS_IMAGE:-osrf/ros:noetic-desktop-full}"
+
+command -v docker >/dev/null || { printf '\e[31m✘ docker is not installed\e[0m\n' >&2; exit 1; }
+
+xhost +local:root >/dev/null 2>&1
+
+if [ -n "$(docker ps -q -f "name=^${NAME}$")" ]; then
+    printf '\e[32m🟢 %s is already running. Entering...\e[0m\n' "$NAME"
+    exec docker exec -it "$NAME" bash
+elif [ -n "$(docker ps -aq -f "name=^${NAME}$")" ]; then
+    printf '\e[33m🟡 %s is asleep. Waking it up...\e[0m\n' "$NAME"
+    docker start "$NAME" >/dev/null || exit 1
+    exec docker exec -it "$NAME" bash
+else
+    printf '\e[31m🔴 No container. Doing a fresh setup...\e[0m\n'
+    exec docker run -it \
+        --net=host \
+        --env="DISPLAY" \
+        --env="QT_X11_NO_MITSHM=1" \
+        --device /dev/dri:/dev/dri \
+        --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+        --name "$NAME" \
+        "$IMAGE" \
+        bash
+fi

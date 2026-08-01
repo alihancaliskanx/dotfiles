@@ -1,0 +1,354 @@
+#!/usr/bin/env bash
+#
+# tor-control — Tor ControlPort (9051) manager, gum-based TUI
+#
+#   Adds or removes the ControlPort + authentication lines in /etc/tor/torrc,
+#   and sends the NEWNYM (new circuit) signal.
+#
+#   Safety: torrc is backed up before every write and validated with
+#   "tor --verify-config"; if it is invalid or the service fails to come up, the
+#   backup is restored automatically. Existing lines such as HTTPSProxy /
+#   SocksPort are left untouched.
+#
+#   NOTE: tornet 2.0.2 does IP rotation NOT via the ControlPort but with
+#   "systemctl reload tor" (tornet.py: change_ip -> service_action("reload")). So
+#   the ControlPort is not required for tornet; it is required for nyx, stem and
+#   the NEWNYM here — and it is much faster than a reload.
+#
+# Usage:
+#   tor-control              menu (gum TUI)
+#   tor-control status       status
+#   tor-control on-pass      enable with password authentication
+#   tor-control on-cookie    enable with cookie authentication
+#   tor-control off          remove
+#   tor-control newnym       request a new circuit
+
+set -uo pipefail
+
+TORRC="/etc/tor/torrc"
+BACKUP="/etc/tor/torrc.tor-control.bak"
+CTRL_HOST="127.0.0.1"
+CTRL_PORT="9051"
+SOCKS_PORT="9050"
+COOKIE="/var/lib/tor/control_auth_cookie"
+PW_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tor-control"
+PW_FILE="$PW_DIR/password"
+
+# ─── gum helpers ─────────────────────────────────────────────────────────────
+C_OK=42; C_ERR=203; C_WARN=214; C_ACC=212; C_DIM=245
+
+command -v gum >/dev/null 2>&1 || {
+    echo "gum is not installed:  sudo pacman -S gum" >&2
+    exit 1
+}
+
+title() { gum style --border double --border-foreground $C_ACC --padding "0 2" --margin "1 0" --bold "$1"; }
+ok()    { gum style --foreground $C_OK   "  ✔ $1"; }
+err()   { gum style --foreground $C_ERR  "  ✘ $1"; }
+warn()  { gum style --foreground $C_WARN "  ! $1"; }
+info()  { gum style --foreground $C_DIM  "    $1"; }
+
+# ─── torrc operations ────────────────────────────────────────────────────────
+need_sudo() {
+    sudo -n true 2>/dev/null && return 0
+    info "sudo privileges are required."
+    sudo -v || { err "could not obtain sudo."; return 1; }
+}
+
+backup_torrc()  { sudo cp -a "$TORRC" "$BACKUP"; }
+restore_torrc() { sudo cp -a "$BACKUP" "$TORRC"; }
+
+# Deletes only the lines managed by this script; touches nothing else.
+strip_control_lines() {
+    sudo sed -i \
+        -e '/^ControlPort/d' \
+        -e '/^CookieAuthentication/d' \
+        -e '/^CookieAuthFileGroupReadable/d' \
+        -e '/^DataDirectoryGroupReadable/d' \
+        -e '/^HashedControlPassword/d' \
+        "$TORRC"
+}
+
+verify_and_apply() {
+    if ! sudo tor --verify-config -f "$TORRC" >/dev/null 2>&1; then
+        err "torrc is invalid! Restoring the backup."
+        restore_torrc
+        err "Change cancelled."
+        return 1
+    fi
+    gum spin --spinner dot --title "Restarting Tor..." -- sudo systemctl restart tor
+    if ! systemctl is-active --quiet tor; then
+        err "Tor could not be started! Restoring the backup."
+        restore_torrc
+        sudo systemctl restart tor
+        info "Log:  journalctl -u tor -n 30"
+        return 1
+    fi
+    return 0
+}
+
+wait_for_ctrl_port() {
+    local i
+    for i in $(seq 1 20); do
+        ss -ltn 2>/dev/null | grep -q "$CTRL_HOST:$CTRL_PORT" && return 0
+        sleep 0.5
+    done
+    return 1
+}
+
+control_enabled() { grep -q '^ControlPort' "$TORRC" 2>/dev/null; }
+
+# ─── ENABLE: password authentication ─────────────────────────────────────────
+enable_password() {
+    title "Enable ControlPort — password authentication"
+
+    local pw pw2 hash
+    pw=$(gum input --password --header "Set a control password" --placeholder "password") || return 1
+    [ -z "$pw" ] && { err "The password cannot be empty."; return 1; }
+    pw2=$(gum input --password --header "Enter the password again" --placeholder "password") || return 1
+    [ "$pw" != "$pw2" ] && { err "The passwords do not match."; return 1; }
+
+    hash=$(tor --hash-password "$pw" 2>/dev/null | tail -1)
+    case "$hash" in
+        16:*) ;;
+        *) err "Could not hash the password."; return 1 ;;
+    esac
+
+    need_sudo || return 1
+    backup_torrc
+    strip_control_lines
+    printf 'ControlPort %s:%s\nHashedControlPassword %s\n' "$CTRL_HOST" "$CTRL_PORT" "$hash" \
+        | sudo tee -a "$TORRC" >/dev/null
+
+    verify_and_apply || return 1
+
+    mkdir -p "$PW_DIR"
+    ( umask 077; printf '%s' "$pw" > "$PW_FILE" )
+    chmod 600 "$PW_FILE"
+
+    if wait_for_ctrl_port; then
+        ok "ControlPort open: $CTRL_HOST:$CTRL_PORT (password)"
+    else
+        warn "torrc was written but $CTRL_PORT is not being listened on yet."
+    fi
+    info "The password is stored in plain text: $PW_FILE (chmod 600)"
+    info "To delete it: tor-control off"
+}
+
+# ─── ENABLE: cookie authentication ───────────────────────────────────────────
+enable_cookie() {
+    title "Enable ControlPort — cookie authentication"
+    info "The cookie file is under /var/lib/tor/ and the directory is 0700 tor:tor."
+    info "To be able to read it you must be added to the 'tor' group and LOG OUT AND BACK IN."
+    info "If you want something that works right away, pick the password mode."
+    gum confirm "Continue with cookie mode?" || return 1
+
+    need_sudo || return 1
+    backup_torrc
+    strip_control_lines
+    printf 'ControlPort %s:%s\nCookieAuthentication 1\nCookieAuthFileGroupReadable 1\nDataDirectoryGroupReadable 1\n' \
+        "$CTRL_HOST" "$CTRL_PORT" | sudo tee -a "$TORRC" >/dev/null
+
+    verify_and_apply || return 1
+
+    if ! id -nG | tr ' ' '\n' | grep -qx tor; then
+        if gum confirm "Add user '$USER' to the 'tor' group?"; then
+            if sudo usermod -aG tor "$USER"; then
+                warn "Added — you must log out and back in for it to take effect."
+                info "Until then NEWNYM will read the cookie with sudo."
+            else
+                err "Could not add to the group."
+            fi
+        fi
+    fi
+
+    if wait_for_ctrl_port; then
+        ok "ControlPort open: $CTRL_HOST:$CTRL_PORT (cookie)"
+    else
+        warn "torrc was written but $CTRL_PORT is not being listened on yet."
+    fi
+}
+
+# ─── DISABLE ─────────────────────────────────────────────────────────────────
+disable_control() {
+    title "Disable ControlPort"
+
+    if ! control_enabled; then
+        warn "ControlPort is already not defined."
+        [ -f "$PW_FILE" ] && { rm -f "$PW_FILE"; info "The now-unused password file was deleted."; }
+        return 0
+    fi
+
+    info "Lines to be deleted:"
+    grep -E '^(ControlPort|CookieAuthentication|CookieAuthFileGroupReadable|DataDirectoryGroupReadable|HashedControlPassword)' \
+        "$TORRC" | gum style --foreground $C_DIM --padding "0 4"
+    gum confirm "Delete these lines from torrc?" || { info "Cancelled."; return 1; }
+
+    need_sudo || return 1
+    backup_torrc
+    strip_control_lines
+    verify_and_apply || return 1
+
+    [ -f "$PW_FILE" ] && { rm -f "$PW_FILE"; info "The stored control password was deleted."; }
+
+    ok "ControlPort disabled."
+    info "The HTTPSProxy / SocksPort lines were left untouched."
+}
+
+# ─── STATUS ──────────────────────────────────────────────────────────────────
+status() {
+    title "Status"
+
+    local svc
+    svc=$(systemctl is-active tor 2>/dev/null)
+    if [ "$svc" = "active" ]; then ok "tor service: active"; else err "tor service: ${svc:-unknown}"; fi
+
+    if control_enabled; then
+        ok "torrc: $(grep -m1 '^ControlPort' "$TORRC")"
+        if grep -q '^HashedControlPassword' "$TORRC"; then
+            info "authentication: password"
+            [ -r "$PW_FILE" ] && info "password file: $PW_FILE" || warn "no password file — NEWNYM will ask for the password"
+        elif grep -q '^CookieAuthentication 1' "$TORRC"; then
+            info "authentication: cookie"
+            id -nG | tr ' ' '\n' | grep -qx tor \
+                && info "'tor' group: you are a member" \
+                || warn "you are not in the 'tor' group — the cookie will be read with sudo"
+        else
+            warn "no authentication line — ControlPort may be open but unlocked"
+        fi
+    else
+        warn "torrc: ControlPort is not defined"
+    fi
+
+    if grep -q '^HTTPSProxy' "$TORRC"; then
+        info "upstream: $(grep -m1 '^HTTPSProxy' "$TORRC")"
+    else
+        warn "no upstream proxy — if you are in PdaNet mode run 'http_tor' first"
+    fi
+
+    ss -ltn 2>/dev/null | grep -q "$CTRL_HOST:$CTRL_PORT" \
+        && ok "port $CTRL_PORT (control): listening" \
+        || err "port $CTRL_PORT (control): closed"
+    ss -ltn 2>/dev/null | grep -q "$CTRL_HOST:$SOCKS_PORT" \
+        && ok "port $SOCKS_PORT (socks): listening" \
+        || warn "port $SOCKS_PORT (socks): closed"
+}
+
+# ─── NEWNYM ──────────────────────────────────────────────────────────────────
+auth_line() {
+    if grep -q '^HashedControlPassword' "$TORRC"; then
+        local pw
+        if [ -r "$PW_FILE" ]; then
+            pw=$(cat "$PW_FILE")
+        else
+            pw=$(gum input --password --header "Control password" --placeholder "password") || return 1
+        fi
+        [ -z "$pw" ] && return 1
+        printf 'AUTHENTICATE "%s"' "$pw"
+    elif grep -q '^CookieAuthentication 1' "$TORRC"; then
+        local hex=""
+        if [ -r "$COOKIE" ]; then
+            hex=$(xxd -p -c 256 "$COOKIE" 2>/dev/null)
+        else
+            hex=$(sudo xxd -p -c 256 "$COOKIE" 2>/dev/null)
+        fi
+        [ -z "$hex" ] && return 1
+        printf 'AUTHENTICATE %s' "$hex"
+    else
+        return 1
+    fi
+}
+
+newnym() {
+    title "NEWNYM — new circuit"
+
+    if ! ss -ltn 2>/dev/null | grep -q "$CTRL_HOST:$CTRL_PORT"; then
+        err "ControlPort ($CTRL_PORT) is not being listened on. Enable it first."
+        return 1
+    fi
+
+    local auth
+    auth=$(auth_line) || { err "Could not obtain the authentication credentials."; return 1; }
+
+    exec 3<>"/dev/tcp/$CTRL_HOST/$CTRL_PORT" 2>/dev/null || {
+        err "Could not connect to $CTRL_HOST:$CTRL_PORT."
+        return 1
+    }
+    printf '%s\r\nSIGNAL NEWNYM\r\nQUIT\r\n' "$auth" >&3
+    local resp
+    resp=$(timeout 5 cat <&3)
+    exec 3>&-
+    exec 3<&-
+
+    if printf '%s' "$resp" | grep -qE '^(515|514)|Authentication failed'; then
+        err "Authentication failed."
+        info "If the password changed:  tor-control off  then  tor-control on-pass"
+        return 1
+    fi
+
+    if [ "$(printf '%s' "$resp" | grep -c '^250')" -ge 2 ]; then
+        ok "New circuit requested (SIGNAL NEWNYM)."
+        gum confirm "Query the new exit IP?" || return 0
+        local out
+        out=$(gum spin --show-output --spinner dot --title "Querying check.torproject.org..." -- \
+              curl -s --max-time 25 --socks5-hostname "$CTRL_HOST:$SOCKS_PORT" \
+              https://check.torproject.org/api/ip)
+        if [ -n "$out" ]; then ok "$out"; else err "Could not get the IP — the circuit may not be established yet."; fi
+    else
+        err "Unexpected response:"
+        printf '%s\n' "$resp" | gum style --foreground $C_DIM --padding "0 4"
+        return 1
+    fi
+}
+
+# ─── Menu ────────────────────────────────────────────────────────────────────
+menu() {
+    while true; do
+        clear
+        title "🧅 Tor ControlPort Manager"
+        if control_enabled; then
+            gum style --foreground $C_OK "  torrc: ControlPort ON"
+        else
+            gum style --foreground $C_WARN "  torrc: ControlPort OFF"
+        fi
+
+        local choice
+        choice=$(gum choose --header "" \
+            "Status" \
+            "Enable — password auth (recommended)" \
+            "Enable — cookie auth" \
+            "NEWNYM (new circuit)" \
+            "Disable" \
+            "Exit") || exit 0
+
+        case "$choice" in
+            Status*)              status ;;
+            "Enable — password"*) enable_password ;;
+            "Enable — cookie"*)   enable_cookie ;;
+            NEWNYM*)              newnym ;;
+            Disable*)             disable_control ;;
+            *)                    exit 0 ;;
+        esac
+
+        echo
+        gum confirm --affirmative "Menu" --negative "Exit" "Continue?" || exit 0
+    done
+}
+
+# ─── Entry point ─────────────────────────────────────────────────────────────
+[ -f "$TORRC" ] || { err "$TORRC not found. is tor installed?"; exit 1; }
+
+case "${1:-}" in
+    ""|menu)     menu ;;
+    status)      status ;;
+    on-pass)     enable_password ;;
+    on-cookie)   enable_cookie ;;
+    off)         disable_control ;;
+    newnym)      newnym ;;
+    -h|--help|help)
+        printf 'usage: %s [menu|status|on-pass|on-cookie|off|newnym]\n' "${0##*/}" ;;
+    *)
+        err "Unknown command: $1"
+        printf 'usage: %s [menu|status|on-pass|on-cookie|off|newnym]\n' "${0##*/}" >&2
+        exit 1 ;;
+esac

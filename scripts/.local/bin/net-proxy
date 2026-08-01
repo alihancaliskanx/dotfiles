@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+#
+# net-proxy — turn the phone (PdaNet) HTTP proxy on/off per service.
+#
+#   This script ONLY touches persistent configuration files (git config, docker
+#   drop-in, ~/.ssh/config, sart_checker). It cannot change the environment
+#   variables of the current shell — the shell functions do that: proxy_on / proxy_off.
+#
+# Usage:
+#   net-proxy status
+#   net-proxy git    on|off
+#   net-proxy docker on|off
+#   net-proxy ssh    on|off
+#   net-proxy sart   on|off
+#   net-proxy all    on|off
+#
+# The proxy address can be changed with PROXY_ADDR:
+#   PROXY_ADDR=10.0.0.1:3128 net-proxy git on
+
+set -uo pipefail
+
+PROXY_ADDR="${PROXY_ADDR:-192.168.49.1:8000}"
+PROXY_URL="http://$PROXY_ADDR"
+PROXY_HOST="${PROXY_ADDR%%:*}"
+PROXY_PORT="${PROXY_ADDR##*:}"
+
+DOCKER_CONF_DIR="/etc/systemd/system/docker.service.d"
+DOCKER_CONF_FILE="$DOCKER_CONF_DIR/http-proxy.conf"
+SART_FILE="${SART_FILE:-$HOME/Documents/Code/sart_checker/src/check.sh}"
+SSH_CONF="$HOME/.ssh/config"
+# Written verbatim into ssh_config, which understands "~" itself.
+SSH_KEY="${SSH_KEY:-~/.ssh/anahtar}"
+
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+off()  { printf '  \e[31m✘\e[0m %s\n' "$*"; }
+warn() { printf '  \e[33m!\e[0m %s\n' "$*"; }
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+# ─── git ─────────────────────────────────────────────────────────────────────
+git_on() {
+    git config --global http.proxy  "$PROXY_URL"
+    git config --global https.proxy "$PROXY_URL"
+    ok "git proxy ON  → $PROXY_ADDR"
+}
+git_off() {
+    git config --global --unset http.proxy  2>/dev/null
+    git config --global --unset https.proxy 2>/dev/null
+    off "git proxy off"
+}
+git_status() {
+    local p; p=$(git config --global --get http.proxy 2>/dev/null)
+    [ -n "$p" ] && ok "git    → $p" || off "git    → none"
+}
+
+# ─── docker ──────────────────────────────────────────────────────────────────
+docker_on() {
+    sudo mkdir -p "$DOCKER_CONF_DIR"
+    sudo tee "$DOCKER_CONF_FILE" >/dev/null <<EOF
+[Service]
+Environment="HTTP_PROXY=$PROXY_URL"
+Environment="HTTPS_PROXY=$PROXY_URL"
+Environment="NO_PROXY=localhost,127.0.0.1,::1"
+EOF
+    sudo systemctl daemon-reload && sudo systemctl restart docker \
+        && ok "docker proxy ON → $PROXY_ADDR" || die "could not restart docker"
+}
+docker_off() {
+    [ -f "$DOCKER_CONF_FILE" ] || { warn "docker proxy is already off"; return 0; }
+    sudo rm -f "$DOCKER_CONF_FILE"
+    sudo systemctl daemon-reload && sudo systemctl restart docker \
+        && off "docker proxy off" || die "could not restart docker"
+}
+docker_status() {
+    [ -f "$DOCKER_CONF_FILE" ] && ok "docker → $DOCKER_CONF_FILE" || off "docker → none"
+}
+
+# ─── ssh (CONNECT to github.com via corkscrew) ───────────────────────────────
+SSH_MARK="# >>> net-proxy github >>>"
+SSH_END="# <<< net-proxy github <<<"
+
+ssh_on() {
+    [ -f "$SSH_CONF" ] || { mkdir -p "$(dirname "$SSH_CONF")"; touch "$SSH_CONF"; chmod 600 "$SSH_CONF"; }
+
+    # Port 22 is usually blocked and, in PdaNet WiFi Direct mode, DNS does not
+    # resolve at all — so we go to ssh.github.com:443 and let the proxy do the
+    # name resolution. corkscrew is preferred; ncat (nmap) can do the same
+    # HTTP CONNECT and is installed far more often.
+    local tunnel
+    if command -v corkscrew >/dev/null; then
+        tunnel="corkscrew $PROXY_HOST $PROXY_PORT %h %p"
+    elif command -v ncat >/dev/null; then
+        tunnel="ncat --proxy $PROXY_HOST:$PROXY_PORT --proxy-type http %h %p"
+    else
+        die "neither corkscrew nor ncat is installed:  sudo pacman -S corkscrew"
+    fi
+
+    ssh_off >/dev/null 2>&1
+    cat >> "$SSH_CONF" <<EOF
+
+$SSH_MARK
+Host github.com
+    Hostname ssh.github.com
+    Port 443
+    User git
+    IdentityFile $SSH_KEY
+    IdentitiesOnly yes
+    ProxyCommand $tunnel
+$SSH_END
+EOF
+    ok "ssh proxy ON → github.com via ${tunnel%% *} $PROXY_HOST:$PROXY_PORT"
+}
+ssh_off() {
+    [ -f "$SSH_CONF" ] || return 0
+    # Only the block written by this script is deleted; the user's other Hosts are left alone.
+    sed -i "/^$SSH_MARK\$/,/^$SSH_END\$/d" "$SSH_CONF"
+    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$SSH_CONF"
+    off "ssh proxy off"
+}
+ssh_status() {
+    [ -f "$SSH_CONF" ] && grep -q "^$SSH_MARK\$" "$SSH_CONF" \
+        && ok "ssh    → github.com corkscrew" || off "ssh    → none"
+}
+
+# ─── sart_checker ────────────────────────────────────────────────────────────
+sart_on() {
+    [ -f "$SART_FILE" ] || die "no such file: $SART_FILE"
+    sart_off >/dev/null 2>&1
+    sed -i "1a export http_proxy=\"$PROXY_URL\"\nexport https_proxy=\"$PROXY_URL\"" "$SART_FILE"
+    ok "sart proxy ON → $PROXY_ADDR"
+}
+sart_off() {
+    [ -f "$SART_FILE" ] || die "no such file: $SART_FILE"
+    sed -i '/^export https\?_proxy="http:\/\//d' "$SART_FILE"
+    off "sart proxy off"
+}
+sart_status() {
+    [ -f "$SART_FILE" ] || { warn "sart   → no such file"; return 0; }
+    grep -q '^export http_proxy="http://' "$SART_FILE" \
+        && ok "sart   → proxy line present" || off "sart   → none"
+}
+
+# ─── status ──────────────────────────────────────────────────────────────────
+status_all() {
+    printf 'Proxy address: \e[36m%s\e[0m\n' "$PROXY_ADDR"
+    printf 'Persistent settings:\n'
+    git_status; docker_status; ssh_status; sart_status
+    printf 'This shell (env):\n'
+    if [ -n "${http_proxy:-}" ]; then ok "env    → $http_proxy"; else off "env    → none (turn on with proxy_on)"; fi
+}
+
+# ─── entry point ─────────────────────────────────────────────────────────────
+# Prints the header comment block: every line from 2 up to the first
+# non-comment line. Line-number ranges went stale whenever the header changed.
+usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
+
+target="${1:-status}"
+action="${2:-}"
+
+case "$target" in
+    status|"") status_all; exit 0 ;;
+    -h|--help|help) usage; exit 0 ;;
+esac
+
+case "$action" in
+    on|off) ;;
+    *) die "the action must be 'on' or 'off'.  Example: net-proxy $target on" ;;
+esac
+
+case "$target" in
+    git)    "git_$action" ;;
+    docker) "docker_$action" ;;
+    ssh)    "ssh_$action" ;;
+    sart)   "sart_$action" ;;
+    all)    for t in git docker ssh sart; do "${t}_$action"; done ;;
+    *)      die "unknown target: $target  (git|docker|ssh|sart|all|status)" ;;
+esac

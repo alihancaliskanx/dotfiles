@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# sha256-check — does the file's sha256 match the given value.
+#
+# Usage:  sha256-check <file> <expected-sha256>
+# Exit code: 0 if it matches, 1 if it does not (usable inside scripts)
+
+set -uo pipefail
+
+file="${1:-}"; expected="${2:-}"
+
+if [ -z "$file" ] || [ -z "$expected" ]; then
+    printf 'Usage: sha256-check <file> <expected-sha256>\n' >&2
+    exit 2
+fi
+[ -f "$file" ] || { printf '\e[31m✘ no such file: %s\e[0m\n' "$file" >&2; exit 2; }
+
+actual=$(sha256sum "$file" | awk '{print $1}')
+
+if [ "$actual" = "${expected,,}" ]; then
+    printf '\e[32m✔ Match\e[0m  %s\n' "$actual"
+    exit 0
+else
+    printf '\e[31m✘ NO MATCH\e[0m\n  expected: %s\n  actual  : %s\n' "${expected,,}" "$actual" >&2
+    exit 1
+fi

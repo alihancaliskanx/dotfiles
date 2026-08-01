@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#
+# gclink — clone an AUR package and install it with makepkg.
+#
+# Usage:
+#   gclink <package>          clones into ~/temp/<package>
+#   gclink <package> <dir>    clones into a different directory name
+
+set -uo pipefail
+
+WORKDIR="${GCLINK_DIR:-$HOME/temp}"
+
+die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+pkg="${1:-}"
+[ -n "$pkg" ] || die "you must give a package name.  Usage: gclink <package> [dir]"
+shift
+dir="${*:-$pkg}"
+
+mkdir -p "$WORKDIR" || die "could not create $WORKDIR"
+cd "$WORKDIR"       || die "could not enter $WORKDIR"
+
+if [ -d "$dir" ]; then
+    printf '\e[33m! %s already exists, trying git pull\e[0m\n' "$WORKDIR/$dir"
+    git -C "$dir" pull --ff-only || die "could not update: $WORKDIR/$dir"
+else
+    git clone "https://aur.archlinux.org/$pkg.git" "$dir" || die "could not clone: $pkg"
+fi
+
+[ -d "$dir" ] || die "directory not found: $WORKDIR/$dir"
+cd "$dir"     || die "could not enter $dir"
+
+if makepkg -si; then
+    printf '\e[32m✔ Installation complete: %s\e[0m\n' "$pkg"
+else
+    die "makepkg failed: $pkg"
+fi

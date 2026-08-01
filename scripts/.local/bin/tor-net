@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+#
+# tor-net — manages how Tor reaches the outside: directly, or through the
+#           phone's (PdaNet) HTTP proxy.
+#
+#   Sibling script: tor-control  → ControlPort / NEWNYM / authentication.
+#   This script     → the upstream proxy line in torrc + a connection test.
+#
+# Usage:
+#   tor-net proxy     add HTTPSProxy to torrc, route Tor out via the phone proxy
+#   tor-net direct    remove the upstream proxy (direct connection)
+#   tor-net check     compare the exit IPs via Tor and directly
+#   tor-net status    the current state of torrc
+#
+#   The address can be changed with  PROXY_ADDR=10.0.0.1:3128 tor-net proxy
+
+set -uo pipefail
+
+PROXY_ADDR="${PROXY_ADDR:-192.168.49.1:8000}"
+TORRC="/etc/tor/torrc"
+SOCKS="127.0.0.1:9050"
+
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+off()  { printf '  \e[31m✘\e[0m %s\n' "$*"; }
+warn() { printf '  \e[33m!\e[0m %s\n' "$*"; }
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+# Prints the header comment block: every line from 2 up to the first
+# non-comment line. Line-number ranges went stale whenever the header changed.
+usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
+
+[ -f "$TORRC" ] || die "$TORRC does not exist. is tor installed?  sudo pacman -S tor"
+
+wait_bootstrap() {
+    printf '  waiting for bootstrap'
+    local i
+    for i in $(seq 1 90); do
+        if sudo journalctl -u tor --since "-3 min" -q --no-pager 2>/dev/null | grep -q "Bootstrapped 100%"; then
+            printf '\n'; return 0
+        fi
+        sleep 1; printf '.'
+    done
+    printf '\n'; return 1
+}
+
+# ─── upstream proxy ON ───────────────────────────────────────────────────────
+# NOTE: HTTPProxy is deprecated as of Tor 0.4.6+ and proxies ONLY unencrypted
+# directory connections — it does not tunnel relay traffic, so it is not written.
+# HTTPSProxy means "tunnel via HTTP CONNECT"; all OR connections go through it.
+# ReachableAddresses is not written either: this proxy allows CONNECT to every
+# port, and restricting it would only shrink the pool of usable relays.
+cmd_proxy() {
+    printf 'Setting the Tor upstream proxy: \e[36m%s\e[0m\n' "$PROXY_ADDR"
+    sudo cp -a "$TORRC" "$TORRC.tor-net.bak"
+    sudo sed -i '/^HTTPProxy/d;/^HTTPSProxy/d;/^ReachableAddresses/d;/^SocksPort/d' "$TORRC"
+    printf 'HTTPSProxy %s\nSocksPort %s\n' "$PROXY_ADDR" "$SOCKS" | sudo tee -a "$TORRC" >/dev/null
+
+    if ! sudo tor --verify-config -f "$TORRC" >/dev/null 2>&1; then
+        sudo cp -a "$TORRC.tor-net.bak" "$TORRC"
+        die "torrc is invalid! Backup restored, change cancelled."
+    fi
+
+    sudo systemctl restart tor || die "Tor could not be started!  journalctl -u tor -n 30"
+    if wait_bootstrap; then
+        ok "Tor ready: SOCKS5 $SOCKS → $PROXY_ADDR → internet"
+        printf '  to test it:  tor-net check\n'
+    else
+        warn "bootstrap did not finish within 90 s.  journalctl -u tor -n 30"
+        printf "  if the proxy restricts ports, add to torrc:  ReachableAddresses *:443\n"
+        return 1
+    fi
+}
+
+# ─── upstream proxy OFF ──────────────────────────────────────────────────────
+cmd_direct() {
+    printf 'Removing the Tor upstream proxy (direct connection mode)...\n'
+    warn "If you are in PdaNet WiFi Direct mode there is NO direct internet, Tor cannot connect."
+    sudo cp -a "$TORRC" "$TORRC.tor-net.bak"
+    sudo sed -i '/^HTTPProxy/d;/^HTTPSProxy/d;/^ReachableAddresses/d' "$TORRC"
+
+    if ! sudo tor --verify-config -f "$TORRC" >/dev/null 2>&1; then
+        sudo cp -a "$TORRC.tor-net.bak" "$TORRC"
+        die "torrc is invalid! Backup restored."
+    fi
+
+    sudo systemctl restart tor
+    if systemctl is-active --quiet tor; then
+        ok "Tor is running in standard mode (SocksPort $SOCKS preserved)."
+    else
+        die "Tor could not be started!  journalctl -u tor -n 30"
+    fi
+}
+
+# ─── test ────────────────────────────────────────────────────────────────────
+cmd_check() {
+    if ! ss -ltn 2>/dev/null | grep -q "$SOCKS"; then
+        die "$SOCKS is not being listened on, tor is not running → sudo systemctl start tor"
+    fi
+    printf 'Through Tor    : '
+    curl -s --max-time 25 --socks5-hostname "$SOCKS" https://check.torproject.org/api/ip
+    printf '\nDirect proxy   : '
+    curl -s --max-time 15 -x "http://$PROXY_ADDR" https://check.torproject.org/api/ip
+    printf '\n→ The first one should show IsTor:true and a different IP.\n'
+}
+
+# ─── status ──────────────────────────────────────────────────────────────────
+cmd_status() {
+    systemctl is-active --quiet tor && ok "tor service: active" || off "tor service: inactive"
+    if grep -q '^HTTPSProxy' "$TORRC"; then
+        ok "upstream: $(grep -m1 '^HTTPSProxy' "$TORRC")"
+    else
+        off "no upstream proxy (direct mode)"
+    fi
+    ss -ltn 2>/dev/null | grep -q "$SOCKS" \
+        && ok "socks $SOCKS: listening" || off "socks $SOCKS: closed"
+}
+
+case "${1:-status}" in
+    proxy|on)   cmd_proxy ;;
+    direct|off) cmd_direct ;;
+    check|test) cmd_check ;;
+    status)     cmd_status ;;
+    -h|--help|help) usage ;;
+    *) die "unknown command: $1  (proxy|direct|check|status)" ;;
+esac
