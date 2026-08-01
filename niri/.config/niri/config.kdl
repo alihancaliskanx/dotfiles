@@ -152,7 +152,7 @@ binds {
     Mod+F            { fullscreen-window; }
     Mod+T            { toggle-window-floating; }
     Mod+L            { spawn "hyprlock"; }
-    Mod+Shift+H      { quit; }
+    Mod+Shift+H      { spawn "sh" "-c" r#"[ "$(printf 'No\nYes' | fuzzel --dmenu --prompt 'Quit niri? ' --lines 2)" = Yes ] && niri msg action quit -s"#; }
     Mod+V            { spawn "sh" "-c" "cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy"; }
     Print            { spawn "sh" "-c" "grim - | satty -f -"; }
     Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | satty -f -"; }
@@ -263,7 +263,7 @@ binds {
     Mod+Ctrl+F       { expand-column-to-available-width; }
     Mod+Escape       { focus-workspace-previous; }
     Mod+O            { toggle-window-rule-opacity; }
-    Mod+F1           { show-hotkey-overlay; }
+    Mod+F1           { spawn "sh" "-c" "exec \"$HOME/.local/bin/hotkeys\""; }
     Mod+Shift+Home   { move-column-to-first; }
     Mod+Shift+End    { move-column-to-last; }
     Mod+Shift+Minus  { set-window-height "-10%"; }

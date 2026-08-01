@@ -94,7 +94,7 @@
     "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
     "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
     "interval": 5,
-    "on-click": "sh -c 'sel=$(printf \"Lock\\nLog Out\\nReboot\\nPower Off\" | fuzzel --dmenu --prompt \"Power \"); case $sel in Lock) hyprlock;; \"Log Out\") niri msg action quit;; Reboot) systemctl reboot;; \"Power Off\") systemctl poweroff;; esac'",
+    "on-click": "sh -c 'sel=$(printf \"Lock\\nLog Out\\nReboot\\nPower Off\" | fuzzel --dmenu --prompt \"Power \"); case $sel in Lock) hyprlock;; \"Log Out\") niri msg action quit -s;; Reboot) systemctl reboot;; \"Power Off\") systemctl poweroff;; esac'",
     "states": {
       "warning": 20,
       "critical": 10

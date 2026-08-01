@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+command -v fuzzel >/dev/null || die "fuzzel is not installed"
+
+case "${XDG_CURRENT_DESKTOP:-}" in
+  niri)
+    list=$(sed -n '/^binds {/,/^}/p' "$HOME/.config/niri/config.kdl" \
+      | sed -nE 's/^    ([A-Za-z][A-Za-z0-9+_]*)( +[a-z-]+=[^ {]+)* +\{ (.*); \}$/\1\t\3/p' \
+      | awk -F'\t' '{ gsub(/\\"/, "\"", $2); printf "%-26s %s\n", $1, $2 }')
+    ;;
+  Hyprland)
+    list=$(grep -E '^bind[a-z]* = ' "$HOME/.config/hypr/hyprland.conf" \
+      | sed -E 's/^bind[a-z]* = *//; s/ *#.*$//' \
+      | awk -F', *' '{ key = ($1 == "" ? $2 : $1 " " $2); printf "%-26s", key; for (i = 3; i <= NF; i++) printf " %s", $i; print "" }')
+    ;;
+  *)
+    die "unsupported session: ${XDG_CURRENT_DESKTOP:-unset} (Hyprland or niri)"
+    ;;
+esac
+
+printf '%s\n' "$list" | fuzzel --dmenu --prompt "Keys " --width 78 --lines 20 >/dev/null || true
