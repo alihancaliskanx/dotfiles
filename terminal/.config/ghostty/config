@@ -1,0 +1,55 @@
+# ghostty — rainynight
+#
+# This file used to contain colors only, so ghostty fell back to the default
+# font while the rest of the desktop ran on JetBrainsMono Nerd Font. The font
+# and window settings below fix that mismatch.
+
+# Font
+font-family = JetBrainsMono Nerd Font
+font-size = 11
+adjust-cell-height = 10%
+
+# Window
+window-padding-x = 12
+window-padding-y = 12
+window-decoration = none
+confirm-close-surface = false
+# Matches active_opacity = 0.95 in hyprland.conf. Set to 1 for a solid background.
+background-opacity = 0.95
+
+# Cursor
+cursor-style = bar
+cursor-style-blink = true
+
+# Scrollback
+scrollback-limit = 10000000
+
+# Background and foreground colors
+background = #101010
+foreground = #cdd6f4
+
+# Standard colors
+palette = 0=#101010
+palette = 1=#cf6a4c
+palette = 2=#8f9d6a
+palette = 3=#f9c74f
+palette = 4=#303463
+palette = 5=#9a7ecc
+palette = 6=#5de4c7
+palette = 7=#cdd6f4
+
+# Bright colors
+palette = 8=#434343
+palette = 9=#cf6a4c
+palette = 10=#8f9d6a
+palette = 11=#f9c74f
+palette = 12=#303463
+palette = 13=#9a7ecc
+palette = 14=#5de4c7
+palette = 15=#ffffff
+
+# Selection / cursor colors
+selection-background = #303463
+selection-foreground = #cdd6f4
+cursor-color = #cdd6f4
+cursor-text = #101010
