@@ -215,7 +215,9 @@ binds {
     // on every workspace through the shared window-switch script.
     Alt+Tab          { focus-window-or-workspace-down; }
     Alt+Shift+Tab    { focus-window-or-workspace-up; }
-    Mod+Tab          { spawn "window-switch"; }
+    // Routed through sh so $HOME expands: niri's environment block takes
+    // literal strings, and the session PATH has no ~/.local/bin in it.
+    Mod+Tab          { spawn "sh" "-c" "exec \"$HOME/.local/bin/window-switch\""; }
 
     // DIFF: niri has no special/scratchpad workspace. The overview is the
     // nearest thing — every workspace and window at a glance.
