@@ -1,0 +1,19 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # bash, jq and shellcheck ship with the runner image. niri, Hyprland and
+      # stylua do not, and check.sh skips whatever it cannot find — the full set
+      # runs locally, this is the part that can run anywhere.
+      - name: check.sh
+        run: ./check.sh

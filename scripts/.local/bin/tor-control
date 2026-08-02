@@ -88,8 +88,7 @@ verify_and_apply() {
 }
 
 wait_for_ctrl_port() {
-    local i
-    for i in $(seq 1 20); do
+    for _ in $(seq 1 20); do
         ss -ltn 2>/dev/null | grep -q "$CTRL_HOST:$CTRL_PORT" && return 0
         sleep 0.5
     done

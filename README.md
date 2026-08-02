@@ -123,6 +123,28 @@ stow -t ~ shell terminal nvim cli scripts services theme hypr desktop
 
 ---
 
+## check.sh
+
+```bash
+./check.sh
+```
+
+Validates what the repo can validate: `bash -n` and shellcheck (warning level
+and up) over every script, `niri validate`, `Hyprland --verify-config`, `jq` on
+the tracked JSON, `stylua --check` on the nvim config, and whether every package
+directory is actually reachable from a profile.
+
+A check whose tool is missing is **skipped, not failed** — a machine on the niri
+profile has no Hyprland, and the GitHub runner (`.github/workflows/check.yml`)
+has neither compositor. Locally the full set runs; shellcheck and stylua come
+from mason if they are not installed system-wide:
+
+```bash
+PATH="$HOME/.local/share/nvim/mason/bin:$PATH" ./check.sh
+```
+
+---
+
 ## Shell configuration
 
 Both are modular; there is no single huge file. The same numbering applies to both shells:

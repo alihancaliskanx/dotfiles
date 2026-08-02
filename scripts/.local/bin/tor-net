@@ -33,8 +33,7 @@ usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${B
 
 wait_bootstrap() {
     printf '  waiting for bootstrap'
-    local i
-    for i in $(seq 1 90); do
+    for _ in $(seq 1 90); do
         if sudo journalctl -u tor --since "-3 min" -q --no-pager 2>/dev/null | grep -q "Bootstrapped 100%"; then
             printf '\n'; return 0
         fi
