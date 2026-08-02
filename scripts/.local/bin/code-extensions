@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# code-extensions — the VS Code extension list, kept in the repo.
+#
+# The extensions themselves are downloaded builds under ~/.vscode/extensions:
+# hundreds of megabytes, rebuilt per version, nothing worth versioning. Their
+# ids are, so they live in extras/vscode-extensions.txt and this moves the list
+# in both directions.
+#
+#   code-extensions           what is installed but not recorded, and back
+#   code-extensions save      write the installed set into the list
+#   code-extensions install   install everything in the list that is missing
+
+set -uo pipefail
+
+die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+command -v code >/dev/null || die "code is not installed"
+
+REPO="$(cd -- "$(dirname -- "$(readlink -f "$0")")/../../.." && pwd)" \
+  || die "cannot find the repo from $0"
+LIST="$REPO/extras/vscode-extensions.txt"
+
+installed() { code --list-extensions 2>/dev/null | sort -f; }
+recorded()  { [ -f "$LIST" ] && grep -vE '^[[:space:]]*(#|$)' "$LIST" | sort -f; }
+
+case "${1:-status}" in
+  save)
+    installed > "$LIST" || die "could not write $LIST"
+    printf '✔ %s extensions → %s\n' "$(wc -l < "$LIST")" "${LIST#"$REPO"/}"
+    ;;
+
+  install)
+    missing="$(comm -13 <(installed) <(recorded))"
+    [ -n "$missing" ] || { echo "everything in the list is already installed"; exit 0; }
+    while IFS= read -r ext; do
+      [ -n "$ext" ] || continue
+      printf '↓ %s\n' "$ext"
+      code --install-extension "$ext" --force >/dev/null 2>&1 \
+        || printf '  ! could not install: %s\n' "$ext"
+    done <<< "$missing"
+    ;;
+
+  status)
+    printf 'installed but not recorded (code-extensions save):\n'
+    comm -23 <(installed) <(recorded) | sed 's/^/  + /'
+    printf 'recorded but not installed (code-extensions install):\n'
+    comm -13 <(installed) <(recorded) | sed 's/^/  - /'
+    ;;
+
+  *)
+    die "usage: code-extensions [status|save|install]"
+    ;;
+esac

@@ -1,0 +1,13 @@
+{
+  "workbench.iconTheme": "material-icon-theme",
+  "editor.fontSize": 19,
+  "code-runner.runInTerminal": true,
+  "code-runner.clearPreviousOutput": true,
+  "code-runner.saveFileBeforeRun": true,
+  "task.saveBeforeRun": "always",
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "http.proxy": "http://192.168.49.1:8000",
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
+  "files.simpleDialog.enable": true,
+}

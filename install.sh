@@ -81,10 +81,11 @@ case "$PROFILE" in
     ;;
 esac
 
-# Nothing from the AUR is needed any more. walker used to require the 9
-# elephant-* backend packages; fuzzel replaced it and lives in the repos.
-# The block below still works if you ever add something here.
-AUR_PKGS=()
+# walker used to require the 9 elephant-* backend packages; fuzzel replaced it
+# and lives in the repos. What is left is VS Code: the official build is the
+# one the settings in the vscode package are written for (code-oss ships a
+# different marketplace and half the extension ids resolve to nothing).
+AUR_PKGS=(visual-studio-code-bin)
 
 echo "════════════════════════════════════════════════════════════"
 echo "  dotfiles install  —  profile: $PROFILE"
@@ -175,6 +176,7 @@ cat <<EOF
   • ssh-agent:      systemctl --user enable --now ssh-agent
   • try fish:       $REPO/link.sh link fish   and   chsh -s /usr/bin/fish
   • nvim:           LazyVim plugins install themselves on first launch (:Lazy sync)
+  • VS Code:        code-extensions install   (the 30 extensions in extras/)
   • powerlevel10k:  to change the prompt run  p10k configure
   • GTK theme:      $REPO/link.sh -f link gtk   (overwrites KDE's, see the README)
   • The KDE session was left alone; you can pick $PROFILE from the session selector at login.

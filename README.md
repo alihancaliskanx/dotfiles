@@ -48,6 +48,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `desktop`  | waybar (Hyprland + niri variants), fuzzel, mako, swayosd, satty |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
+| `vscode`   | `~/.config/Code/User/settings.json` (extensions: see below)      |
 | `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service` (systemd user unit)                         |
@@ -55,11 +56,13 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
 Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
-wallpapers) and the install scripts.
+wallpapers, `vscode-extensions.txt`) and the install scripts. Nothing in
+`extras/` is symlinked, which is exactly why the extension list lives there:
+every file inside a package lands in `$HOME` at the same relative path.
 
 ### Profiles
 
-A profile is a named set of packages. `shell terminal nvim cli scripts services theme`
+A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme`
 is common to all of them; the desktop-specific ones are added on top.
 
 | Profile    | Extra packages    |
@@ -158,6 +161,7 @@ bash script under `scripts/.local/bin/`:
 | `sha256-check` | verify a file's sha256                                          |
 | `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
 | `power-profile`| cycle power-saver → balanced → performance (Super+Shift+P)      |
+| `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
@@ -193,6 +197,15 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
   `sudo plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
   package, it has to be run once per machine.
+- **VS Code** — only `settings.json` is linked. The extensions themselves are
+  downloaded builds under `~/.vscode/extensions`, so what is versioned is the
+  list of their ids in `extras/vscode-extensions.txt`:
+  `code-extensions status` compares it with what is installed, `save` records
+  the current set, `install` pulls the missing ones. Worth a `status` after
+  adding an extension — nothing writes the list by itself.
+  If VS Code ever replaces the symlink with a real file of its own, `./link.sh
+  status` reports it as a conflict and `./link.sh adopt vscode
+  ~/.config/Code/User/settings.json` pulls it back into the repo.
 - **niri** — validate the config with `niri validate`. The differences from
   Hyprland are marked with `// DIFF:` inside `config.kdl` (column-based focus,
   no blur, `Mod`+click built in).
