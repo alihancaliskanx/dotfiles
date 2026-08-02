@@ -158,20 +158,26 @@ binds {
     Mod+Shift+Space  { spawn "pkill" "-SIGUSR1" "waybar"; }
     Mod+B            { spawn "sh" "-c" "gtk-launch $(xdg-settings get default-web-browser)"; }
     Mod+E            { spawn "sh" "-c" "xdg-open ~"; }
+    Ctrl+Alt+Space   { spawn "claude-desktop"; }
     Mod+W            { close-window; }
-    Mod+Q            { close-window; }
     Mod+F            { fullscreen-window; }
     Mod+T            { toggle-window-floating; }
     Mod+L            { spawn "hyprlock"; }
     Mod+Shift+H      { spawn "sh" "-c" r#"[ "$(printf 'No\nYes' | fuzzel --dmenu --prompt 'Quit niri? ' --lines 2)" = Yes ] && niri msg action quit -s"#; }
+    Ctrl+Alt+Delete  { spawn "sh" "-c" r#"[ "$(printf 'No\nYes' | fuzzel --dmenu --prompt 'Quit niri? ' --lines 2)" = Yes ] && niri msg action quit -s"#; }
     Mod+V            { spawn "sh" "-c" "cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy"; }
+    // niri has no force-kill action, so the pid of the focused window is asked
+    // for and killed directly. KDE's Meta+Ctrl+Esc.
+    Mod+Ctrl+Escape  { spawn "sh" "-c" r#"kill -9 "$(niri msg -j focused-window | jq .pid)""#; }
+    Mod+Shift+P      { spawn "sh" "-c" r#"exec "$HOME/.local/bin/power-profile""#; }
     Print            { spawn "sh" "-c" "grim - | satty -f -"; }
     Mod+Shift+S      { spawn "sh" "-c" "grim -g \"$(slurp)\" - | satty -f -"; }
     Mod+Print        { screenshot-window; }
 
     // ── focus ───────────────────────────────────────────────────────────────
-    // DIFF: niri is column based. Left/right moves between columns, up/down
-    // moves between the windows inside a column.
+    // DIFF: niri is column based. The plain arrows stay inside the workspace:
+    // left and right move between columns, up and down between the windows
+    // stacked in one column.
     Mod+Left         { focus-column-left; }
     Mod+Right        { focus-column-right; }
     Mod+Up           { focus-window-up; }
@@ -181,6 +187,20 @@ binds {
     Mod+Shift+Right  { move-column-right; }
     Mod+Shift+Up     { move-window-up; }
     Mod+Shift+Down   { move-window-down; }
+
+    // KDE walks the desktops with Meta+Ctrl+Arrow and drags the window along
+    // with Meta+Ctrl+Shift+Arrow. Its desktops sit in one row, niri stacks its
+    // workspaces, so left maps to up and right to down; the vertical arrows do
+    // the same thing under their own name.
+    Mod+Ctrl+Left    { focus-workspace-up; }
+    Mod+Ctrl+Right   { focus-workspace-down; }
+    Mod+Ctrl+Up      { focus-workspace-up; }
+    Mod+Ctrl+Down    { focus-workspace-down; }
+
+    Mod+Ctrl+Shift+Left  { move-column-to-workspace-up; }
+    Mod+Ctrl+Shift+Right { move-column-to-workspace-down; }
+    Mod+Ctrl+Shift+Up    { move-column-to-workspace-up; }
+    Mod+Ctrl+Shift+Down  { move-column-to-workspace-down; }
 
     // ── workspaces ──────────────────────────────────────────────────────────
     Mod+1 { focus-workspace 1; }
@@ -232,16 +252,20 @@ binds {
     Mod+End          { focus-column-last; }
 
     // ── parity with the Hyprland config ─────────────────────────────────────
-    // Alt+Tab cycles inside the current workspace, Mod+Tab lists every window
-    // on every workspace through the shared window-switch script.
-    Alt+Tab          { focus-window-or-workspace-down; }
-    Alt+Shift+Tab    { focus-window-or-workspace-up; }
+    // A tap of Alt+Tab in KDE returns to the last window rather than walking
+    // the list, so that is what it does here too; Alt+Shift+Tab keeps the
+    // cycling. Mod+Tab lists every window on every workspace through the
+    // shared window-switch script.
+    Alt+Tab          { focus-window-previous; }
+    Alt+Shift+Tab    { focus-window-or-workspace-down; }
     // Routed through sh so $HOME expands: niri's environment block takes
     // literal strings, and the session PATH has no ~/.local/bin in it.
     Mod+Tab          { spawn "sh" "-c" "exec \"$HOME/.local/bin/window-switch\""; }
 
     // DIFF: niri has no special/scratchpad workspace. The overview is the
-    // nearest thing — every workspace and window at a glance.
+    // nearest thing — every workspace and window at a glance. KDE puts it on
+    // Meta+Q, which used to close a window here.
+    Mod+Q            { toggle-overview; }
     Mod+S            { toggle-overview; }
 
     // DIFF: no `pin` in niri; a floating window belongs to one workspace and
@@ -250,13 +274,20 @@ binds {
     Mod+Shift+C      { center-visible-columns; }
     Mod+U            { focus-window-previous; }
 
-    Mod+Ctrl+Left    { set-column-width "-5%"; }
-    Mod+Ctrl+Right   { set-column-width "+5%"; }
-    Mod+Ctrl+Up      { set-window-height "-5%"; }
-    Mod+Ctrl+Down    { set-window-height "+5%"; }
+    // Resizing moved off Mod+Ctrl+Arrow, which KDE uses for the desktops.
+    Mod+Alt+Left     { set-column-width "-5%"; }
+    Mod+Alt+Right    { set-column-width "+5%"; }
+    Mod+Alt+Up       { set-window-height "-5%"; }
+    Mod+Alt+Down     { set-window-height "+5%"; }
 
-    Mod+Alt+Left     { swap-window-left; }
-    Mod+Alt+Right    { swap-window-right; }
+    Mod+Alt+Shift+Left  { swap-window-left; }
+    Mod+Alt+Shift+Right { swap-window-right; }
+
+    // A single window to the workspace above or below. focus=true keeps it on
+    // screen: the focus travels to the workspace it landed on. Mod+Ctrl+Shift
+    // above does the same for the whole column.
+    Mod+Alt+Shift+Up    { move-window-to-workspace-up focus=true; }
+    Mod+Alt+Shift+Down  { move-window-to-workspace-down focus=true; }
 
     // DIFF: Hyprland puts monitor focus on Mod+Comma / Mod+Period, but niri
     // already needs those two for consume/expel-window-from-column, which are
@@ -281,7 +312,8 @@ binds {
     Mod+Shift+Equal  { set-window-height "+10%"; }
     Mod+WheelScrollRight cooldown-ms=150 { focus-column-right; }
     Mod+WheelScrollLeft  cooldown-ms=150 { focus-column-left; }
-    Mod+Shift+P      { power-off-monitors; }
+    // Mod+Shift+P is the power profile, as in KDE, so DPMS moved one modifier on.
+    Mod+Ctrl+Shift+P { power-off-monitors; }
 
     // ── media / hardware keys ───────────────────────────────────────────────
     XF86AudioRaiseVolume  allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
@@ -293,4 +325,11 @@ binds {
     XF86AudioPlay         allow-when-locked=true { spawn "playerctl" "play-pause"; }
     XF86AudioNext         allow-when-locked=true { spawn "playerctl" "next"; }
     XF86AudioPrev         allow-when-locked=true { spawn "playerctl" "previous"; }
+
+    // The media keys KDE had on the keypad, plus Mod+Space for play/pause.
+    Mod+Space             allow-when-locked=true { spawn "playerctl" "play-pause"; }
+    Mod+KP_Add            allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
+    Mod+KP_Subtract       allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
+    Mod+Ctrl+KP_Add       allow-when-locked=true { spawn "playerctl" "next"; }
+    Mod+Ctrl+KP_Subtract  allow-when-locked=true { spawn "playerctl" "previous"; }
 }

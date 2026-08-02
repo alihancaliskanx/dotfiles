@@ -157,6 +157,7 @@ bash script under `scripts/.local/bin/`:
 | `ros-docker`   | enter / create the ROS Noetic container                         |
 | `sha256-check` | verify a file's sha256                                          |
 | `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
+| `power-profile`| cycle power-saver → balanced → performance (Super+Shift+P)      |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot

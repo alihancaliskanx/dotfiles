@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# power-profile — cycle power-saver → balanced → performance, the equivalent of
+# KDE's Meta+Shift+P. powerprofilesctl says nothing when it switches, so the
+# new profile is announced through the notification daemon.
+
+set -uo pipefail
+
+die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+command -v powerprofilesctl >/dev/null || die "power-profiles-daemon is not installed"
+
+case "$(powerprofilesctl get)" in
+  power-saver) next=balanced    ;;
+  balanced)    next=performance ;;
+  *)           next=power-saver ;;
+esac
+
+powerprofilesctl set "$next" 2>/dev/null || die "cannot switch to $next"
+
+command -v notify-send >/dev/null &&
+  notify-send -a power-profile -t 1500 "Power profile" "$next"
