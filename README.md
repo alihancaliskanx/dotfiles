@@ -186,6 +186,7 @@ bash script under `scripts/.local/bin/`:
 | `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
 | `power-profile`| cycle power-saver → balanced → performance (Super+Shift+P)      |
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
+| `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
@@ -233,6 +234,16 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   compositors, that is what makes Dolphin, ark and gwenview follow rainynight
   under niri/Hyprland. KDE's own settings app rewrites `kdeglobals`; if it ever
   replaces the symlink with a real file, `./link.sh status` shows the conflict.
+- **Packages come in two lists.** `install.sh` carries the curated one: what a
+  fresh machine *should* have, grouped by what it is for. `extras/pacman-explicit.txt`
+  and `extras/flatpak-apps.txt` carry the other one — everything this machine
+  actually has, written by `pkg-snapshot save` and put back by
+  `pkg-snapshot install`. The first answers "set up a machine like mine", the
+  second "bring my machine back". `pkg-snapshot` with no argument diffs them.
+- **The browser is a flatpak.** Zen — what `Mod+B` opens and what
+  `mimeapps.list` points at — is `app.zen_browser.zen` from flathub, not a
+  pacman package. `install.sh` adds the flathub remote and installs the apps in
+  `extras/flatpak-apps.txt`; without that step a fresh machine has no browser.
 - **VS Code** — only `settings.json` is linked. The extensions themselves are
   downloaded builds under `~/.vscode/extensions`, so what is versioned is the
   list of their ids in `extras/vscode-extensions.txt`:

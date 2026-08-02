@@ -49,17 +49,48 @@ PKGS=(
   kitty alacritty ghostty neovim
   # shells and what .zshrc/config.fish directly need
   zsh fish fzf eza git
-  # network / proxy tools — net-proxy, tor-net, tor-control rely on these
+  # network / proxy tools — net-proxy, tor-net, tor-control rely on these.
+  # net-proxy tunnels ssh through corkscrew, or ncat (from nmap) if corkscrew
+  # is not around — the fallback was silently in use on this machine.
   tor proxychains-ng gum corkscrew
+  # what the scripts package shells out to and nothing else pulls in: jq
+  # (window-switch, hotkeys, the force-kill and screenshot bindings),
+  # powerprofilesctl (power-profile), notify-send (libnotify)
+  jq libnotify power-profiles-daemon
   # cli
-  btop cava
+  btop cava fastfetch glances duf ripgrep tmux vim micro termscp superfile
   # wayland common
   qt5-wayland qt6-wayland
   brightnessctl playerctl pamixer
-  wl-clipboard cliphist grim slurp satty
+  wl-clipboard cliphist grim slurp satty swappy xsettingsd
+  # KDE integration outside Plasma: Qt apps read kdeglobals, and the portal
+  # serves the file dialogs (see the FileChooser pin in *-portals.conf)
+  xdg-desktop-portal-kde kdialog kio-admin
   # gui helpers
-  dolphin pavucontrol nm-connection-editor
-  ttf-jetbrains-mono-nerd
+  dolphin pavucontrol nm-connection-editor network-manager-applet
+  filelight partitionmanager btrfs-assistant snapper ffmpegthumbnailer
+  # fonts
+  ttf-jetbrains-mono-nerd ttf-meslo-nerd
+  # development
+  cmake ninja ccache docker docker-compose github-cli meld luarocks
+  qemu-full virt-manager paru yay
+  # embedded / ArduPilot toolchain
+  arm-none-eabi-gcc arm-none-eabi-binutils arm-none-eabi-newlib stlink
+  # ai
+  claude-code
+  # network and security
+  nmap wireshark-qt bettercap wifite dnscrypt-proxy ufw ufw-extras putty
+  torbrowser-launcher networkmanager-openvpn xl2tpd speedtest-cli
+  # bluetooth
+  bluez bluez-utils bluedevil
+  # applications
+  firefox chromium discord webcord telegram-desktop
+  vlc vlc-plugins-all obs-studio obs-studio-plugin-browser obs-gstreamer
+  gimp drawio-desktop qbittorrent localsend impression gnome-text-editor
+  motion shelly winboat
+  # system and quality of life
+  flatpak xdg-user-dirs profile-sync-daemon
+  nano-syntax-highlighting zsh-autocomplete
 )
 
 # Hyprland and niri share the same bar/launcher/notification stack.
@@ -82,10 +113,24 @@ case "$PROFILE" in
 esac
 
 # walker used to require the 9 elephant-* backend packages; fuzzel replaced it
-# and lives in the repos. What is left is VS Code: the official build is the
-# one the settings in the vscode package are written for (code-oss ships a
-# different marketplace and half the extension ids resolve to nothing).
-AUR_PKGS=(visual-studio-code-bin)
+# and lives in the repos. What is left needs paru or yay — the block below says
+# so and carries on if neither is installed.
+AUR_PKGS=(
+  # editors: the official VS Code build is the one the settings in the vscode
+  # package are written for (code-oss ships a different marketplace and half
+  # the extension ids resolve to nothing)
+  visual-studio-code-bin claude-desktop-bin
+  # drone / ArduPilot
+  ardupilot-mission-planner qgroundcontrol-bin qgroundcontrol-appimage
+  python-pymavlink-git
+  # security research
+  ida-free backdoor-apk blackarch-mirrorlist redsocks
+  # this laptop's hardware
+  tuxedo-drivers-dkms tuxedo-control-center-bin
+  # applications
+  stremio ani-cli manga-tui legacylauncher appimagelauncher termius
+  gnome-network-displays platypus gem debtap
+)
 
 echo "════════════════════════════════════════════════════════════"
 echo "  dotfiles install  —  profile: $PROFILE"
@@ -126,6 +171,22 @@ if [[ ${#AUR_PKGS[@]} -gt 0 ]]; then
   else
     echo "   ! paru/yay not found, install the AUR packages by hand: ${AUR_PKGS[*]}"
   fi
+fi
+
+# ─── flatpak ─────────────────────────────────────────────────────────────────
+# Zen — the browser Mod+B opens and mimeapps.list points at — is a flatpak, not
+# a pacman package. Without this step a fresh machine has no browser at all.
+# The list is written by `pkg-snapshot save`.
+FLATPAK_LIST="$REPO/extras/flatpak-apps.txt"
+if [[ -f "$FLATPAK_LIST" ]] && command -v flatpak >/dev/null; then
+  echo ">> Flatpak apps..."
+  flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+    || echo "   ! could not add the flathub remote"
+  while IFS=$'\t' read -r origin app; do
+    [[ -n "$app" ]] || continue
+    echo "   ↓ $app"
+    flatpak install -y "$origin" "$app" >/dev/null 2>&1 || echo "     ! could not install: $app"
+  done < "$FLATPAK_LIST"
 fi
 
 # ─── oh-my-zsh + plugins ─────────────────────────────────────────────────────
@@ -177,6 +238,7 @@ cat <<EOF
   • try fish:       $REPO/link.sh link fish   and   chsh -s /usr/bin/fish
   • nvim:           LazyVim plugins install themselves on first launch (:Lazy sync)
   • VS Code:        code-extensions install   (the 30 extensions in extras/)
+  • the rest:       pkg-snapshot install      (everything this machine had, beyond the curated list)
   • powerlevel10k:  to change the prompt run  p10k configure
   • GTK theme:      $REPO/link.sh -f link gtk   (overwrites KDE's, see the README)
   • The KDE session was left alone; you can pick $PROFILE from the session selector at login.
