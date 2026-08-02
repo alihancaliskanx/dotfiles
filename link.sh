@@ -24,7 +24,7 @@ DOTFILES="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${TARGET:-$HOME}"
 
 # Packages wanted in every install, independent of the compositor.
-COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme"
+COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme git xdg"
 
 # Profiles: package sets per desktop environment.
 declare -A PROFILES=(

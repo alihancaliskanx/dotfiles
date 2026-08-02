@@ -49,10 +49,12 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
 | `vscode`   | `~/.config/Code/User/settings.json` (extensions: see below)      |
+| `git`      | `~/.config/git/config` — aliases, identity, gh credential helper |
+| `xdg`      | `mimeapps.list` — which application opens which file type        |
 | `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service` (systemd user unit)                         |
-| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes       |
+| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes + `kdeglobals` |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
 Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
@@ -62,7 +64,7 @@ every file inside a package lands in `$HOME` at the same relative path.
 
 ### Profiles
 
-A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme`
+A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme git xdg`
 is common to all of them; the desktop-specific ones are added on top.
 
 | Profile    | Extra packages    |
@@ -197,6 +199,12 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
   `sudo plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
   package, it has to be run once per machine.
+- **KDE colours outside Plasma** — the `theme` package carries both halves: the
+  scheme itself in `~/.local/share/color-schemes/RainyNight.colors` and the
+  `kdeglobals` that selects it. With `QT_QPA_PLATFORMTHEME=kde` set by both
+  compositors, that is what makes Dolphin, ark and gwenview follow rainynight
+  under niri/Hyprland. KDE's own settings app rewrites `kdeglobals`; if it ever
+  replaces the symlink with a real file, `./link.sh status` shows the conflict.
 - **VS Code** — only `settings.json` is linked. The extensions themselves are
   downloaded builds under `~/.vscode/extensions`, so what is versioned is the
   list of their ids in `extras/vscode-extensions.txt`:

@@ -1,0 +1,21 @@
+[alias]
+	co = checkout
+	br = branch
+  ci = commit
+  cm = commit -m
+	st = status
+[pull]
+	rebase = true
+[init]
+	defaultBranch = main
+[user]
+	name = alihancaliskanx
+	email = alihancaliskan@workmail.com
+[push]
+  autoSetupRemote = true
+[credential "https://github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
