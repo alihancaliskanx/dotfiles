@@ -100,7 +100,7 @@ cursor {
 // ─── run at startup ──────────────────────────────────────────────────────────
 // The equivalent of the exec-once lines in hyprland.conf.
 spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
-spawn-at-startup "sh" "-c" "while :; do waybar -c ~/.config/waybar/config-niri.jsonc -s ~/.config/waybar/style.css; sleep 2; done"
+spawn-at-startup "systemctl" "--user" "start" "waybar"
 spawn-at-startup "mako"
 spawn-at-startup "swayosd-server"
 spawn-at-startup "hypridle"

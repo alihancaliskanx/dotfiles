@@ -199,6 +199,12 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
   `sudo plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
   package, it has to be run once per machine.
+- **waybar** — started by `systemctl --user start waybar` from both compositor
+  configs, not by an `exec-once` loop. The unit lives in the `services` package
+  and picks the niri bar config from `$XDG_CURRENT_DESKTOP`; `Restart=always`
+  brings it back if it dies and the output goes to `journalctl --user -u waybar`.
+  `Mod+Shift+Space` still hides it with SIGUSR1, `systemctl --user reload waybar`
+  re-reads the config.
 - **KDE colours outside Plasma** — the `theme` package carries both halves: the
   scheme itself in `~/.local/share/color-schemes/RainyNight.colors` and the
   `kdeglobals` that selects it. With `QT_QPA_PLATFORMTHEME=kde` set by both

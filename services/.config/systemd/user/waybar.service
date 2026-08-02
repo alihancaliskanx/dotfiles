@@ -1,0 +1,27 @@
+[Unit]
+# Replaces the `while :; do waybar; sleep 2; done` loop both compositor configs
+# used to carry. systemd already knows how to restart a process, and this way
+# the bar's output lands in the journal instead of nowhere:
+#   journalctl --user -u waybar -f
+Description=Waybar
+Documentation=https://github.com/Alexays/Waybar/wiki
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# niri needs its own bar config, Hyprland uses the default one. The session name
+# is what tells them apart, and it is not guaranteed to reach the systemd user
+# manager under Hyprland — so Hyprland is the fallback branch, not the matched
+# one. Verified present under niri: XDG_CURRENT_DESKTOP=niri.
+ExecStart=/bin/sh -c 'case "${XDG_CURRENT_DESKTOP:-}" in \
+    *niri*) exec waybar -c %h/.config/waybar/config-niri.jsonc -s %h/.config/waybar/style.css ;; \
+    *)      exec waybar ;; \
+  esac'
+# SIGUSR2 reloads the config; SIGUSR1 (what Mod+Shift+Space sends) hides the bar.
+ExecReload=/bin/kill -SIGUSR2 $MAINPID
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
