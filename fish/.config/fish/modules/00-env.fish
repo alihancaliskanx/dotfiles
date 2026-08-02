@@ -13,6 +13,11 @@ set -gx ARCHFLAGS "-arch "(uname -m)
 # fuzzel has its own `terminal=` setting in fuzzel.ini — keep the two in sync.
 set -gx TERMINAL alacritty
 
+# Same idea for the file manager. What actually decides which one opens is the
+# inode/directory entry in mimeapps.list (xdg-mime); this is only for the
+# scripts that read $FILEMANAGER instead of calling xdg-open.
+set -gx FILEMANAGER dolphin
+
 # Phone (PdaNet) HTTP proxy address. net-proxy, tor-net and 30-proxy.fish all
 # read it from here — this is the only place to change it.
 set -q PROXY_ADDR; or set -gx PROXY_ADDR "192.168.49.1:8000"
