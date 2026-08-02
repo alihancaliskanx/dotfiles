@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#
+# pkg-snapshot — what is actually installed on this machine, in the repo.
+#
+# install.sh carries a curated list: what a fresh install should have. This is
+# the other half — the full explicit set plus the flatpak apps, so a machine can
+# be brought back as it was rather than as it was designed.
+#
+#   pkg-snapshot           what the machine has and the snapshot does not, and back
+#   pkg-snapshot save      write extras/pacman-explicit.txt and extras/flatpak-apps.txt
+#   pkg-snapshot install   install what the snapshot has and the machine lacks
+
+set -uo pipefail
+
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+head2() { printf '\e[36m%s\e[0m\n' "$*"; }
+
+REPO="$(cd -- "$(dirname -- "$(readlink -f "$0")")/../../.." && pwd)" \
+  || die "cannot find the repo from $0"
+PAC="$REPO/extras/pacman-explicit.txt"
+FLAT="$REPO/extras/flatpak-apps.txt"
+
+command -v pacman >/dev/null || die "this is for pacman-based systems"
+
+pac_now()  { pacman -Qqe | sort; }
+pac_file() { [ -f "$PAC" ] && grep -vE '^\s*(#|$)' "$PAC" | sort; }
+
+# "origin<tab>application" — the origin is needed to install it back.
+flat_now() {
+    command -v flatpak >/dev/null || return 0
+    flatpak list --app --columns=origin,application 2>/dev/null | sort
+}
+flat_file() { [ -f "$FLAT" ] && grep -vE '^\s*(#|$)' "$FLAT" | sort; }
+
+case "${1:-diff}" in
+  save)
+    pac_now > "$PAC"  || die "could not write $PAC"
+    flat_now > "$FLAT" || die "could not write $FLAT"
+    printf '✔ %s pacman packages → %s\n' "$(wc -l < "$PAC")"  "${PAC#"$REPO"/}"
+    printf '✔ %s flatpak apps    → %s\n' "$(wc -l < "$FLAT")" "${FLAT#"$REPO"/}"
+    ;;
+
+  install)
+    missing="$(comm -13 <(pac_now) <(pac_file) | tr '\n' ' ')"
+    if [ -n "${missing// /}" ]; then
+      head2 "pacman: ${missing}"
+      if command -v paru >/dev/null; then
+        paru -S --needed $missing
+      elif command -v yay >/dev/null; then
+        yay -S --needed $missing
+      else
+        # Without an AUR helper the foreign ones cannot be installed; pacman
+        # stops at the first unknown name, so they are reported instead.
+        sudo pacman -S --needed $missing || die "some of these are AUR packages — install paru or yay first"
+      fi
+    else
+      echo "pacman: nothing to install"
+    fi
+
+    if command -v flatpak >/dev/null; then
+      comm -13 <(flat_now) <(flat_file) | while IFS=$'\t' read -r origin app; do
+        [ -n "$app" ] || continue
+        head2 "flatpak: $app ($origin)"
+        flatpak install -y "$origin" "$app" || printf '  ! could not install: %s\n' "$app"
+      done
+    fi
+    ;;
+
+  diff)
+    head2 "pacman — installed but not in the snapshot (pkg-snapshot save):"
+    comm -23 <(pac_now) <(pac_file) | sed 's/^/  + /'
+    head2 "pacman — in the snapshot but not installed (pkg-snapshot install):"
+    comm -13 <(pac_now) <(pac_file) | sed 's/^/  - /'
+    if command -v flatpak >/dev/null; then
+      head2 "flatpak — installed but not in the snapshot:"
+      comm -23 <(flat_now) <(flat_file) | sed 's/^/  + /'
+      head2 "flatpak — in the snapshot but not installed:"
+      comm -13 <(flat_now) <(flat_file) | sed 's/^/  - /'
+    fi
+    ;;
+
+  *)
+    die "usage: pkg-snapshot [diff|save|install]"
+    ;;
+esac

@@ -1,0 +1,8 @@
+flathub	app.zen_browser.zen
+flathub	com.rtosta.zapzap
+flathub	com.spotify.Client
+flathub	io.github.shonebinu.Defuse
+flathub	org.flatpak.Builder
+flathub	org.gnome.eog
+flathub	org.gnome.Evince
+flathub	pw.mmk.OpenFreebuds
