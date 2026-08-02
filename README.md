@@ -157,6 +157,7 @@ bash script under `scripts/.local/bin/`:
 | `ros-docker`   | enter / create the ROS Noetic container                         |
 | `sha256-check` | verify a file's sha256                                          |
 | `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
+| `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
 change its parent's environment, so these cannot be scripts: `proxy_on/off`,
@@ -184,6 +185,13 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
 - **switching to fish** — `./link.sh link fish` then `chsh -s /usr/bin/fish`.
 - **tor-control** — does not work without `gum` (`sudo pacman -S gum`).
 - **ssh-agent** — `systemctl --user enable --now ssh-agent`.
+- **login screen** — CachyOS/Plasma 6.7 no longer uses SDDM but
+  `plasma-login-manager` (the greeter runs as the `plasmalogin` user). There is
+  no theme package any more: the background comes from `/etc/plasmalogin.conf`
+  (`[Greeter][Wallpaper][org.kde.image][General]`), the colours from
+  `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
+  `sudo plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
+  package, it has to be run once per machine.
 - **niri** — validate the config with `niri validate`. The differences from
   Hyprland are marked with `// DIFF:` inside `config.kdl` (column-based focus,
   no blur, `Mod`+click built in).

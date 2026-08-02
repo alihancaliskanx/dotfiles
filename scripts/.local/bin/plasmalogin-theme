@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+CONF=/etc/plasmalogin.conf
+GREETER_USER=plasmalogin
+GREETER_HOME=/var/lib/plasmalogin
+SELF="$(readlink -f "$0")"
+REPO="$(cd -- "$(dirname -- "$SELF")/../../.." && pwd)"
+SCHEME="${SCHEME:-$REPO/theme/.local/share/color-schemes/RainyNight.colors}"
+WALLPAPER="${WALLPAPER:-$REPO/extras/backgrounds/4.jpg}"
+BG_COLOR="${BG_COLOR:-#101010}"
+
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+dim()  { printf '  \e[2m%s\e[0m\n' "$*"; }
+
+usage() {
+  cat <<'EOF'
+plasmalogin-theme — rainynight colours for the Plasma login screen
+
+  plasmalogin-theme               apply: rainynight colours + extras/backgrounds/4.jpg
+  plasmalogin-theme <image>       apply: use another image as the background
+  plasmalogin-theme --color       apply: solid colour instead of an image
+  plasmalogin-theme status        show what is configured right now
+
+Environment: WALLPAPER, BG_COLOR (default #101010), SCHEME (a .colors file)
+EOF
+}
+
+need_root() { [[ $EUID -eq 0 ]] || exec sudo -- "$SELF" "$@"; }
+
+write_colors() {
+  local line key value rest seg
+  local -a groups=()
+
+  [[ -r $SCHEME ]] || die "colour scheme not found: $SCHEME"
+  command -v kwriteconfig6 >/dev/null || die "kwriteconfig6 is not installed"
+
+  install -d -o "$GREETER_USER" -g "$GREETER_USER" -m 700 "$GREETER_HOME/.config" \
+    || die "could not create $GREETER_HOME/.config"
+
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    case "$line" in
+      ''|'#'*) continue ;;
+      '['*']')
+        groups=()
+        rest="$line"
+        while [[ $rest == '['*']'* ]]; do
+          seg="${rest#[}"
+          seg="${seg%%]*}"
+          groups+=(--group "$seg")
+          rest="${rest#*]}"
+        done
+        ;;
+      *=*)
+        [[ ${#groups[@]} -gt 0 ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        kwriteconfig6 --file "$GREETER_HOME/.config/kdeglobals" \
+          "${groups[@]}" --key "$key" "$value" || die "kwriteconfig6 failed on $key"
+        ;;
+    esac
+  done < "$SCHEME"
+
+  chown "$GREETER_USER:$GREETER_USER" "$GREETER_HOME/.config/kdeglobals"
+  chmod 644 "$GREETER_HOME/.config/kdeglobals"
+
+  install -d -o "$GREETER_USER" -g "$GREETER_USER" -m 755 "$GREETER_HOME/.local/share/color-schemes"
+  install -o "$GREETER_USER" -g "$GREETER_USER" -m 644 \
+    "$SCHEME" "$GREETER_HOME/.local/share/color-schemes/${SCHEME##*/}"
+  ok "colours: $(basename "$SCHEME") → $GREETER_HOME/.config/kdeglobals"
+}
+
+write_wallpaper() {
+  local img="${1:-$WALLPAPER}" target
+
+  [[ $img == --color ]] && img=""
+  if [[ -n $img && ! -f $img ]]; then
+    [[ $# -gt 0 ]] && die "no such image: $img"
+    dim "no background image at $img, using a solid colour"
+    img=""
+  fi
+
+  if [[ -z $img ]]; then
+    kwriteconfig6 --file "$CONF" --group Greeter --key WallpaperPluginId org.kde.color
+    kwriteconfig6 --file "$CONF" --group Greeter --group Wallpaper \
+      --group org.kde.color --group General --key Color "$BG_COLOR"
+    ok "background: solid $BG_COLOR"
+  else
+    img="$(readlink -f "$img")"
+    case "$img" in
+      /usr/share/*)
+        target="$img"
+        ;;
+      *)
+        install -d -o "$GREETER_USER" -g "$GREETER_USER" -m 755 "$GREETER_HOME/wallpapers" \
+          || die "could not create $GREETER_HOME/wallpapers"
+        target="$GREETER_HOME/wallpapers/${img##*/}"
+        install -o "$GREETER_USER" -g "$GREETER_USER" -m 644 "$img" "$target" \
+          || die "could not copy the image"
+        ;;
+    esac
+    kwriteconfig6 --file "$CONF" --group Greeter --key WallpaperPluginId org.kde.image
+    kwriteconfig6 --file "$CONF" --group Greeter --group Wallpaper \
+      --group org.kde.image --group General --key Image "file://$target"
+    ok "background: $target"
+  fi
+
+  chmod 644 "$CONF"
+}
+
+status() {
+  local plugin
+  printf '\e[36m%s\e[0m\n' "$CONF"
+  if [[ -r $CONF ]]; then
+    plugin="$(kreadconfig6 --file "$CONF" --group Greeter --key WallpaperPluginId)"
+    dim "wallpaper plugin : ${plugin:-<default: org.kde.image>}"
+    dim "colour           : $(kreadconfig6 --file "$CONF" --group Greeter --group Wallpaper --group org.kde.color --group General --key Color)"
+    dim "image            : $(kreadconfig6 --file "$CONF" --group Greeter --group Wallpaper --group org.kde.image --group General --key Image)"
+    dim "autologin user   : $(kreadconfig6 --file "$CONF" --group Autologin --key User)"
+    dim "autologin session: $(kreadconfig6 --file "$CONF" --group Autologin --key Session)"
+  else
+    dim "not readable"
+  fi
+
+  printf '\e[36m%s\e[0m\n' "$GREETER_HOME/.config/kdeglobals"
+  if [[ -r $GREETER_HOME/.config/kdeglobals ]]; then
+    dim "colour scheme    : $(kreadconfig6 --file "$GREETER_HOME/.config/kdeglobals" --group General --key ColorScheme)"
+    dim "window bg        : $(kreadconfig6 --file "$GREETER_HOME/.config/kdeglobals" --group 'Colors:Window' --key BackgroundNormal)"
+  else
+    dim "not readable (run: sudo plasmalogin-theme status)"
+  fi
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    ;;
+  status)
+    status
+    ;;
+  *)
+    [[ -f /usr/lib/systemd/system/plasmalogin.service ]] \
+      || die "plasma-login-manager is not installed"
+    need_root "$@"
+    write_wallpaper "$@"
+    write_colors
+    printf '\n'
+    dim "takes effect on the next login screen (reboot or log out)"
+    ;;
+esac
