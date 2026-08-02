@@ -27,6 +27,18 @@ function sart_status --description 'sart_checker timer status'
     systemctl --user list-timers sart_checker.timer
 end
 
+# ── clear under kitty ────────────────────────────────────────────────────────
+# The xterm-kitty terminfo has no E3 capability, so /usr/bin/clear only sends
+# \e[H\e[2J: the screen goes blank but everything is still in the scrollback,
+# which is exactly what Ctrl+L does. \e[3J is the sequence that drops the
+# scrollback (kitty documents it in its own kitty.conf). alacritty and ghostty
+# do carry E3, so their clear is left alone.
+if test "$TERM" = xterm-kitty
+    function clear --description 'clear screen and scrollback'
+        printf '\e[H\e[2J\e[3J'
+    end
+end
+
 # ── old names for the shared scripts ─────────────────────────────────────────
 alias sha256_kontrol='sha256-check'
 alias ros_docker='ros-docker'
