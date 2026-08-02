@@ -240,6 +240,23 @@ gtk backend. They are separate files on purpose: one shared
 Hyprland needs `default=hyprland;gtk` for screencasting while niri needs
 `gnome;gtk`.
 
+**KDE apps need `XDG_MENU_PREFIX` outside Plasma.**
+`plasma-workspace` only ships `/etc/xdg/menus/plasma-applications.menu`, and KDE
+apps look for `$XDG_MENU_PREFIX` + `applications.menu`. A Plasma session sets the
+variable to `plasma-`; under niri/Hyprland it was unset, so the menu was never
+found — `kbuildsycoca6 --menutest` printed 0 entries instead of 138, and every
+KIO "Open With → Other Application…" dialog came up empty. Both compositor
+configs now set `XDG_MENU_PREFIX=plasma-`.
+
+**`XDG_CURRENT_DESKTOP` carries a `:KDE` suffix.**
+Entries with `OnlyShowIn=KDE` (System Settings, Info Center, the emoji picker)
+are hidden from every launcher when the variable is plain `niri` / `Hyprland`.
+The compositor name stays first in the list — `niri:KDE`, `Hyprland:KDE` — so
+xdg-desktop-portal still picks `niri-portals.conf` / `hyprland-portals.conf`, and
+`xdg-open` still falls back to the generic handler (its `detectDE` only matches
+the exact string `KDE`). Scripts that branch on the variable (`hotkeys`,
+`window-switch`) therefore match with globs, not equality.
+
 **Screenshots go through grim + satty.** Spectacle was tried and does not work
 here: it drives KWin's own `org.kde.KWin.ScreenShot2` API, and with no KWin
 under Hyprland it produces no file and no error at all.

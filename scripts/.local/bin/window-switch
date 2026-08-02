@@ -18,7 +18,7 @@ command -v jq     >/dev/null || die "jq is not installed"
 pick() { fuzzel --dmenu --prompt "$1 " --width 70 --lines 15; }
 
 case "${XDG_CURRENT_DESKTOP:-}" in
-  Hyprland)
+  *Hyprland*)
     command -v hyprctl >/dev/null || die "hyprctl not found"
     # address is carried in the line so the choice can be resolved without a
     # second lookup; it is cut off again before display.
@@ -33,7 +33,7 @@ case "${XDG_CURRENT_DESKTOP:-}" in
     hyprctl dispatch focuswindow "address:${sel##*$'\t'}" >/dev/null
     ;;
 
-  niri)
+  *niri*)
     command -v niri >/dev/null || die "niri not found"
     sel=$(niri msg -j windows | jq -r '
         .[]

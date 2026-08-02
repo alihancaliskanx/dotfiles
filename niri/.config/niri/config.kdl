@@ -82,6 +82,8 @@ environment {
     XCURSOR_THEME "Adwaita"
     ELECTRON_OZONE_PLATFORM_HINT "auto"
     QT_QPA_PLATFORMTHEME "kde"
+    XDG_CURRENT_DESKTOP "niri:KDE"
+    XDG_MENU_PREFIX "plasma-"
     // DIFF: AQ_DRM_DEVICES is specific to Hyprland's aquamarine backend, absent in niri.
 }
 
@@ -93,7 +95,7 @@ cursor {
 // ─── run at startup ──────────────────────────────────────────────────────────
 // The equivalent of the exec-once lines in hyprland.conf.
 spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
-spawn-at-startup "sh" "-c" "waybar -c ~/.config/waybar/config-niri.jsonc -s ~/.config/waybar/style.css"
+spawn-at-startup "sh" "-c" "while :; do waybar -c ~/.config/waybar/config-niri.jsonc -s ~/.config/waybar/style.css; sleep 2; done"
 spawn-at-startup "mako"
 spawn-at-startup "swayosd-server"
 spawn-at-startup "hypridle"
