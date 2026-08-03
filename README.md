@@ -45,7 +45,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `fish`     | `config.fish` + `~/.config/fish/modules/` — *not part of a profile* |
 | `hypr`     | `hyprland.conf`, `hypridle.conf`, `hyprlock.conf`               |
 | `niri`     | `config.kdl`                                                    |
-| `desktop`  | waybar (Hyprland + niri variants), fuzzel, mako, swayosd, satty |
+| `desktop`  | waybar (Hyprland + niri variants), fuzzel, mako, swayosd, satty, hyprpaper |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
 | `vscode`   | `~/.config/Code/User/settings.json` (extensions: see below)      |
@@ -299,6 +299,22 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
 
 ## Things worth knowing
 
+**One wallpaper, three sessions.** `extras/backgrounds/starrysky.jpg` is the
+background everywhere, but only one real copy of it exists, inside the
+`StarrySky` wallpaper package — KPackage will not follow a symlink, so the file
+has to be real where Plasma reads it, and `extras/` holds the symlink. niri and
+Hyprland both run **hyprpaper** against that same path
+(`desktop/.config/hypr/hyprpaper.conf`, in `desktop` because the niri profile
+does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
+the login screen from `sudo plasmalogin-theme`.
+
+**hyprpaper 0.8 changed its config format.** `preload = <path>` plus
+`wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo
+still shows — is gone, replaced by a `wallpaper { monitor = ; path = ; fit_mode
+= }` block. The old keys do not fail loudly: hyprpaper starts, sets nothing, and
+logs `Monitor eDP-1 has no target: no wp will be created`. `~` in `path` is
+expanded by hyprpaper itself, `$HOME` is **not**.
+
 **Why is the `gtk` package in no profile?**
 KDE's `kde-gtk-config` tool generates `colors.css`, `window_decorations.css` and
 `assets/` under `~/.config/gtk-{3,4}.0/`, and appends its own `@import` to the
@@ -388,6 +404,6 @@ Without the guard they tried to run a non-existent binary on every shell startup
 
 **Leftover dead references** (guarded, not deleted):
 the `~/Documents/Code/aurapilot/ardupilot/Tools/autotest` directory does not
-exist — either create it or delete the PATH line in `00-env`. `hyprpaper` gets
-installed but there is no `hyprpaper.conf`; `extras/backgrounds/4.jpg` is not
-used from anywhere (`hyprlock` uses `path = screenshot`).
+exist — either create it or delete the PATH line in `00-env`. `hyprlock` still
+takes a blurred snapshot of the desktop (`path = screenshot`) rather than the
+wallpaper, which is deliberate: it works on a machine with no image at all.

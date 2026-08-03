@@ -61,9 +61,13 @@ layout {
 }
 
 // hyprland.conf: misc { background_color = rgb(101010) }
-layer-rule {
-    match namespace="^wallpaper$"
-    place-within-backdrop true
+// The backdrop is what Mod+Q / Mod+S uncover: the surface the workspaces float
+// on in the overview. Deliberately NOT the wallpaper — a `layer-rule` with
+// place-within-backdrop would move hyprpaper's layer into the backdrop, and
+// then the wallpaper is only ever seen in the overview and the desktop itself
+// goes flat. Wallpaper on the desktop, dark navy behind the overview.
+overview {
+    backdrop-color "#1e2030"
 }
 
 workspace "w1"
@@ -101,6 +105,9 @@ cursor {
 // The equivalent of the exec-once lines in hyprland.conf.
 spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
 spawn-at-startup "systemctl" "--user" "start" "waybar"
+// Same wallpaper, same ~/.config/hypr/hyprpaper.conf as Hyprland; the config
+// comes from the `desktop` package, which both profiles link.
+spawn-at-startup "hyprpaper"
 spawn-at-startup "mako"
 spawn-at-startup "swayosd-server"
 spawn-at-startup "hypridle"

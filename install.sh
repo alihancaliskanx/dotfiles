@@ -93,13 +93,14 @@ PKGS=(
   nano-syntax-highlighting zsh-autocomplete
 )
 
-# Hyprland and niri share the same bar/launcher/notification stack.
-WM_SHARED=(waybar swayosd fuzzel mako hyprlock hypridle xdg-desktop-portal-gtk)
+# Hyprland and niri share the same bar/launcher/notification stack, and the same
+# wallpaper: hyprpaper is a plain layer-shell client, so niri runs it too.
+WM_SHARED=(waybar swayosd fuzzel mako hyprlock hypridle hyprpaper xdg-desktop-portal-gtk)
 
 case "$PROFILE" in
   hyprland)
     PKGS+=("${WM_SHARED[@]}"
-           hyprland hyprpaper hyprpicker
+           hyprland hyprpicker
            xdg-desktop-portal-hyprland hyprpolkitagent)
     ;;
   niri)
