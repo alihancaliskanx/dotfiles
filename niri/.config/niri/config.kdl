@@ -260,12 +260,13 @@ binds {
     Mod+End          { focus-column-last; }
 
     // ── parity with the Hyprland config ─────────────────────────────────────
-    // A tap of Alt+Tab in KDE returns to the last window rather than walking
-    // the list, so that is what it does here too; Alt+Shift+Tab keeps the
-    // cycling. Mod+Tab lists every window on every workspace through the
-    // shared window-switch script.
-    Alt+Tab          { focus-window-previous; }
-    Alt+Shift+Tab    { focus-window-or-workspace-down; }
+    // Alt+Tab walks the windows in most-recently-used order, the way Windows
+    // and KDE do, through the shared alt-tab script: niri's own
+    // focus-window-previous only ever toggles between the last two. repeat is
+    // off so holding Tab does not fly through the list. Mod+Tab lists every
+    // window on every workspace through window-switch.
+    Alt+Tab       repeat=false { spawn "sh" "-c" r#"exec "$HOME/.local/bin/alt-tab""#; }
+    Alt+Shift+Tab repeat=false { spawn "sh" "-c" r#"exec "$HOME/.local/bin/alt-tab" prev"#; }
     // Routed through sh so $HOME expands: niri's environment block takes
     // literal strings, and the session PATH has no ~/.local/bin in it.
     Mod+Tab          { spawn "sh" "-c" "exec \"$HOME/.local/bin/window-switch\""; }
