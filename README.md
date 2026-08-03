@@ -184,7 +184,6 @@ bash script under `scripts/.local/bin/`:
 | `ros-docker`   | enter / create the ROS Noetic container                         |
 | `sha256-check` | verify a file's sha256                                          |
 | `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
-| `alt-tab`      | walk the windows in most-recently-used order (Alt+Tab)          |
 | `power-profile`| cycle power-saver → balanced → performance (Super+Shift+P)      |
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
@@ -279,18 +278,6 @@ one file, two locations, so the two toolkits cannot drift apart.
 rule but printed `Theme parsing error: gtk.css:164: 'filter' is not a valid
 property name` on the startup of every single GTK application. It is gone, and
 the `@import` now sits at the top of the file where CSS requires it to be.
-
-**Alt+Tab walks the MRU order without a switcher.**
-Neither compositor can do it on its own: niri's `focus-window-previous` and
-Hyprland's `focuscurrentorlast` toggle between the last two windows and nothing
-further. Both do keep the focus order though — `focus_timestamp` per window in
-niri, `focusHistoryID` in Hyprland — so `alt-tab` reads it rather than recording
-anything. The part that makes it behave like Windows: the order is **frozen** on
-the first press and walked on the ones that follow, because focusing a window
-makes it the most recent and the second press would otherwise come straight
-back. A cycle ends after 1.2 s of no presses (`RESET_MS`), which stands in for
-"Alt was released" — a compositor keybinding cannot see that. Cycling covers the
-current workspace, like KDE's default; `ALT_TAB_SCOPE=all` widens it.
 
 **Compositor `env` blocks do not reach systemd services.**
 `QT_QPA_PLATFORMTHEME=kde` set in `hyprland.conf` / `config.kdl` only reaches
