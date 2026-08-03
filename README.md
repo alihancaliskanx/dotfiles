@@ -279,6 +279,17 @@ rule but printed `Theme parsing error: gtk.css:164: 'filter' is not a valid
 property name` on the startup of every single GTK application. It is gone, and
 the `@import` now sits at the top of the file where CSS requires it to be.
 
+**Compositor `env` blocks do not reach systemd services.**
+`QT_QPA_PLATFORMTHEME=kde` set in `hyprland.conf` / `config.kdl` only reaches
+processes the compositor spawns itself. `xdg-desktop-portal-kde` is started by
+systemd on demand, so it never saw it and drew its file dialog in Qt's default
+light palette — the one dialog in the session that ignored rainynight.
+`services/.config/environment.d/10-qt-theme.conf` puts the variable where the
+systemd user manager reads it, which covers D-Bus activated services as well.
+Applying it to a running session takes
+`systemctl --user set-environment QT_QPA_PLATFORMTHEME=kde` plus a restart of the
+service; from the next login `environment.d` does it by itself.
+
 **Of KDE's own files only `kdeglobals` is tracked** (in the `theme` package,
 because it is what selects the rainynight colour scheme for Qt apps under
 niri/Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
