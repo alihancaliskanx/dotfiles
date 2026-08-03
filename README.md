@@ -266,11 +266,23 @@ KDE's `kde-gtk-config` tool generates `colors.css`, `window_decorations.css` and
 `assets/` under `~/.config/gtk-{3,4}.0/`, and appends its own `@import` to the
 end of `gtk.css` — meaning these files are rewritten on every KDE settings
 change. The css in the repo is the hand-written rainynight part. If you want to
-link it, `./link.sh -f link gtk`, but know that KDE will overwrite it.
+link it, `./link.sh -f link gtk`, but know that KDE will overwrite it. The
+package is therefore kept in sync by hand, not by a symlink; `colors.css` in it
+is a snapshot of what kde-gtk-config produced.
 
-**KDE's own `*rc` files are deliberately not tracked.**
-`kdeglobals`, `kwinrc` and `plasmarc` are constantly rewritten by KDE; tracking
-them would produce constant conflicts. The `kde` profile only links the common packages.
+`gtk-4.0/gtk.css` and `gtk-4.0/colors.css` are symlinks to the `gtk-3.0` ones —
+one file, two locations, so the two toolkits cannot drift apart.
+
+**GTK has no `filter` property.** The theme this css came from carried a
+`.svg-icon { filter: invert(…) … }` block, which is web CSS. GTK ignored the
+rule but printed `Theme parsing error: gtk.css:164: 'filter' is not a valid
+property name` on the startup of every single GTK application. It is gone, and
+the `@import` now sits at the top of the file where CSS requires it to be.
+
+**Of KDE's own files only `kdeglobals` is tracked** (in the `theme` package,
+because it is what selects the rainynight colour scheme for Qt apps under
+niri/Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
+rewritten by KDE and would produce constant conflicts.
 
 **`~/.config/git/config` is deliberately not in the repo.**
 `git config --global` writes the file with lock+rename, which replaces the
