@@ -32,7 +32,11 @@ mru_ids() {
     case "${XDG_CURRENT_DESKTOP:-}" in
       *niri*)
         local ws=""
-        [ "$SCOPE" = workspace ] && ws=$(niri msg -j windows | jq -r '.[] | select(.is_focused) | .workspace_id')
+        # From the workspace, not from the focused window: while a layer-shell
+        # surface holds the keyboard (fuzzel, the bar) no window is focused at
+        # all, and asking the window would silently widen the cycle to every
+        # workspace.
+        [ "$SCOPE" = workspace ] && ws=$(niri msg -j workspaces | jq -r '.[] | select(.is_active) | .id' | head -1)
         niri msg -j windows | jq -r --arg ws "$ws" '
             [ .[] | select($ws == "" or (.workspace_id | tostring) == $ws) ]
             | (map(select(.focus_timestamp != null))
@@ -42,7 +46,9 @@ mru_ids() {
         ;;
       *Hyprland*)
         local ws=""
-        [ "$SCOPE" = workspace ] && ws=$(hyprctl -j activewindow | jq -r '.workspace.id')
+        # activeworkspace, not activewindow: the latter is an empty object when
+        # nothing is focused, and the cycle would quietly cover every workspace.
+        [ "$SCOPE" = workspace ] && ws=$(hyprctl -j activeworkspace | jq -r '.id')
         hyprctl -j clients | jq -r --arg ws "$ws" '
             [ .[] | select(.mapped and (.title != "")) ]
             | [ .[] | select($ws == "" or (.workspace.id | tostring) == $ws) ]
