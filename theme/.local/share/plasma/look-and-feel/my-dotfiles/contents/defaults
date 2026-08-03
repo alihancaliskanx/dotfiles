@@ -1,0 +1,45 @@
+# What Plasma writes when this global theme is applied — from System Settings >
+# Colours & Themes > Global Theme, or with `plasma-apply-lookandfeel -a my-dotfiles`.
+#
+# Only the colours are ours. The widget style, decoration, icons and cursors are
+# all stock Breeze on purpose: they exist on any fresh Plasma install, so the
+# theme applies cleanly on a machine that has nothing but this repo checked out.
+#
+# Nothing inside this package may be a symlink out of it: KPackage drops every
+# file whose canonical path leaves the package directory, and it drops it
+# silently — the theme then applies as stock *light* Breeze. That is why the
+# palette is named here instead of shipped as a `colors` file next to this one:
+# a symlink to RainyNight.colors would be thrown away, and a copy would be a
+# second palette to keep in sync. The name is resolved out of
+# ~/.local/share/color-schemes, which is a plain directory scan, not KPackage,
+# so the scheme itself may stay a symlink into the repo.
+
+[kdeglobals][General]
+ColorScheme=RainyNight
+
+[kdeglobals][KDE]
+widgetStyle=Breeze
+
+[kdeglobals][Icons]
+Theme=breeze-dark
+
+[kcminputrc][Mouse]
+cursorTheme=breeze_cursors
+
+[plasmarc][Theme]
+name=default
+
+[kwinrc][org.kde.kdecoration2]
+library=org.kde.breeze
+theme=Breeze
+
+[ksplashrc][KSplash]
+Theme=org.kde.breeze.desktop
+
+# Resolved by name out of ~/.local/share/wallpapers, where the theme package
+# carries one: StarrySky, whose single image is the background every session
+# uses — hyprpaper under niri/Hyprland, and `plasmalogin-theme` on the login
+# screen. A name rather than a path, so that no tracked file has to hardcode
+# $HOME or the location of the repo.
+[Wallpaper]
+Image=StarrySky

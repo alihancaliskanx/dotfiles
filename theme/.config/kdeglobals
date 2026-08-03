@@ -133,15 +133,14 @@ ForegroundPositive=143,157,106
 ForegroundVisited=154,126,204
 
 [General]
-ColorScheme=RainyNight
-ColorSchemeHash=9d38eb71ded8ff549da26d57d7cbab9164da243a
+ColorSchemeHash=6614dd086ea1b297f351096b112ee17b3edaeb32
 DeviceLedsAccentColored=false
-TerminalApplication=alacritty
-TerminalService=Alacritty.desktop
+TerminalApplication=kitty
+TerminalService=kitty.desktop
 
 [KDE]
 AnimationDurationFactor=0.25
-LookAndFeelPackage=org.kde.breezedark.desktop
+LookAndFeelPackage=my-dotfiles
 contrast=4
 frameContrast=0.2
 

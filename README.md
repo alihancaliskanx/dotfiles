@@ -54,7 +54,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service` (systemd user unit)                         |
-| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes + `kdeglobals` |
+| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, `kdeglobals`, the `My Dotfiles` Plasma global theme |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
 Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
@@ -234,6 +234,44 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   compositors, that is what makes Dolphin, ark and gwenview follow rainynight
   under niri/Hyprland. KDE's own settings app rewrites `kdeglobals`; if it ever
   replaces the symlink with a real file, `./link.sh status` shows the conflict.
+- **the `My Dotfiles` global theme** — inside a Plasma session there is a second
+  route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
+  Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
+  `~/.local/share/plasma/look-and-feel/my-dotfiles` and names the palette rather
+  than shipping a copy of it, so there is still only one `RainyNight.colors`.
+  Everything else it sets is stock Breeze (widgets, decoration, icons, cursors)
+  on purpose: a fresh Plasma install has all of it, so the theme applies on a
+  machine that has nothing but this repo. It deliberately ships **no**
+  `contents/layouts/`, because a layout file would wipe the panels every time the
+  theme is applied. Applying it is also how a Plasma session that has reset
+  itself to Breeze gets back to rainynight.
+- **a KPackage may not contain a symlink** — and this one bites silently.
+  KPackage (Plasma's package loader: global themes, wallpapers, plasmoids) drops
+  every file whose *canonical* path leaves the package directory. `link.sh`
+  symlinks file by file, so each file inside a linked package resolves back into
+  the repo, i.e. outside the package — the global theme was selected, its
+  `defaults` was never read, and Plasma fell back to stock **light** Breeze with
+  no error anywhere. `LINK_AS_DIR` in `link.sh` is the fix: those directories are
+  linked with one symlink for the package root, which puts every file back
+  inside it. The rule that follows: nothing under
+  `.local/share/plasma/look-and-feel/` or `.local/share/wallpapers/` may itself
+  be a symlink. That is why `extras/backgrounds/starrysky.jpg` is the symlink and
+  the real jpg lives in the wallpaper package — the file has to be real where
+  KPackage reads it, and everything else points at that one copy.
+- **the global theme's wallpaper needs `--resetLayout`** — `[Wallpaper] Image=`
+  in `contents/defaults` is only applied together with the desktop layout, and
+  `plasma-apply-lookandfeel -a my-dotfiles` does not touch the layout (that would
+  wipe the panels). To set just the wallpaper:
+  `plasma-apply-wallpaperimage ~/.local/share/wallpapers/StarrySky`. Under
+  niri/Hyprland nothing of the sort is needed — hyprpaper reads the same image
+  from its config at startup.
+- **Plasma 6 writes theme choices to `~/.config/kdedefaults/`**, not to
+  `kdeglobals`. Applying a global theme puts `ColorScheme`, `Icons/Theme` and
+  `widgetStyle` there and *removes* the now-redundant keys from `kdeglobals` —
+  which is why `ColorScheme=RainyNight` disappears from the tracked file. Nothing
+  breaks: the whole `[Colors:*]` palette stays in `kdeglobals`, and that is what
+  Qt apps actually read under niri/Hyprland. `kdedefaults/` is not tracked, for
+  the same reason `kwinrc` is not.
 - **Packages come in two lists.** `install.sh` carries the curated one: what a
   fresh machine *should* have, grouped by what it is for. `extras/pacman-explicit.txt`
   and `extras/flatpak-apps.txt` carry the other one — everything this machine

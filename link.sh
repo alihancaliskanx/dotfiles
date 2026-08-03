@@ -37,6 +37,18 @@ DEFAULT_PROFILE="${DOTFILES_PROFILE:-hyprland}"
 # Packages in no profile at all, to be asked for by hand (reason in the README).
 EXTRA_PACKAGES=(fish gtk)
 
+# Directories linked as a whole instead of file by file, as paths relative to
+# $HOME. KPackage — what Plasma reads a global theme or a wallpaper out of —
+# refuses every file whose canonical path leaves the package directory, and a
+# per-file symlink always resolves back into the repo. It refuses them without a
+# word: the global theme is selected, its `defaults` is never read, and Plasma
+# falls back to stock *light* Breeze. One symlink for the package root keeps
+# every file inside it. Nothing under these paths may be a symlink either.
+LINK_AS_DIR=(
+    .local/share/plasma/look-and-feel/my-dotfiles
+    .local/share/wallpapers/StarrySky
+)
+
 DRY=0
 FORCE=0
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -55,11 +67,19 @@ usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${B
 # Lists every file inside a package as a path relative to $HOME.
 # Not directories, only files and symlinks; directories in the target are
 # created as needed. This way local files that are not in the repo
-# (e.g. ~/.config/btop/btop.conf) are left untouched.
+# (e.g. ~/.config/btop/btop.conf) are left untouched. The exception is
+# LINK_AS_DIR: such a directory is printed as itself and not descended into, so
+# the rest of the script links it with a single symlink.
 pkg_files() {
-    local pkg="$1"
+    local pkg="$1" d
+    local -a whole=()
     [ -d "$DOTFILES/$pkg" ] || die "no such package: $pkg"
-    find "$DOTFILES/$pkg" -mindepth 1 \( -type f -o -type l \) -printf '%P\n' | sort
+    for d in "${LINK_AS_DIR[@]}"; do
+        [ -d "$DOTFILES/$pkg/$d" ] || continue
+        whole+=(-path "$DOTFILES/$pkg/$d" -prune -printf '%P\n' -o)
+    done
+    find "$DOTFILES/$pkg" -mindepth 1 "${whole[@]+"${whole[@]}"}" \
+        \( -type f -o -type l \) -printf '%P\n' | sort
 }
 
 all_packages() {

@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "auraaauv@gmail.com",
+                "Name": "alihancaliskanx"
+            }
+        ],
+        "Category": "Global Themes",
+        "Description": "The rainynight dotfiles as one Plasma global theme: RainyNight colours over stock Breeze widgets, decorations and icons.",
+        "Id": "my-dotfiles",
+        "Name": "My Dotfiles",
+        "Version": "1.0.0",
+        "Website": "https://github.com/alihancaliskanx/dotfiles"
+    }
+}

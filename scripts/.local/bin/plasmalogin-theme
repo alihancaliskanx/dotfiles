@@ -8,7 +8,7 @@ GREETER_HOME=/var/lib/plasmalogin
 SELF="$(readlink -f "$0")"
 REPO="$(cd -- "$(dirname -- "$SELF")/../../.." && pwd)"
 SCHEME="${SCHEME:-$REPO/theme/.local/share/color-schemes/RainyNight.colors}"
-WALLPAPER="${WALLPAPER:-$REPO/extras/backgrounds/4.jpg}"
+WALLPAPER="${WALLPAPER:-$REPO/extras/backgrounds/starrysky.jpg}"
 BG_COLOR="${BG_COLOR:-#101010}"
 
 die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
@@ -19,7 +19,7 @@ usage() {
   cat <<'EOF'
 plasmalogin-theme — rainynight colours for the Plasma login screen
 
-  plasmalogin-theme               apply: rainynight colours + extras/backgrounds/4.jpg
+  plasmalogin-theme               apply: rainynight colours + extras/backgrounds/starrysky.jpg
   plasmalogin-theme <image>       apply: use another image as the background
   plasmalogin-theme --color       apply: solid colour instead of an image
   plasmalogin-theme status        show what is configured right now
