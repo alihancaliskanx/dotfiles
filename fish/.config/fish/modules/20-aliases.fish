@@ -15,6 +15,22 @@ alias f='flatpak'
 alias ll='command ls -lah'
 alias lt='eza -lT'
 
+# ── ssh ──────────────────────────────────────────────────────────────────────
+# kitty TERM'i olarak xterm-kitty kullanıyor ve karşı tarafta bu terminfo genelde
+# yok; o yüzden clear/less/htop/nano uzakta bozuluyor. `kitten ssh` ilk bağlantıda
+# terminfo'yu karşı makinenin ~/.terminfo dizinine kopyalıyor. Sadece kitty
+# içindeyken; diğer terminallerde düz ssh kalıyor. kitten ssh sadece interaktif
+# çalıştığı için stdin terminal değilse (borulu/scriptli kullanım) düz ssh'a düşüyor.
+if set -q KITTY_WINDOW_ID; and type -q kitten
+    function ssh --description 'kitty içindeyken terminfo taşıyan kitten ssh'
+        if isatty stdin
+            kitten ssh $argv
+        else
+            command ssh $argv
+        end
+    end
+end
+
 # ── git ──────────────────────────────────────────────────────────────────────
 alias gs='git status'
 alias ga='git add .'
