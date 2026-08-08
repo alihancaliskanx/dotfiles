@@ -164,6 +164,9 @@ binds {
     Mod+Shift+Space  { spawn "pkill" "-SIGUSR1" "waybar"; }
     Mod+B            { spawn "sh" "-c" "gtk-launch $(xdg-settings get default-web-browser)"; }
     Mod+E            { spawn "sh" "-c" "xdg-open ~"; }
+    // Spotify is a flatpak; hyprland.conf carries why this is `flatpak run`
+    // and not `gtk-launch com.spotify.Client`.
+    Mod+M            { spawn "flatpak" "run" "com.spotify.Client"; }
     Ctrl+Alt+Space   { spawn "claude-desktop"; }
     Mod+W            { close-window; }
     Mod+F            { fullscreen-window; }
