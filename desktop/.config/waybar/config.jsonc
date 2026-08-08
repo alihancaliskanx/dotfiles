@@ -11,6 +11,7 @@
   // the Windows taskbar. It used to be wrapped in a group/tray-expander
   // drawer, which kept every icon hidden behind a chevron until you clicked it.
   "modules-right": [
+    "mpris",
     "tray",
     "bluetooth",
     "network",
@@ -19,6 +20,28 @@
     "battery",
     "clock"
   ],
+  // cliamp is the player this is here for (a terminal Winamp; AUR cliamp-bin,
+  // in install.sh). It publishes org.mpris.MediaPlayer2, which is the same
+  // interface the playerctl media keys in hyprland.conf / config.kdl already
+  // drive, so nothing here is cliamp-specific — Spotify or mpv light it up too.
+  //
+  // The clicks are the module's own defaults, spelled out because they are the
+  // point of the module: left play/pause, middle previous, right next. With
+  // nothing playing there is no player on the bus and the module disappears.
+  "mpris": {
+    "format": "{status_icon} {dynamic}",
+    "format-stopped": "",
+    "status-icons": {
+      "playing": "󰐊",
+      "paused": "󰏤",
+      "stopped": "󰓛"
+    },
+    "dynamic-order": ["title", "artist"],
+    "title-len": 28,
+    "artist-len": 18,
+    "dynamic-len": 42,
+    "tooltip-format": "{player}  ({status})\n{title}\n{artist}\n{album}"
+  },
   "hyprland/workspaces": {
     "on-click": "activate",
     "format": "{icon}",

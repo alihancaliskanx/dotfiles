@@ -1,0 +1,14 @@
+# cliamp — D-Bus activation for its MPRIS name.
+#
+# Without this file waybar's mpris module logs
+#   GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name is not activatable
+# several times a second. The module asks D-Bus to start the player before it
+# talks to it, and an MPRIS name with no service file cannot be started that
+# way. The bar worked regardless — it fell back to the already running instance
+# — but the journal filled with the failure at the module's refresh rate.
+#
+# --daemon is cliamp's headless mode: no TUI, just the IPC socket and the MPRIS
+# interface, which is all that anything reaching it over D-Bus wants.
+[D-BUS Service]
+Name=org.mpris.MediaPlayer2.cliamp
+Exec=/usr/bin/cliamp --daemon

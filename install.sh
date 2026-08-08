@@ -134,6 +134,9 @@ AUR_PKGS=(
   # applications
   stremio ani-cli manga-tui legacylauncher appimagelauncher termius
   gnome-network-displays platypus gem debtap
+  # music: a terminal player that speaks MPRIS, so the media keys and waybar's
+  # mpris module drive it without any glue
+  cliamp-bin
 )
 
 echo "════════════════════════════════════════════════════════════"

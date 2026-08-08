@@ -53,7 +53,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `xdg`      | `mimeapps.list` — which application opens which file type        |
 | `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
-| `services` | `ssh-agent.service` (systemd user unit)                         |
+| `services` | `ssh-agent.service`, the Qt theme env, cliamp's D-Bus name      |
 | `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, `kdeglobals`, the `My Dotfiles` Plasma global theme |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 

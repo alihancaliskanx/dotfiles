@@ -39,6 +39,17 @@
   margin: 0 7.5px;
 }
 
+/* Sits ahead of the tray, so it keeps the window title off it on one side and
+   the app icons off it on the other. Paused dims: whether something is playing
+   is then readable at a glance, without parsing the icon. */
+#mpris {
+  margin: 0 12px 0 8px;
+}
+
+#mpris.paused {
+  opacity: 0.5;
+}
+
 /* Leads the right-hand cluster, so it needs breathing room before the status
    icons and only a small gap to the window title beside it. */
 #tray {
