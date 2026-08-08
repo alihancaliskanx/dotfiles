@@ -65,7 +65,7 @@ declare -A RICE_ABOUT=(
 # the same file. Everything else (scripts, git, services, xdg...) is rice
 # neutral and stays linked throughout.
 declare -A RICE_REPLACES=(
-    [imperative-dots]="hypr desktop terminal cli"
+    [imperative-dots]="hypr desktop cli"
 )
 
 # The compositor a rice needs, when it only runs on one. imperative-dots calls
