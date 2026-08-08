@@ -80,12 +80,14 @@ is common to all of them; the desktop-specific ones are added on top.
 ## link.sh
 
 ```bash
-./link.sh                      # link the default profile (hyprland)
+./link.sh                      # ask which desktop to use, then link it
 ./link.sh profile              # list the profiles
 ./link.sh profile niri         # link the packages of a profile
 ./link.sh link fish gtk        # link individual packages
 ./link.sh status               # which package is linked, which is not
 ./link.sh unlink nvim          # remove a single package
+./link.sh rice                 # list the desktops, show which one is on
+./link.sh rice imperative-dots # switch desktop
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
 ./link.sh -f ...               # rename a conflicting real file to .bak.<date> and link over it
 ```
@@ -94,6 +96,49 @@ A conflict is an **error** by default, nothing is silently overwritten.
 `unlink` only deletes symlinks pointing at this repo, it never touches real files.
 
 To change the default profile: `DOTFILES_PROFILE=niri ./link.sh`
+
+### rices — two desktops, one repo
+
+A **profile** picks the compositor; a **rice** picks the desktop on top of it.
+Run `./link.sh` with no arguments on a terminal and it asks which one:
+
+```
+Which desktop?  (on now: own)
+
+  1) Own Dotfiles      waybar, fuzzel, mako, satty, hyprpaper
+  2) imperative-dots   quickshell: bar, launcher, notifications, lock, wallpaper
+```
+
+| rice | where it lives |
+|---|---|
+| `own` | this repo — the profile packages |
+| `imperative-dots` | `~/Documents/Code/imperative-dots`, [a fork](https://github.com/alihancaliskanx/imperative-dots) of ilyamiro's config |
+
+A rice that is not this repo is **linked straight out of its own checkout** —
+nothing is vendored in here, no submodule, no copy. Upstream stays a `git pull`
+away in a repo of its own, and a fork is what makes local changes committable
+(inside a submodule they would sit on a detached HEAD that cannot be cloned
+anywhere else).
+
+Each foreign rice carries a `.linkmap` at its root saying where its directories
+belong under `$HOME`, because those trees are laid out for their own installer,
+not for a symlinker:
+
+```
+config/sessions/hyprland     .config/hypr
+config/programs/matugen      .config/matugen
+```
+
+Switching is always *take one out, put the other in*, never a merge — both want
+`~/.config/hypr` and whoever is linked there wins. `RICE_REPLACES` in `link.sh`
+lists the packages of this repo that a rice takes over (`hypr desktop terminal
+cli` for that one); everything rice-neutral (`scripts`, `git`, `services`,
+`xdg`, `shell`, `nvim`…) stays linked throughout. Log out and back in afterwards
+so the compositor re-reads its autostart.
+
+The menu only appears when stdin is a terminal. In a script or in CI a bare
+`./link.sh` still links the default profile, exactly as before, so nothing hangs
+on a prompt it cannot answer.
 
 ### adopt — pulling a file from $HOME into the repo
 
