@@ -521,9 +521,26 @@ rice_apply() {
 
 # ─── menu ────────────────────────────────────────────────────────────────────
 # Sets RICE_CHOICE. Only ever reached from a terminal; see the argument parsing.
+#
+# gum draws it when it is installed — arrow keys and a highlight instead of
+# typing a number. Its colours come from the GUM_* variables in the shell env,
+# so this passes no flags and stays in step with anything else that uses gum.
+# Without gum it falls back to a numbered prompt, so the script keeps working on
+# a machine where nothing has been installed yet.
 menu() {
     local cur choice
     cur="$(current_rice)"
+
+    if command -v gum >/dev/null 2>&1; then
+        choice=$(printf '%s\n' \
+            "own              ${RICE_ABOUT[own]}" \
+            "imperative-dots  ${RICE_ABOUT[imperative-dots]}" \
+            | gum choose --header "Which desktop?  (on now: $cur)") || exit 0
+        [ -n "$choice" ] || exit 0
+        RICE_CHOICE="${choice%% *}"
+        return
+    fi
+
     printf '%sWhich desktop?%s  (on now: %s%s%s)\n\n' "$CYN" "$RST" "$GRN" "$cur" "$RST"
     printf '  %s1)%s Own Dotfiles      %s%s%s\n' "$GRN" "$RST" "$DIM" "${RICE_ABOUT[own]}" "$RST"
     printf '  %s2)%s imperative-dots   %s%s%s\n' "$GRN" "$RST" "$DIM" "${RICE_ABOUT[imperative-dots]}" "$RST"

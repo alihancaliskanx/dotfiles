@@ -30,3 +30,19 @@ export PATH="$HOME/.local/bin:$PATH"
 # aurapilot autotest — only if the directory exists. (It does not exist right now; either create it or delete this.)
 [ -d "$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest" ] \
   && export PATH="$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH"
+
+# ── gum ──────────────────────────────────────────────────────────────────────
+# Blue, to match the desktop. gum reads these on every call, so the scripts that
+# use it (tor-control, link.sh) get one look without passing flags each time —
+# and anything added later inherits it for free.
+export GUM_CHOOSE_CURSOR_FOREGROUND="#89b4fa"
+export GUM_CHOOSE_SELECTED_FOREGROUND="#89b4fa"
+export GUM_CHOOSE_HEADER_FOREGROUND="#7d8291"
+export GUM_FILTER_INDICATOR_FOREGROUND="#89b4fa"
+export GUM_FILTER_MATCH_FOREGROUND="#89b4fa"
+export GUM_FILTER_PROMPT_FOREGROUND="#89b4fa"
+export GUM_INPUT_CURSOR_FOREGROUND="#89b4fa"
+export GUM_INPUT_PROMPT_FOREGROUND="#89b4fa"
+export GUM_CONFIRM_SELECTED_BACKGROUND="#89b4fa"
+export GUM_CONFIRM_PROMPT_FOREGROUND="#89b4fa"
+export GUM_SPIN_SPINNER_FOREGROUND="#89b4fa"

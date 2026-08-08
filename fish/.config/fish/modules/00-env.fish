@@ -32,3 +32,18 @@ fish_add_path $HOME/.local/bin
 if test -d $HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest
     fish_add_path $HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest
 end
+
+# ── gum ──────────────────────────────────────────────────────────────────────
+# Blue, matching the desktop. See the zsh module for why these live in env
+# rather than as flags in each script.
+set -gx GUM_CHOOSE_CURSOR_FOREGROUND "#89b4fa"
+set -gx GUM_CHOOSE_SELECTED_FOREGROUND "#89b4fa"
+set -gx GUM_CHOOSE_HEADER_FOREGROUND "#7d8291"
+set -gx GUM_FILTER_INDICATOR_FOREGROUND "#89b4fa"
+set -gx GUM_FILTER_MATCH_FOREGROUND "#89b4fa"
+set -gx GUM_FILTER_PROMPT_FOREGROUND "#89b4fa"
+set -gx GUM_INPUT_CURSOR_FOREGROUND "#89b4fa"
+set -gx GUM_INPUT_PROMPT_FOREGROUND "#89b4fa"
+set -gx GUM_CONFIRM_SELECTED_BACKGROUND "#89b4fa"
+set -gx GUM_CONFIRM_PROMPT_FOREGROUND "#89b4fa"
+set -gx GUM_SPIN_SPINNER_FOREGROUND "#89b4fa"
