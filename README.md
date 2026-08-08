@@ -178,6 +178,7 @@ bash script under `scripts/.local/bin/`:
 | Command        | What it does                                                   |
 |----------------|-----------------------------------------------------------------|
 | `net-proxy`    | turn the proxy on/off for `git`/`docker`/`ssh`/`sart` + `status` |
+| `net-tunnel`   | transparent tunnel for **all** TCP (glider): `on` / `off` / `status` / `check` |
 | `tor-net`      | Tor's upstream proxy: `proxy` / `direct` / `check` / `status`    |
 | `tor-control`  | Tor ControlPort + NEWNYM (gum TUI)                              |
 | `gclink`       | clone an AUR package and install it with `makepkg -si`          |
@@ -195,7 +196,55 @@ change its parent's environment, so these cannot be scripts: `proxy_on/off`,
 
 The old names are kept as aliases: `gitproxy_on`, `docker_proxy_on`,
 `ssh_proxy_on`, `sart_proxy_on`, `http_tor`, `normal_tor`, `tor_check`,
-`ros_docker`, `sha256_kontrol`.
+`ros_docker`, `sha256_kontrol`. `net-tunnel` has short forms too:
+`tunnel_on`, `tunnel_off`, `tunnel_status`, `tunnel_check`.
+
+#### `net-tunnel` — for what a proxy cannot be handed to
+
+`net-proxy` sets a proxy per application; `proxy_on` sets it for one shell.
+Neither reaches a program that has no idea what a proxy is. Steam is the
+textbook case, and `proxychains` does not save it either:
+
+- the Steam client is **32-bit** (`ubuntu12_32/steam`), so the 64-bit
+  `libproxychains4.so` is refused — `wrong ELF class: ELFCLASS64: ignored` —
+  and the process that does the actual downloading goes out unproxied,
+- `steamwebhelper` runs inside a **bubblewrap container** where
+  `/etc/proxychains.conf` is not mounted: `couldnt find configuration file`,
+- `LD_PRELOAD` hooks `connect()` and nothing else — static binaries and non-TCP
+  traffic slip past.
+
+`net-tunnel` works one layer down instead: **glider** (`redir://` listener +
+`http://` forwarder) + an **nftables** `nat output` redirect, so every TCP
+connection on the machine is pushed into the proxy no matter which process opens
+it. In PdaNet WiFi Direct mode UDP/53 does not work at all, so DNS is handed to
+systemd-resolved as **DNS-over-TLS** (TCP/853) — which then rides the same
+tunnel.
+
+```bash
+tunnel_on       # glider + nft + DoT, then plain `steam` just works
+tunnel_check    # DNS + Steam CDN + exit IP
+tunnel_off      # everything removed, back to the original state
+```
+
+> **Why glider and not redsocks.** The obvious tool for this is redsocks, and
+> the first version used it — but the blackarch build (`211.19b822e`) cannot
+> handle a *successful* CONNECT. An error reply (502) it parses and logs
+> correctly; on `200` — every variant, HTTP/1.0 and 1.1, `OK` and `Connection
+> established` — it accepts the client, sends the CONNECT and then sits there
+> silently until the client times out. It reproduces against a local fake proxy,
+> so it is not the phone's fault; the suspect is the `libevent version mismatch`
+> it warns about on startup. glider does the same job in one binary and is in
+> the repos.
+
+Nothing persistent is written: the transient systemd unit, the nft table and
+the resolved settings are all in RAM and gone after a reboot. Docker containers
+have their own netns and do not pass through the `output` hook — for those it is
+still `net-proxy docker on`.
+
+> The proxy allows CONNECT to 80/443/853 but blocks Steam's own CM ports
+> (27015-27050); Steam notices and falls back to CM-over-443, so the first login
+> can be slow. UDP is not tunnelled: voice chat and P2P will not work,
+> downloads and games will.
 
 The proxy address comes from a single place: **`PROXY_ADDR`** in `00-env`
 (default `192.168.49.1:8000`). The scripts read the same variable:

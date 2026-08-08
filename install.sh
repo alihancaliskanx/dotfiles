@@ -52,7 +52,10 @@ PKGS=(
   # network / proxy tools — net-proxy, tor-net, tor-control rely on these.
   # net-proxy tunnels ssh through corkscrew, or ncat (from nmap) if corkscrew
   # is not around — the fallback was silently in use on this machine.
-  tor proxychains-ng gum corkscrew
+  # net-tunnel is built out of these two: glider does the redir->HTTP-CONNECT
+  # forwarding, nftables holds the redirect table. (Not redsocks — see the
+  # net-tunnel section of the README for why.)
+  tor proxychains-ng gum corkscrew nftables glider
   # what the scripts package shells out to and nothing else pulls in: jq
   # (window-switch, hotkeys, the force-kill and screenshot bindings),
   # powerprofilesctl (power-profile), notify-send (libnotify)

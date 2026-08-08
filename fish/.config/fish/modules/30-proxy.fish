@@ -4,8 +4,9 @@
 # variables; a script cannot do that. Everything that touches persistent
 # configuration lives in the shared scripts (shared with zsh):
 #
-#   net-proxy git|docker|ssh|sart on|off    →  ~/.local/bin/net-proxy
-#   tor-net   proxy|direct|check|status     →  ~/.local/bin/tor-net
+#   net-proxy  git|docker|ssh|sart on|off   →  ~/.local/bin/net-proxy
+#   net-tunnel on|off|status|check          →  ~/.local/bin/net-tunnel
+#   tor-net    proxy|direct|check|status    →  ~/.local/bin/tor-net
 #   tor-control                             →  ControlPort / NEWNYM
 #
 # The address comes from $PROXY_ADDR in 00-env.fish.
@@ -66,6 +67,14 @@ alias sart_proxy_off='net-proxy sart off'
 alias http_tor='tor-net proxy'      # route Tor out via the phone proxy
 alias normal_tor='tor-net direct'   # go back to a direct connection
 alias tor_check='tor-net check'
+
+# ── transparent tunnel (Steam, Proton, 32-bit, containers) ───────────────────
+# proxychains cannot reach those — see the header of net-tunnel. With this on,
+# plain `steam` works; no `pc steam`.
+alias tunnel_on='net-tunnel on'
+alias tunnel_off='net-tunnel off'
+alias tunnel_status='net-tunnel status'
+alias tunnel_check='net-tunnel check'
 
 # ── proxychains / tornet ─────────────────────────────────────────────────────
 alias pc='proxychains'

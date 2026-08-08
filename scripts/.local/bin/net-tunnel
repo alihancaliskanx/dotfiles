@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+#
+# net-tunnel — pushes ALL of the machine's TCP traffic through the phone
+#              (PdaNet) HTTP proxy, transparently.
+#
+#   Sibling scripts: net-proxy  → per-service settings (git/docker/ssh/sart)
+#                    tor-net    → Tor's upstream proxy
+#   This script      → glider + nftables + DNS-over-TLS, for everything that
+#                      cannot be told about a proxy at all: Steam, 32-bit
+#                      binaries, pressure-vessel/bubblewrap containers, Proton.
+#
+# Why proxychains cannot do this job: it is an LD_PRELOAD hook, so it misses
+#   - the 32-bit Steam client (ubuntu12_32/steam) — "wrong ELF class: ELFCLASS64",
+#     the preload is dropped and the process goes out unproxied,
+#   - steamwebhelper — runs in a bubblewrap container where /etc/proxychains.conf
+#     is not mounted ("couldnt find configuration file"),
+#   - statically linked binaries and everything that is not a TCP connect().
+# glider sits below all of that, at the packet level: nothing can slip past.
+#
+# Why glider and not redsocks — this cost an afternoon, so it is written down:
+# the blackarch redsocks build (211.19b822e) CANNOT handle a successful CONNECT.
+# An error reply (502) it parses and logs correctly, but on "200" — every
+# variant, HTTP/1.0 and 1.1, "OK" and "Connection established" — it accepts the
+# client, sends the CONNECT, and then silently sits there until the client times
+# out. Reproducible against a local fake proxy, so it is not PdaNet's fault. The
+# suspect is the "libevent version mismatch" it warns about at startup: the
+# switch to relaying goes through bufferevent, the error path does not. glider
+# does the same job (redir:// listener + http:// forwarder), is a single binary
+# and is in the repos.
+#
+# Usage:
+#   net-tunnel on       glider + nft redirect + DoT DNS
+#   net-tunnel off      remove all of it, back to the original state
+#   net-tunnel status   what is running right now
+#   net-tunnel check    DNS + connection test (Steam CDN)
+#
+# Nothing persistent is written: the nft table, the transient systemd unit and
+# the resolved settings all live in RAM and are gone after a reboot. "off"
+# removes them in the right order.
+#
+# Docker containers have their own network namespace and do not pass through the
+# OUTPUT hook — for those use  net-proxy docker on.
+#
+# The address comes from $PROXY_ADDR, it can be overridden:
+#   PROXY_ADDR=10.0.0.1:3128 net-tunnel on
+
+set -uo pipefail
+
+PROXY_ADDR="${PROXY_ADDR:-192.168.49.1:8000}"
+PROXY_HOST="${PROXY_ADDR%%:*}"
+PROXY_PORT="${PROXY_ADDR##*:}"
+
+REDIR_PORT="${REDIR_PORT:-12345}"
+UNIT="net-tunnel-glider"
+# Earlier versions ran redsocks; a leftover unit from those is stopped too, so
+# that an upgrade in the middle of an open tunnel does not leave an orphan.
+LEGACY_UNIT="net-tunnel-redsocks"
+LEGACY_CONF="/run/net-tunnel.conf"
+NFT_TABLE="net_tunnel"
+
+# DNS-over-TLS servers. Plain UDP/53 cannot be tunnelled (an HTTP proxy only
+# speaks CONNECT, i.e. TCP), but DoT is TCP/853 — so it goes through the tunnel
+# like everything else. The part after "#" is the name the certificate is
+# verified against, it is not decoration.
+DOT_SERVERS="${DOT_SERVERS:-1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net}"
+
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+off()  { printf '  \e[31m✘\e[0m %s\n' "$*"; }
+warn() { printf '  \e[33m!\e[0m %s\n' "$*"; }
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+# Prints the header comment block: every line from 2 up to the first
+# non-comment line. Line-number ranges went stale whenever the header changed.
+usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
+
+# The interface holding the default route — the one whose DNS resolved has to be
+# told about. Written down rather than hardcoded to wlan0: the phone is
+# sometimes USB (enp0s20u1), sometimes WiFi Direct.
+default_iface() { ip route show default 2>/dev/null | awk '{print $5; exit}'; }
+
+# `sudo -n` on purpose: "status" must not stop and ask for a password. Whether
+# there is a usable sudo session is asked separately, so that a table that could
+# not be read is reported as unknown instead of being guessed at as absent.
+nft_active()   { sudo -n nft list table ip "$NFT_TABLE" >/dev/null 2>&1; }
+have_sudo()    { sudo -n true 2>/dev/null; }
+unit_active()  { systemctl is-active --quiet "$UNIT"; }
+port_open()    { ss -ltnH "sport = :$REDIR_PORT" 2>/dev/null | grep -q .; }
+
+# A single password prompt at the start, rather than one per sudo call in the
+# middle of the setup.
+sudo_prime()   { sudo -v || die "sudo is required"; }
+
+# ─── preflight ───────────────────────────────────────────────────────────────
+# If the proxy is not answering and we set the rules up anyway, every TCP
+# connection on the machine gets redirected into a dead end — including the one
+# that would be needed to fix it. So: check first, then touch anything.
+preflight() {
+    command -v glider >/dev/null || die "glider is not installed:  sudo pacman -S glider"
+    command -v nft    >/dev/null || die "nftables is not installed:  sudo pacman -S nftables"
+
+    timeout 4 bash -c "exec 3<>/dev/tcp/$PROXY_HOST/$PROXY_PORT" 2>/dev/null \
+        || die "the proxy is not answering: $PROXY_ADDR  (is PdaNet on? is the phone connected?)"
+    ok "proxy reachable: $PROXY_ADDR"
+}
+
+# ─── on ──────────────────────────────────────────────────────────────────────
+cmd_on() {
+    printf 'Transparent tunnel: \e[36m%s\e[0m → all TCP\n' "$PROXY_ADDR"
+    preflight
+    sudo_prime
+
+    local iface; iface="$(default_iface)"
+    [ -n "$iface" ] || die "no default route found — is the network up?"
+
+    # Idempotent: if something is left over from a previous run, clear it first.
+    teardown_quiet
+
+    # Steam opens hundreds of connections, so per-connection logging would flood
+    # the journal — it is off by default. When something does not work:
+    #   net-tunnel off && NET_TUNNEL_DEBUG=1 net-tunnel on
+    #   journalctl -u net-tunnel-glider -f
+    local -a dbg=()
+    [ -n "${NET_TUNNEL_DEBUG:-}" ] && dbg=(-verbose)
+
+    # A transient unit rather than /etc/systemd/system: it leaves no trace on the
+    # system, is gone after a reboot, and the logs still land in the journal.
+    # glider needs no config file, the two URLs say everything.
+    sudo systemd-run --unit="$UNIT" --collect \
+        --description="net-tunnel: glider → $PROXY_ADDR" \
+        /usr/bin/glider -listen "redir://127.0.0.1:$REDIR_PORT" \
+                        -forward "http://$PROXY_ADDR" "${dbg[@]}" >/dev/null 2>&1 \
+        || die "glider could not be started:  journalctl -u $UNIT -n 30"
+
+    for _ in $(seq 1 25); do port_open && break; sleep 0.2; done
+    port_open || { teardown_quiet
+                   die "glider is not listening on 127.0.0.1:$REDIR_PORT — journalctl -u $UNIT -n 30"; }
+    ok "glider → 127.0.0.1:$REDIR_PORT"
+
+    # The rules go in only after glider is listening: the other way round every
+    # connection would be sent to a closed port for a moment.
+    if ! sudo nft -f - <<EOF
+table ip $NFT_TABLE {
+    chain output {
+        type nat hook output priority -100; policy accept;
+
+        # The proxy itself is left out: glider's own outgoing connection also
+        # passes through this chain, and without this it would be redirected
+        # back into glider — an endless loop.
+        ip daddr $PROXY_HOST return
+
+        # Local and private networks stay off the tunnel (loopback, LAN, virbr0,
+        # multicast). Sending them to the proxy would break them.
+        ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
+
+        meta l4proto tcp redirect to :$REDIR_PORT
+    }
+}
+EOF
+    then
+        # Half a setup is worse than none: with glider up but no rules the
+        # traffic goes out unproxied, so everything is taken back down.
+        teardown_quiet
+        die "the nft rules could not be loaded — nothing was changed"
+    fi
+    ok "nft table '$NFT_TABLE' → all TCP redirected"
+
+    # DNS. In PdaNet WiFi Direct mode UDP/53 does not work at all, so plain DNS
+    # is dead; DoT runs over TCP and therefore rides the tunnel above.
+    # shellcheck disable=SC2086
+    if sudo resolvectl dns "$iface" $DOT_SERVERS 2>/dev/null \
+       && sudo resolvectl dnsovertls "$iface" yes 2>/dev/null \
+       && sudo resolvectl domain "$iface" '~.' 2>/dev/null; then
+        sudo resolvectl flush-caches 2>/dev/null
+        ok "DNS → DoT ${DOT_SERVERS%% *} ($iface)"
+    else
+        warn "resolved could not be configured — DNS may not work. systemd-resolved active?"
+    fi
+
+    printf '\n'
+    if timeout 12 getent hosts store.steampowered.com >/dev/null 2>&1; then
+        ok "name resolution works"
+        printf '\nNow plain \e[36msteam\e[0m is enough — no proxychains.\n'
+        printf 'To close it: \e[36mnet-tunnel off\e[0m\n'
+    else
+        warn "name resolution did not come up yet; give it a few seconds, then: net-tunnel check"
+    fi
+}
+
+# ─── off ─────────────────────────────────────────────────────────────────────
+# The order is the reverse of "on": first the rules go, so that no traffic is
+# left pointing at a glider that is about to die.
+teardown_quiet() {
+    local iface u; iface="$(default_iface)"
+    sudo nft delete table ip "$NFT_TABLE" 2>/dev/null
+    for u in "$UNIT" "$LEGACY_UNIT"; do
+        sudo systemctl stop "$u" 2>/dev/null
+        sudo systemctl reset-failed "$u" 2>/dev/null
+    done
+    sudo rm -f "$LEGACY_CONF" 2>/dev/null
+    [ -n "$iface" ] && sudo resolvectl revert "$iface" 2>/dev/null
+    sudo resolvectl flush-caches 2>/dev/null
+    return 0
+}
+
+cmd_off() {
+    printf 'Removing the transparent tunnel...\n'
+    sudo_prime
+    local had=0
+    nft_active  && had=1
+    unit_active && had=1
+    teardown_quiet
+    if [ "$had" -eq 1 ]; then
+        off "tunnel closed — nft table, glider and DoT DNS removed"
+    else
+        warn "the tunnel was already not running; cleaned up anyway"
+    fi
+    printf '  \e[2mDNS is back to what NetworkManager provides. Without the tunnel there is no\n'
+    printf '  direct internet in PdaNet mode: use proxy_on / net-proxy.\e[0m\n'
+}
+
+# ─── status ──────────────────────────────────────────────────────────────────
+cmd_status() {
+    printf 'Proxy address: \e[36m%s\e[0m\n' "$PROXY_ADDR"
+    unit_active && ok "glider: active ($UNIT)"        || off "glider: not running"
+    port_open   && ok "127.0.0.1:$REDIR_PORT: listening" || off "127.0.0.1:$REDIR_PORT: closed"
+    if   nft_active;  then ok   "nft '$NFT_TABLE': loaded"
+    elif have_sudo;   then off  "nft '$NFT_TABLE': not there"
+    else                   warn "nft '$NFT_TABLE': cannot be read (sudo nft list table ip $NFT_TABLE)"
+    fi
+
+    local iface; iface="$(default_iface)"
+    if [ -n "$iface" ]; then
+        local dot; dot="$(resolvectl status "$iface" 2>/dev/null | grep -m1 -o '[+-]DNSOverTLS')"
+        local srv; srv="$(resolvectl status "$iface" 2>/dev/null | awk -F': ' '/Current DNS Server/{print $2; exit}')"
+        [ "$dot" = "+DNSOverTLS" ] && ok "DNS ($iface): DoT → ${srv:-?}" \
+                                   || off "DNS ($iface): plain → ${srv:-none}"
+    fi
+}
+
+# ─── check ───────────────────────────────────────────────────────────────────
+cmd_check() {
+    # --noproxy '*' on purpose: if http_proxy is set in the shell curl would use
+    # it and we would be testing that, not the tunnel. This way what is measured
+    # is genuinely the transparent path.
+    printf 'DNS      : '
+    if timeout 12 getent hosts client-update.steamstatic.com >/dev/null 2>&1; then
+        printf '\e[32mok\e[0m (%s)\n' "$(getent hosts client-update.steamstatic.com | awk '{print $1; exit}')"
+    else
+        printf '\e[31mFAIL\e[0m — no name resolution\n'
+    fi
+
+    printf 'Steam CDN: '
+    local code
+    code=$(timeout 20 curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' \
+           https://client-update.steamstatic.com/steam_client_ubuntu12 2>/dev/null)
+    [ "$code" = "200" ] && printf '\e[32mok\e[0m (HTTP %s)\n' "$code" \
+                        || printf '\e[31mFAIL\e[0m (HTTP %s)\n' "${code:-000}"
+
+    printf 'Exit IP  : '
+    timeout 20 curl -sS --noproxy '*' --max-time 15 https://api.ipify.org 2>/dev/null || printf 'could not be read'
+    printf '\n'
+
+    # The proxy denies CONNECT to Steam's own CM ports (27015-27050); it only
+    # allows 80/443/853. Steam notices this and falls back to the CM servers on
+    # 443, so login works, it can just take longer the first time.
+    printf '\n\e[2mNote: the proxy blocks ports 27015-27050, Steam falls back to CM-over-443.\n'
+    printf 'Login may be slow the first time. UDP is not tunnelled: voice chat and P2P\n'
+    printf 'will not work, downloads and games will.\e[0m\n'
+}
+
+case "${1:-status}" in
+    on|start)   cmd_on ;;
+    off|stop)   cmd_off ;;
+    status)     cmd_status ;;
+    check|test) cmd_check ;;
+    -h|--help|help) usage ;;
+    *) die "unknown command: $1  (on|off|status|check)" ;;
+esac
