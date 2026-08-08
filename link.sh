@@ -77,6 +77,15 @@ declare -A RICE_NEEDS=(
     [imperative-dots]="Hyprland"
 )
 
+# What each rice actually runs. A rice is not only its symlinks: a bar left
+# running after its config was unlinked keeps drawing from a file that is no
+# longer there, and starting the other one on top gives you two bars fighting
+# over the same strip of screen. Switching stops one set and starts the other.
+declare -A RICE_RUNS=(
+    [own]="waybar hyprpaper"
+    [imperative-dots]="quickshell awww-daemon"
+)
+
 # Directories linked as a whole instead of file by file, as paths relative to
 # $HOME. KPackage — what Plasma reads a global theme or a wallpaper out of —
 # refuses every file whose canonical path leaves the package directory, and a
@@ -403,6 +412,57 @@ list_rices() {
     printf '\n  %susage: ./link.sh rice <name>%s\n' "$DIM" "$RST"
 }
 
+# waybar is a systemd user unit so that it comes back on its own after a crash;
+# the others are plain processes the compositor would normally exec-once.
+proc_start() {
+    case "$1" in
+        waybar)      systemctl --user start waybar >/dev/null 2>&1 ;;
+        quickshell)  setsid quickshell -p "$HOME/.config/hypr/scripts/quickshell/Shell.qml" >/dev/null 2>&1 & ;;
+        *)           setsid "$1" >/dev/null 2>&1 & ;;
+    esac
+}
+
+proc_stop() {
+    case "$1" in
+        waybar) systemctl --user stop waybar >/dev/null 2>&1 ;;
+        *)      pkill -x "$1" 2>/dev/null ;;
+    esac
+}
+
+# Re-read the compositor config, so the new keybindings are live before the new
+# bar is. Without this the desktop is half of each until the next login.
+compositor_reload() {
+    case "${XDG_CURRENT_DESKTOP:-}" in
+        *Hyprland*) hyprctl reload >/dev/null 2>&1 ;;
+        *niri*)     niri msg action load-config-file >/dev/null 2>&1 ;;
+    esac
+}
+
+# Stops what the other rices run, starts what this one does. Skipped entirely
+# without a Wayland session — linking from a tty is a legitimate thing to do
+# (setting a machine up before logging in) and there is nothing to restart there.
+rice_procs() {
+    local want="$1" r p
+    [ "$DRY" -eq 1 ] && { dim "would restart: ${RICE_RUNS[$want]:-none}"; return 0; }
+    [ -n "${WAYLAND_DISPLAY:-}" ] || { dim "no wayland session — not touching any processes"; return 0; }
+
+    for r in own "${!RICES[@]}"; do
+        [ "$r" = "$want" ] && continue
+        for p in ${RICE_RUNS[$r]:-}; do
+            pgrep -x "$p" >/dev/null 2>&1 || continue
+            proc_stop "$p"; dim "stopped  $p"
+        done
+    done
+
+    compositor_reload
+
+    for p in ${RICE_RUNS[$want]:-}; do
+        if pgrep -x "$p" >/dev/null 2>&1; then dim "running  $p"; continue; fi
+        command -v "$p" >/dev/null 2>&1 || { warn "$p is not installed"; continue; }
+        proc_start "$p"; dim "started  $p"
+    done
+}
+
 # Switching is always "take the other one out, then put this one in", never a
 # merge: both rices want ~/.config/hypr and whoever is linked there wins.
 rice_apply() {
@@ -430,8 +490,10 @@ rice_apply() {
                 "$DIM" "$rice" "${RICE_REPLACES[$rice]:-none}" "$RST"
             ;;
     esac
-    [ "$rc" -eq 0 ] && [ "$DRY" -eq 0 ] && \
-        printf '%sLog out and back in for the compositor to pick it up.%s\n' "$DIM" "$RST"
+    if [ "$rc" -eq 0 ]; then
+        printf '\n'
+        rice_procs "$rice"
+    fi
 }
 
 # ─── menu ────────────────────────────────────────────────────────────────────

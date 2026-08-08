@@ -131,10 +131,18 @@ config/programs/matugen      .config/matugen
 
 Switching is always *take one out, put the other in*, never a merge — both want
 `~/.config/hypr` and whoever is linked there wins. `RICE_REPLACES` in `link.sh`
-lists the packages of this repo that a rice takes over (`hypr desktop terminal
-cli` for that one); everything rice-neutral (`scripts`, `git`, `services`,
-`xdg`, `shell`, `nvim`…) stays linked throughout. Log out and back in afterwards
-so the compositor re-reads its autostart.
+lists the packages of this repo that a rice takes over (`hypr desktop cli` for
+that one); everything rice-neutral (`scripts`, `git`, `services`, `xdg`,
+`shell`, `nvim`, `terminal`…) stays linked throughout.
+
+Symlinks are only half of it, so `RICE_RUNS` names what each rice actually runs
+— `waybar hyprpaper` against `quickshell awww-daemon`. Switching stops one set,
+reloads the compositor config, and starts the other, because a bar left running
+after its config was unlinked keeps drawing from a file that is gone, and
+starting the other one on top gives you two bars fighting over the same strip.
+No logging out. A dry run says what it would restart and touches nothing, and
+with no `WAYLAND_DISPLAY` the whole step is skipped — linking from a tty to set
+a machine up is a legitimate thing to do.
 
 The menu only appears when stdin is a terminal. In a script or in CI a bare
 `./link.sh` still links the default profile, exactly as before, so nothing hangs
