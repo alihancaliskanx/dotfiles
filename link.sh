@@ -93,6 +93,12 @@ DRY=0
 FORCE=0
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
+# Paths a dry run said it would unlink. A real run has deleted them by the time
+# the next thing is linked over them; a dry run has not, so without remembering
+# them here every file two rices share would preview as a conflict that will
+# never happen.
+declare -A DRY_REMOVED=()
+
 RED=$'\e[31m'; GRN=$'\e[32m'; YLW=$'\e[33m'; CYN=$'\e[36m'; DIM=$'\e[2m'; RST=$'\e[0m'
 
 die()  { printf '%s✘ %s%s\n' "$RED" "$*" "$RST" >&2; exit 1; }
@@ -141,6 +147,13 @@ resolve_packages() {
 # Returns 0 linked, 1 already correct, 2 conflict.
 link_one() {
     local src="$1" rel="$2" own="$3" dst="$TARGET/$2" cur
+
+    # Already reported as unlinked earlier in this same dry run: the path is
+    # free as far as the preview is concerned.
+    if [ "$DRY" -eq 1 ] && [ -n "${DRY_REMOVED[$rel]+x}" ]; then
+        dim "will link  ~/${rel}"
+        return 0
+    fi
 
     if [ -L "$dst" ]; then
         cur="$(readlink "$dst")"
@@ -204,7 +217,7 @@ unlink_pkg() {
         dst="$TARGET/$rel"
         # Only remove symlinks pointing at this repo; leave real files alone.
         if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$DOTFILES/$pkg/$rel" ]; then
-            [ "$DRY" -eq 1 ] || rm -f "$dst"
+            if [ "$DRY" -eq 1 ]; then DRY_REMOVED["$rel"]=1; else rm -f "$dst"; fi
             n=$((n + 1))
         fi
     done < <(pkg_files "$pkg")
@@ -339,7 +352,7 @@ rice_unlink() {
     while IFS=$'\t' read -r src rel; do
         dst="$TARGET/$rel"
         if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
-            [ "$DRY" -eq 1 ] || rm -f "$dst"
+            if [ "$DRY" -eq 1 ]; then DRY_REMOVED["$rel"]=1; else rm -f "$dst"; fi
             n=$((n + 1))
         fi
     done < <(rice_pairs "$rice")
