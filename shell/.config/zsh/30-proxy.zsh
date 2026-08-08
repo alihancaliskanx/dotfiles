@@ -73,3 +73,13 @@ alias vmproxy='sudo /usr/local/bin/vm-proxy'         # VM proxy: on/off/status/t
 # ── proxy config files ───────────────────────────────────────────────────────
 alias pconfig='sudo nvim /etc/proxychains.conf'
 alias tconfig='sudo nvim /etc/tor/torrc'
+
+# ── follow net-auto ──────────────────────────────────────────────────────────
+# net-auto decides whether the phone proxy is there and writes the answer down;
+# net-auto.service keeps it current on every network change. Reading that file
+# is what makes a new shell start with the right http_proxy — probing here
+# instead would put a TCP timeout in front of every prompt on plain wifi.
+# proxy_off still wins for the rest of that shell's life.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/net-auto/state" ]]; then
+    [[ "$(<"${XDG_CACHE_HOME:-$HOME/.cache}/net-auto/state")" == on ]] && proxy_on >/dev/null
+fi

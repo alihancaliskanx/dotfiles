@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+#
+# net-auto — use the phone proxy when it is reachable, go direct when it is not.
+#
+# net-proxy is the manual switch, one target at a time. This is the thing that
+# decides: it opens a TCP connection to the proxy and applies the answer, so
+# tethering and plain wifi need no thought. The verdict is cached in a state
+# file that the shells read at startup, so a new terminal gets the right
+# http_proxy without probing again.
+#
+# docker is deliberately NOT automated. Turning it on writes into
+# /etc/systemd/system and restarts the daemon, which needs sudo and drops every
+# running container — not something to do behind your back. `net-proxy docker
+# on|off` stays manual; `net-auto status` says when it disagrees with the rest.
+#
+# Usage:
+#   net-auto             probe once and apply
+#   net-auto status      what is applied, and whether the proxy answers
+#   net-auto watch       apply again whenever NetworkManager changes anything
+#   net-auto on|off      force it, ignoring the probe
+#
+# Environment:
+#   PROXY_ADDR          proxy host:port          (default 192.168.49.1:8000)
+#   NET_AUTO_TIMEOUT    probe timeout, seconds   (default 2)
+
+set -uo pipefail
+
+PROXY_ADDR="${PROXY_ADDR:-192.168.49.1:8000}"
+PROXY_HOST="${PROXY_ADDR%%:*}"
+PROXY_PORT="${PROXY_ADDR##*:}"
+TIMEOUT="${NET_AUTO_TIMEOUT:-2}"
+
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/net-auto"
+STATE="$STATE_DIR/state"
+
+# The targets that need no root. docker is the one left out, see the header.
+TARGETS="git ssh sart"
+
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+off()  { printf '  \e[31m✘\e[0m %s\n' "$*"; }
+warn() { printf '  \e[33m!\e[0m %s\n' "$*"; }
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+head2() { printf '\n\e[36m%s\e[0m\n' "$*"; }
+
+usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
+
+command -v net-proxy >/dev/null || die "net-proxy is not on PATH (link the scripts package)"
+
+# A TCP connect, not a request: PdaNet answers on the port long before it is
+# willing to proxy, and anything heavier makes a wifi-only boot wait for a
+# timeout on every network event.
+proxy_reachable() {
+    timeout "$TIMEOUT" bash -c "exec 3<>/dev/tcp/$PROXY_HOST/$PROXY_PORT" 2>/dev/null
+}
+
+# What was applied last. Unknown on the first ever run, which is why apply()
+# does not trust it as a shortcut on its own.
+last_state() { [ -r "$STATE" ] && cat "$STATE" || printf 'unknown'; }
+
+apply() {
+    local want="$1" quiet="${2:-}" t
+    if [ "$want" = "$(last_state)" ]; then
+        [ -n "$quiet" ] || dim_note "already $want"
+        return 0
+    fi
+    for t in $TARGETS; do
+        if [ -n "$quiet" ]; then
+            net-proxy "$t" "$want" >/dev/null 2>&1
+        else
+            net-proxy "$t" "$want"
+        fi
+    done
+    mkdir -p "$STATE_DIR" && printf '%s\n' "$want" > "$STATE"
+    if command -v notify-send >/dev/null && [ -n "$quiet" ]; then
+        [ "$want" = on ] \
+            && notify-send -a net-auto -t 2500 "Proxy" "on — $PROXY_ADDR" \
+            || notify-send -a net-auto -t 2500 "Proxy" "off — direct connection"
+    fi
+}
+
+dim_note() { printf '  \e[2m%s\e[0m\n' "$*"; }
+
+decide() {
+    local quiet="${1:-}"
+    if proxy_reachable; then apply on "$quiet"; else apply off "$quiet"; fi
+}
+
+status_all() {
+    head2 "net-auto"
+    printf '  proxy address: %s\n' "$PROXY_ADDR"
+    if proxy_reachable; then ok "reachable"; else off "not reachable"; fi
+    printf '  last applied:  %s\n' "$(last_state)"
+
+    head2 "net-proxy"
+    net-proxy status | sed '1d'
+
+    # docker is manual, so it drifts. Say so rather than letting it surprise.
+    local want; want="$(last_state)"
+    if [ "$want" != unknown ]; then
+        local docker_on=no
+        [ -f /etc/systemd/system/docker.service.d/http-proxy.conf ] && docker_on=yes
+        if { [ "$want" = on ] && [ "$docker_on" = no ]; } || { [ "$want" = off ] && [ "$docker_on" = yes ]; }; then
+            printf '\n'; warn "docker does not match (it is manual):  net-proxy docker $want"
+        fi
+    fi
+}
+
+# NetworkManager tells us when anything changed; nmcli monitor is line based and
+# exits when NM restarts, which is why the unit restarts this. Every line simply
+# re-runs the decision — apply() does nothing when the answer has not changed,
+# so the extra events cost one TCP connect and no writes.
+watch_nm() {
+    command -v nmcli >/dev/null || die "nmcli is not installed"
+    decide quiet
+    nmcli monitor | while IFS= read -r line; do
+        case "$line" in
+            *connected*|*disconnected*|*Connectivity*|*"is now"*) decide quiet ;;
+        esac
+    done
+}
+
+case "${1:-status}" in
+    status|"")      status_all ;;
+    on)             apply on ;;
+    off)            apply off ;;
+    watch)          watch_nm ;;
+    auto|apply)     decide ;;
+    -h|--help|help) usage ;;
+    *)              die "unknown command: $1  (status|on|off|watch|auto)" ;;
+esac

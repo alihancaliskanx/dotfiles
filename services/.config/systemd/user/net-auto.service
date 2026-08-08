@@ -1,0 +1,21 @@
+[Unit]
+# Follows the network: proxy config when the phone is reachable, direct when it
+# is not. Event driven rather than polled — nmcli monitor blocks until
+# NetworkManager actually changes something, so an idle laptop does nothing.
+#
+# Not PartOf=graphical-session.target: the decision matters to git and ssh in a
+# plain tty as much as it does inside a session.
+Description=Apply the proxy config that matches the current network
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/net-auto watch
+# nmcli monitor exits when NetworkManager restarts; come back rather than
+# silently leaving the config frozen at whatever was last applied.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

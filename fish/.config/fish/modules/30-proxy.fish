@@ -85,3 +85,11 @@ alias vmproxy='sudo /usr/local/bin/vm-proxy'         # VM proxy: on/off/status/t
 # ── proxy config files ───────────────────────────────────────────────────────
 alias pconfig='sudo nvim /etc/proxychains.conf'
 alias tconfig='sudo nvim /etc/tor/torrc'
+
+# ── follow net-auto ──────────────────────────────────────────────────────────
+# See the zsh module: the state file is written by net-auto.service, and reading
+# it keeps a TCP timeout out of shell startup on networks with no proxy.
+set -l _na_state (test -n "$XDG_CACHE_HOME"; and echo $XDG_CACHE_HOME; or echo $HOME/.cache)/net-auto/state
+if test -r $_na_state; and test (cat $_na_state) = on
+    proxy_on >/dev/null
+end

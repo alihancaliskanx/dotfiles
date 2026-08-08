@@ -224,6 +224,7 @@ bash script under `scripts/.local/bin/`:
 |----------------|-----------------------------------------------------------------|
 | `net-proxy`    | turn the proxy on/off for `git`/`docker`/`ssh`/`sart` + `status` |
 | `net-tunnel`   | transparent tunnel for **all** TCP (glider): `on` / `off` / `status` / `check` |
+| `net-auto`     | proxy when the phone answers, direct when it does not — `status` / `watch` |
 | `tor-net`      | Tor's upstream proxy: `proxy` / `direct` / `check` / `status`    |
 | `tor-control`  | Tor ControlPort + NEWNYM (gum TUI)                              |
 | `gclink`       | clone an AUR package and install it with `makepkg -si`          |
@@ -243,6 +244,35 @@ The old names are kept as aliases: `gitproxy_on`, `docker_proxy_on`,
 `ssh_proxy_on`, `sart_proxy_on`, `http_tor`, `normal_tor`, `tor_check`,
 `ros_docker`, `sha256_kontrol`. `net-tunnel` has short forms too:
 `tunnel_on`, `tunnel_off`, `tunnel_status`, `tunnel_check`.
+
+#### `net-auto` — deciding, instead of remembering
+
+`net-proxy` is the switch; `net-auto` is what decides. It opens a TCP connection
+to the proxy and applies the answer to everything that needs no root — `git`,
+`ssh`, `sart` — so tethering and plain wifi need no thought:
+
+```bash
+net-auto            # probe once and apply
+net-auto status     # what is applied, and whether the proxy answers
+net-auto on|off     # force it, ignoring the probe
+```
+
+`net-auto.service` (a systemd **user** unit, in the `services` package) runs
+`net-auto watch`, which blocks on `nmcli monitor` and re-decides whenever
+NetworkManager changes anything. Event driven, not polled: an idle laptop does
+nothing at all. Applying is idempotent, so the extra events cost one TCP connect
+and no writes.
+
+The verdict is cached in `~/.cache/net-auto/state`, and both shell modules read
+that file at startup — which is what gives a new terminal the right `http_proxy`.
+Probing in the shell instead would put a TCP timeout in front of every prompt on
+a network with no proxy. `proxy_off` still wins for the rest of that shell.
+
+**docker is deliberately left out.** Turning it on writes into
+`/etc/systemd/system` and restarts the daemon — sudo, and every running
+container dies. That is not something to do behind your back, so
+`net-proxy docker on|off` stays manual; `net-auto status` points it out when it
+disagrees with the rest.
 
 #### `net-tunnel` — for what a proxy cannot be handed to
 

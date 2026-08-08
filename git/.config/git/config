@@ -19,3 +19,7 @@
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !/usr/bin/gh auth git-credential
+[http]
+	proxy = http://192.168.49.1:8000
+[https]
+	proxy = http://192.168.49.1:8000
