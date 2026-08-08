@@ -86,6 +86,22 @@ declare -A RICE_RUNS=(
     [imperative-dots]="quickshell awww-daemon"
 )
 
+# Real files a rice's own tooling writes at paths this repo also owns.
+#
+# matugen rewrites every theme file it knows about whenever the wallpaper or the
+# colour scheme changes, and one of its sixteen outputs lands on
+# ~/.config/swayosd/style.css -- which the desktop package wants to symlink. The
+# switch back then stopped with a CONFLICT that reads like something valuable is
+# about to be lost, when the file is generated and comes back the moment that
+# rice is used again.
+#
+# Only paths that are genuinely regenerated belong here. Removed on the way out,
+# and only when they really are files rather than symlinks: a symlink at one of
+# these paths belongs to a package and the loop above has already dealt with it.
+declare -A RICE_GENERATES=(
+    [imperative-dots]=".config/swayosd/style.css"
+)
+
 # Directories linked as a whole instead of file by file, as paths relative to
 # $HOME. KPackage — what Plasma reads a global theme or a wallpaper out of —
 # refuses every file whose canonical path leaves the package directory, and a
@@ -379,7 +395,7 @@ rice_link() {
 }
 
 rice_unlink() {
-    local rice="$1" src rel dst n=0
+    local rice="$1" src rel dst gen n=0 g=0
     [ -d "${RICES[$rice]:-}" ] || return 0      # not cloned, nothing of it is linked
     while IFS=$'\t' read -r src rel; do
         dst="$TARGET/$rel"
@@ -388,7 +404,19 @@ rice_unlink() {
             n=$((n + 1))
         fi
     done < <(rice_pairs "$rice")
-    ok "$(printf '%-16s %d symlinks removed' "$rice" "$n")"
+
+    for gen in ${RICE_GENERATES[$rice]:-}; do
+        dst="$TARGET/$gen"
+        [ -f "$dst" ] && [ ! -L "$dst" ] || continue
+        if [ "$DRY" -eq 1 ]; then DRY_REMOVED["$gen"]=1; else rm -f "$dst"; fi
+        g=$((g + 1))
+    done
+
+    if [ "$g" -gt 0 ]; then
+        ok "$(printf '%-16s %d symlinks removed, %d generated' "$rice" "$n" "$g")"
+    else
+        ok "$(printf '%-16s %d symlinks removed' "$rice" "$n")"
+    fi
 }
 
 # How many of a rice's files are actually linked right now.
