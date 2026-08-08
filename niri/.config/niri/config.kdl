@@ -70,19 +70,13 @@ overview {
     backdrop-color "#1e2030"
 }
 
-workspace "w1"
-workspace "w2"
-workspace "w3"
-workspace "w4"
-workspace "w5"
-workspace "w6"
-workspace "w7"
-workspace "w8"
-workspace "w9"
-// The stand-in for Hyprland's special:scratch workspace. niri drops it at the
-// front of the strip when the config is reloaded, so every workspace binding
-// below addresses its workspace by name rather than by index.
-workspace "scratch"
+// DIFF: no workspace declarations. Hyprland keeps ten workspaces whether or
+// not anything is on them; niri's strip is dynamic — a workspace exists while
+// it is used and disappears when it empties, with one spare always parked at
+// the end. Ten named workspaces were tried to pin 1-9/0 in place, but a named
+// workspace exists even while empty, so ten of them plus niri's spare meant
+// eleven entries in the overview and no setting hides the last one. The
+// bindings below address workspaces by index instead.
 
 // ─── environment variables ───────────────────────────────────────────────────
 environment {
@@ -215,30 +209,30 @@ binds {
     Mod+Ctrl+Shift+Down  { move-column-to-workspace-down; }
 
     // ── workspaces ──────────────────────────────────────────────────────────
-    // By name, not by index: a bare number is a position in the strip, and the
-    // scratch workspace shifts every one of them by one when niri puts it at
-    // the front. The names are pinned to the workspace, wherever it sits.
-    Mod+1 { focus-workspace "w1"; }
-    Mod+2 { focus-workspace "w2"; }
-    Mod+3 { focus-workspace "w3"; }
-    Mod+4 { focus-workspace "w4"; }
-    Mod+5 { focus-workspace "w5"; }
-    Mod+6 { focus-workspace "w6"; }
-    Mod+7 { focus-workspace "w7"; }
-    Mod+8 { focus-workspace "w8"; }
-    Mod+9 { focus-workspace "w9"; }
-    Mod+0 { focus-workspace "scratch"; }
+    // By index: a bare number is a position in the strip, and the strip only
+    // holds what is in use, so these reach as far as you have gone. The same
+    // ten keys as Hyprland, 0 being the tenth.
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+0 { focus-workspace 10; }
 
-    Mod+Shift+1 { move-column-to-workspace "w1"; }
-    Mod+Shift+2 { move-column-to-workspace "w2"; }
-    Mod+Shift+3 { move-column-to-workspace "w3"; }
-    Mod+Shift+4 { move-column-to-workspace "w4"; }
-    Mod+Shift+5 { move-column-to-workspace "w5"; }
-    Mod+Shift+6 { move-column-to-workspace "w6"; }
-    Mod+Shift+7 { move-column-to-workspace "w7"; }
-    Mod+Shift+8 { move-column-to-workspace "w8"; }
-    Mod+Shift+9 { move-column-to-workspace "w9"; }
-    Mod+Shift+0 { move-column-to-workspace "scratch"; }
+    Mod+Shift+1 { move-column-to-workspace 1; }
+    Mod+Shift+2 { move-column-to-workspace 2; }
+    Mod+Shift+3 { move-column-to-workspace 3; }
+    Mod+Shift+4 { move-column-to-workspace 4; }
+    Mod+Shift+5 { move-column-to-workspace 5; }
+    Mod+Shift+6 { move-column-to-workspace 6; }
+    Mod+Shift+7 { move-column-to-workspace 7; }
+    Mod+Shift+8 { move-column-to-workspace 8; }
+    Mod+Shift+9 { move-column-to-workspace 9; }
+    Mod+Shift+0 { move-column-to-workspace 10; }
 
     // hyprland.conf: bind = $mod, mouse_down/up, workspace, e+1 / e-1
     Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
@@ -282,13 +276,11 @@ binds {
     Mod+Q            { toggle-overview; }
     Mod+S            { toggle-overview; }
 
-    // DIFF: niri has no special workspace that overlays the current one, so
-    // "scratch" is a named workspace instead. focus=false is what makes it feel
-    // like Hyprland's movetoworkspacesilent — the window leaves, you stay put.
-    // Mod+D goes and looks at it; Mod+Escape (focus-workspace-previous) comes
-    // back from it.
-    Mod+Shift+Return { move-window-to-workspace "scratch" focus=false; }
-    Mod+D            { focus-workspace "scratch"; }
+    // DIFF: no scratchpad. Hyprland's Mod+S / Mod+Shift+Return toss a window
+    // onto a special workspace that overlays the current one and pulls back
+    // over it. niri has no such thing: the named workspace that stood in for
+    // it only ever sat at the end of the strip as one more place to walk to,
+    // which is not the same feature, so it and its bindings are gone.
 
     // DIFF: no `pin` in niri; a floating window belongs to one workspace and
     // cannot be shown on all of them.

@@ -30,6 +30,9 @@
   ],
   "niri/workspaces": {
     "format": "{icon}",
+    // By index — niri's workspaces have no names (see config.kdl), so the
+    // strip is as long as what is in use plus the one spare niri keeps at the
+    // end. Ten entries because that is as far as the number row goes.
     "format-icons": {
       "default": "",
       "1": "1",
