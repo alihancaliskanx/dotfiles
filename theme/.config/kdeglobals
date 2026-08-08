@@ -135,8 +135,8 @@ ForegroundVisited=154,126,204
 [General]
 ColorSchemeHash=6614dd086ea1b297f351096b112ee17b3edaeb32
 DeviceLedsAccentColored=false
-TerminalApplication=kitty
-TerminalService=kitty.desktop
+TerminalApplication=alacritty
+TerminalService=Alacritty.desktop
 
 [KDE]
 AnimationDurationFactor=0.25

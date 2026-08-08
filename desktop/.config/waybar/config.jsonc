@@ -47,13 +47,13 @@
   "custom/omarchy": {
     "format": "󰣇",
     "on-click": "fuzzel",
-    "on-click-right": "kitty",
+    "on-click-right": "alacritty",
     "tooltip-format": "Menu\n\nAlt + Space"
   },
   "cpu": {
     "interval": 5,
     "format": "󰍛",
-    "on-click": "kitty -e btop"
+    "on-click": "alacritty -e btop"
   },
   "hyprland/window": {
     "format": "{title}",
@@ -78,7 +78,7 @@
     "interval": 3,
     "spacing": 1,
     "on-click": "nm-connection-editor",
-    "on-click-right": "kitty -e nmtui"
+    "on-click-right": "alacritty -e nmtui"
   },
   "battery": {
     "format": "{capacity}% {icon}",
@@ -106,7 +106,7 @@
     "format-connected": "󰂱",
     "format-no-controller": "",
     "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "kitty -e bluetoothctl"
+    "on-click": "alacritty -e bluetoothctl"
   },
   "pulseaudio": {
     "format": "{icon}",

@@ -159,7 +159,7 @@ animations {
 binds {
     // Mod = Super ($mod in hyprland.conf)
 
-    Mod+Return       { spawn "kitty"; }
+    Mod+Return       { spawn "alacritty"; }
     Alt+Space        { spawn "fuzzel"; }
     Mod+Shift+Space  { spawn "pkill" "-SIGUSR1" "waybar"; }
     Mod+B            { spawn "sh" "-c" "gtk-launch $(xdg-settings get default-web-browser)"; }
