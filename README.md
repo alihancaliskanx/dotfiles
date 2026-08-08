@@ -54,7 +54,8 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service`, the Qt theme env, cliamp's D-Bus name      |
-| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, `kdeglobals`, the `My Dotfiles` Plasma global theme |
+| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, the `My Dotfiles` Plasma global theme |
+| `kdeglobals` | the palette Qt apps read outside Plasma — its own package because a rice may need to take it over |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
 Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
@@ -360,12 +361,24 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   brings it back if it dies and the output goes to `journalctl --user -u waybar`.
   `Mod+Shift+Space` still hides it with SIGUSR1, `systemctl --user reload waybar`
   re-reads the config.
-- **KDE colours outside Plasma** — the `theme` package carries both halves: the
-  scheme itself in `~/.local/share/color-schemes/RainyNight.colors` and the
-  `kdeglobals` that selects it. With `QT_QPA_PLATFORMTHEME=kde` set by both
-  compositors, that is what makes Dolphin, ark and gwenview follow rainynight
-  under niri/Hyprland. KDE's own settings app rewrites `kdeglobals`; if it ever
-  replaces the symlink with a real file, `./link.sh status` shows the conflict.
+- **KDE colours outside Plasma** — two halves in two packages: the scheme itself
+  in `theme` (`~/.local/share/color-schemes/RainyNight.colors`) and the
+  `kdeglobals` that selects it, which is a package of its own. With
+  `QT_QPA_PLATFORMTHEME=kde` set by both compositors, that is what makes
+  Dolphin, ark and gwenview follow rainynight under niri/Hyprland. KDE's own
+  settings app rewrites `kdeglobals`; if it ever replaces the symlink with a
+  real file, `./link.sh status` shows the conflict.
+
+  It is one file in a package of its own because it is the one thing in `theme`
+  a rice has to be able to take over. `kdeglobals` is where Qt apps read their
+  palette, and it is the *only* place that moves a KF6 app: dolphin ignores
+  qt6ct and `KDE_COLOR_SCHEME_PATH` alike. So imperative-dots, which colours the
+  desktop from the wallpaper, generates it — `RICE_REPLACES` unlinks the package
+  on the way in and `RICE_GENERATES` deletes what matugen wrote on the way out.
+  The split is what keeps that safe: matugen writes *through* a symlink, so had
+  the file stayed in `theme` (linked under every rice) the first wallpaper
+  change would have overwritten the tracked rainynight palette in this repo
+  rather than shadowing it.
 - **the `My Dotfiles` global theme** — inside a Plasma session there is a second
   route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
   Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
@@ -476,8 +489,8 @@ Applying it to a running session takes
 `systemctl --user set-environment QT_QPA_PLATFORMTHEME=kde` plus a restart of the
 service; from the next login `environment.d` does it by itself.
 
-**Of KDE's own files only `kdeglobals` is tracked** (in the `theme` package,
-because it is what selects the rainynight colour scheme for Qt apps under
+**Of KDE's own files only `kdeglobals` is tracked** (in the package of the same
+name, because it is what selects the rainynight colour scheme for Qt apps under
 niri/Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
 rewritten by KDE and would produce constant conflicts.
 

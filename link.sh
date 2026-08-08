@@ -30,7 +30,12 @@ DOTFILES="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${TARGET:-$HOME}"
 
 # Packages wanted in every install, independent of the compositor.
-COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme git xdg"
+#
+# kdeglobals is its own package rather than part of `theme` because it is the
+# one file in there a rice may need to take over: it is where Qt apps read
+# their palette from, so a rice that colours the desktop from the wallpaper has
+# to own it. Everything else in `theme` is rice neutral and stays put.
+COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme kdeglobals git xdg"
 
 # Profiles: package sets per desktop environment.
 declare -A PROFILES=(
@@ -65,7 +70,7 @@ declare -A RICE_ABOUT=(
 # the same file. Everything else (scripts, git, services, xdg...) is rice
 # neutral and stays linked throughout.
 declare -A RICE_REPLACES=(
-    [imperative-dots]="hypr desktop cli"
+    [imperative-dots]="hypr desktop cli kdeglobals"
 )
 
 # The compositor a rice needs, when it only runs on one. imperative-dots calls
@@ -95,11 +100,22 @@ declare -A RICE_RUNS=(
 # about to be lost, when the file is generated and comes back the moment that
 # rice is used again.
 #
+# ~/.config/kdeglobals is the same story with a sharper edge. It is what Qt apps
+# read their palette from -- dolphin above all -- so imperative-dots generates it
+# to colour them from the wallpaper, the way it colours everything else.
+#
+# The edge: matugen writes *through* a symlink rather than replacing it. Left
+# linked, its first run would not have produced a conflict at all; it would have
+# quietly overwritten kdeglobals/.config/kdeglobals inside this repo, and the
+# rainynight palette would have been gone with the next commit. That is why
+# kdeglobals is a package of its own and sits in RICE_REPLACES above: unlinked
+# before that rice runs, so matugen only ever writes a real file of its own.
+#
 # Only paths that are genuinely regenerated belong here. Removed on the way out,
 # and only when they really are files rather than symlinks: a symlink at one of
 # these paths belongs to a package and the loop above has already dealt with it.
 declare -A RICE_GENERATES=(
-    [imperative-dots]=".config/swayosd/style.css"
+    [imperative-dots]=".config/swayosd/style.css .config/kdeglobals"
 )
 
 # Directories linked as a whole instead of file by file, as paths relative to
