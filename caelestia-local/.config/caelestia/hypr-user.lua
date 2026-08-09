@@ -128,6 +128,16 @@ hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
 -- showing, so special-close reads the name off the focused monitor first.
 hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"))
 
+-- Pin the panel the pointer is over, so it stays when the pointer leaves — and
+-- press again to let go. The hover panels are otherwise unreadable the moment
+-- you look away from them.
+--
+-- It works by setting the flag the shell already keeps for "this was opened by
+-- a shortcut, so hover does not get to close it", which is why the patch behind
+-- it is small: nothing new had to be taught to the close paths. Only panels
+-- that have such a flag can be pinned — dashboard, osd, utilities, launcher.
+hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"))
+
 -- A second key for the launcher, next to caelestia's bare SUPER tap rather than
 -- instead of it. Not `hl.dsp.global("caelestia:launcher")`, which is what the
 -- tap uses: that global is handled on *release* (Shortcuts.qml), and on a

@@ -139,7 +139,18 @@ done
 
 # A manifest of what the overlay is made of, so the next run can tell whether
 # anything actually moved without comparing 283 files.
-find "$TMP" -mindepth 1 -printf '%P\t%y\t%l\n' | sort > "$TMP/$MARKER"
+#
+# The checksums of the patched files are part of it, and have to be: the paths
+# alone do not change when a .patch is edited, so an overlay compared on paths
+# only would report itself current and throw the newly patched content away.
+# That is not hypothetical — it is what happened the first time a patch grew.
+{
+    find "$TMP" -mindepth 1 -printf '%P\t%y\t%l\n' | sort
+    for rel in "${patched[@]+"${patched[@]}"}"; do
+        [ -f "$TMP/$rel" ] && [ ! -L "$TMP/$rel" ] || continue
+        printf '%s\t%s\n' "$rel" "$(sha256sum < "$TMP/$rel" | cut -d' ' -f1)"
+    done
+} > "$TMP/$MARKER"
 
 changed=1
 if [ -f "$DST/$MARKER" ] && cmp -s "$TMP/$MARKER" "$DST/$MARKER"; then

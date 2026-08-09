@@ -1,6 +1,14 @@
---- orig.qml	2026-08-10 01:12:43.353034947 +0300
-+++ new.qml	2026-08-10 01:12:43.362549084 +0300
-@@ -20,6 +20,7 @@
+--- base.qml	2026-08-10 02:16:37.212656668 +0300
++++ new.qml	2026-08-10 02:16:37.234736221 +0300
+@@ -1,6 +1,7 @@
+ import QtQuick
+ import QtQuick.Controls
+ import Quickshell
++import Quickshell.Io
+ import Caelestia.Config
+ import qs.components
+ import qs.components.controls
+@@ -20,9 +21,66 @@
  
      property point dragStart
      property bool dashboardShortcutActive
@@ -8,7 +16,66 @@
      property bool osdShortcutActive
      property bool utilitiesShortcutActive
  
-@@ -88,6 +89,9 @@
++    // ─── pinning ─────────────────────────────────────────────────────────────
++    // The hover panels close the moment the pointer leaves, which is right up
++    // until you want to read one. Nothing new has to be taught to the close
++    // paths to fix that: the *ShortcutActive flags already mean "this was not
++    // opened by hover, so hover does not get to close it". Pinning is setting
++    // that flag on whatever the pointer happens to be over.
++    //
++    // Only the panels that have such a flag can be pinned. The bar and the
++    // sidebar close through other paths and would need their own.
++    function pinnedAny(): bool {
++        return dashboardShortcutActive || osdShortcutActive || utilitiesShortcutActive || launcherShortcutActive;
++    }
++
++    function unpinAll(): void {
++        dashboardShortcutActive = false;
++        osdShortcutActive = false;
++        utilitiesShortcutActive = false;
++        launcherShortcutActive = false;
++    }
++
++    function pinHovered(): void {
++        const x = root.mouseX;
++        const y = root.mouseY;
++
++        if (inTopPanel(panels.dashboard, x, y))
++            dashboardShortcutActive = true;
++        else if (inRightPanel(panels.osdWrapper, x, y))
++            osdShortcutActive = true;
++        else if (inBottomPanel(panels.utilities, x, y, true))
++            utilitiesShortcutActive = true;
++        else if (inBottomPanel(panels.launcher, x, y))
++            launcherShortcutActive = true;
++    }
++
++    IpcHandler {
++        // One key both pins and lets go: pinning something while something else
++        // is already pinned would leave two panels stuck open with only one key
++        // to clear them.
++        function toggle(): void {
++            if (root.pinnedAny())
++                root.unpinAll();
++            else
++                root.pinHovered();
++        }
++
++        function pin(): void {
++            root.pinHovered();
++        }
++
++        function unpin(): void {
++            root.unpinAll();
++        }
++
++        target: "pin"
++    }
++
+     function withinPanelHeight(panel: Item, x: real, y: real): bool {
+         const panelY = root.borderThickness + panel.y;
+         return y >= panelY - Config.border.rounding && y <= panelY + panel.height + Config.border.rounding;
+@@ -88,6 +146,9 @@
  
              if (Config.sidebar.showOnHover)
                  screenState.sidebar = false;
@@ -18,7 +85,7 @@
          }
      }
  
-@@ -198,8 +202,12 @@
+@@ -198,8 +259,12 @@
  
          // Show launcher on hover, or show/hide on drag if hover is disabled
          if (Config.launcher.showOnHover) {
@@ -33,7 +100,7 @@
          } else if (pressed && inBottomPanel(panels.launcher, dragStart.x, dragStart.y) && withinPanelWidth(panels.launcher, x, y)) {
              if (dragY < -Config.launcher.dragThreshold)
                  screenState.launcher = true;
-@@ -249,6 +257,14 @@
+@@ -249,6 +314,14 @@
      // Monitor individual visibility changes
      Connections {
          function onLauncherChanged() {
