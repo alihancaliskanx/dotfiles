@@ -463,7 +463,13 @@ adopt_paths() {
 # the way out (config/sessions/hyprland becomes .config/hypr), because those
 # trees were laid out for home-manager, not for a symlinker.
 rice_pairs() {
-    local rice="$1" root="${RICES[$rice]:-}" map src dst rel
+    # Two `local`s and not one: in a single statement every argument is expanded
+    # before local runs, so ${RICES[$rice]} would read the *caller*'s rice and
+    # not the one just assigned. It happens to work today because every caller
+    # passes the rice it already has in scope, which is exactly the kind of
+    # accident that stops being one later (shellcheck SC2318).
+    local rice="$1"
+    local root="${RICES[$rice]:-}" map src dst rel
     [ -n "$root" ] || die "no such rice: $rice  (own ${!RICES[*]})"
     [ -d "$root" ] || die "$rice: its repo is not at $root — clone it first"
     # A fork can carry its .linkmap at its own root and keep it under version
@@ -485,7 +491,8 @@ rice_pairs() {
 }
 
 rice_link() {
-    local rice="$1" root="${RICES[$rice]}" src rel n_ok=0 n_new=0 n_conf=0
+    local rice="$1"
+    local root="${RICES[$rice]}" src rel n_ok=0 n_new=0 n_conf=0
     while IFS=$'\t' read -r src rel; do
         link_one "$src" "$rel" "$root"
         case "$?" in
@@ -810,6 +817,11 @@ list_profiles() {
         printf '  %s%-10s%s %s\n' "$GRN" "$p" "$RST" "${PROFILES[$p]}"
     done
     printf '\n  %soutside profiles (manual):%s %s\n' "$DIM" "$RST" "${EXTRA_PACKAGES[*]}"
+    # Rice-local packages belong to no profile on purpose — they go in with
+    # their rice and come out with it. Printed anyway because check.sh reads
+    # this listing to find packages nobody links, and "nobody" would otherwise
+    # include every one of these.
+    printf '  %sowned by a rice:%s %s\n' "$DIM" "$RST" "${RICE_LOCAL[*]}"
     printf '  %susage: ./link.sh profile <name>%s\n' "$DIM" "$RST"
 }
 

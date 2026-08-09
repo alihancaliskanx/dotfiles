@@ -86,7 +86,7 @@ fi
 # Directories that therefore have to be real rather than symlinked: every
 # ancestor of every patched file.
 declare -A real_dir=()
-for rel in ${patched[@]+"${patched[@]}"}; do
+for rel in "${patched[@]+"${patched[@]}"}"; do
     [ -f "$SRC/$rel" ] || die "patch for $rel, but the shell has no such file"
     d="$(dirname "$rel")"
     while [ "$d" != "." ] && [ "$d" != "/" ]; do
@@ -120,7 +120,7 @@ mirror ""
 
 # Punch the patched files through the mirror.
 rc=0
-for rel in ${patched[@]+"${patched[@]}"}; do
+for rel in "${patched[@]+"${patched[@]}"}"; do
     rm -f "$TMP/$rel"
     cp "$SRC/$rel" "$TMP/$rel"
     chmod u+w "$TMP/$rel"
