@@ -234,6 +234,33 @@ Symlinking these three is only safe because nothing generates them: the CLI and
 the shell both read them and never write back. Check that again before adding a
 fourth — see `RICE_GENERATES` just below for what happens when that is not true.
 
+The same package carries **the clipboard panel**, lifted out of imperative-dots
+and run as a quickshell config of its own from
+`~/.config/quickshell/clipboard`. caelestia's `SUPER+V` is `cliphist` piped into
+fuzzel — one line per entry, and no way to show you an image it is holding. This
+one lays the history out in a grid and renders the images.
+
+Upstream it is one page of a stack inside a single monolithic shell that also
+draws that rice's bar, notifications and lock, so there was no borrowing the
+page without borrowing the bar. What made it liftable is that
+`ClipboardManager.qml` is a plain `Item` that builds its own helpers and asks
+its parent for nothing — all it needed was a window, which is the `shell.qml`
+next to it. Four things changed in the copy: the path to `clip_fetcher.py`, the
+two calls into imperative-dots' IPC script that closed the panel (now
+`Qt.quit()`), and `MatugenColors.qml`, which read the file matugen writes and
+now reads `~/.local/state/caelestia/scheme.json` — caelestia publishes the same
+`base`/`surface0`/`mauve` names, so the panel follows `caelestia scheme set`
+with no mapping table. The file keeps its upstream name so it can still be
+diffed against where it came from.
+
+`SUPER+V` toggles it out of two exit codes: `qs kill -c clipboard` returns 0
+when it killed something and 255 when there was nothing to kill, so
+`qs kill -c clipboard || qs -c clipboard` opens it when it is closed and closes
+it when it is open. caelestia's own bind is dropped in `hypr-vars.lua`
+(`kbClipboard = {}`) rather than shadowed, since the action is written into its
+`keybinds.lua` and only the key is a variable. `SUPER+ALT+V` (delete an entry)
+and `CTRL+SHIFT+ALT+V` (paste the newest) are still caelestia's.
+
 caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
 into place, so a symlink at the target is destroyed rather than written through
 and this repo is never in danger — the opposite of matugen, below. What it

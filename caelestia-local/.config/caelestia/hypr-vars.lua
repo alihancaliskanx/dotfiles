@@ -67,6 +67,18 @@ return {
     kbCloseWindow = "SUPER + W",
     kbBrowser     = {},
 
+    -- Clipboard unbound here so hypr-user.lua can put the panel on SUPER+V
+    -- instead. The key is not what changes — the action is, and the action is
+    -- written into keybinds.lua rather than read from a variable, so the only
+    -- way to replace it is to drop caelestia's bind and add our own. Leaving
+    -- both would bind SUPER+V twice.
+    --
+    -- What it drops is `pkill fuzzel || caelestia clipboard`: cliphist piped
+    -- into fuzzel, one line per entry, no thumbnails. SUPER+ALT+V (delete an
+    -- entry) and CTRL+SHIFT+ALT+V (paste the newest) still use it and are left
+    -- alone.
+    kbClipboard   = {},
+
     -- Launcher off the bare SUPER tap and onto ALT+SPACE. Upstream's default is
     -- "SUPER + SUPER_L", which keybinds.lua special-cases: it is the only bind
     -- in the whole config that fires on key *release*, because a modifier has

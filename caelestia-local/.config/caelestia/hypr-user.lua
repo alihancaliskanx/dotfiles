@@ -120,6 +120,18 @@ hl.bind("SUPER + B", hl.dsp.exec_cmd(vars.browser))
 -- takes the process down without asking, so it should be awkward to hit.
 hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
 
+-- The clipboard panel from imperative-dots, running as its own quickshell
+-- config out of ~/.config/quickshell/clipboard (this same package). caelestia's
+-- own SUPER+V is fuzzel with cliphist piped into it, which cannot show an image
+-- it has in its history; this one lays the entries out in a grid and renders
+-- the images.
+--
+-- A toggle out of two exit codes: `qs kill` returns 0 when it killed something
+-- and 255 when there was nothing to kill, so the second half only runs when the
+-- panel was not already up. The panel closes itself on Escape and on picking an
+-- entry, so this is only for pressing SUPER+V twice.
+hl.bind("SUPER + V", hl.dsp.exec_cmd("qs kill -c clipboard || qs -c clipboard"))
+
 -- Move the window to a workspace. caelestia puts this on SUPER+ALT+number and
 -- leaves SUPER+SHIFT+number free; the hands here go to SHIFT. Built from
 -- caelestia's own wsaction so it obeys the same workspace-group arithmetic its
