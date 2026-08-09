@@ -66,8 +66,9 @@ PKGS=(
   qt5-wayland qt6-wayland
   brightnessctl playerctl pamixer
   wl-clipboard cliphist grim slurp satty swappy xsettingsd
-  # KDE integration outside Plasma: Qt apps read kdeglobals, and the portal
-  # serves the file dialogs (see the FileChooser pin in *-portals.conf)
+  # KDE integration outside Plasma: Qt apps read kdeglobals, and kdialog and
+  # kio-admin are what KDE apps shell out to. The portal file dialog is pinned
+  # to gtk in *-portals.conf, so the kde backend is not what serves it.
   xdg-desktop-portal-kde kdialog kio-admin
   # the icon theme kdeglobals names. Without it Qt has no Inherits chain to
   # follow and falls through to hicolor, which carries app icons and none of
