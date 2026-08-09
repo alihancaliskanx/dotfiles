@@ -265,11 +265,15 @@ clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Document
 # window comes up with GTK's bare built-in look while every other GTK app is
 # themed, which is confusing precisely because it is only the dialogs.
 #
-# Breeze-Dark comes with breeze-gtk in the package list above and carries real
-# gtk-3.0 and gtk-4.0 stylesheets, and it is what xsettingsd is already serving,
-# so naming it here makes all three sources of GTK settings agree.
+# Breeze and not Breeze-Dark, which is the trap: GTK3 does not switch to a dark
+# theme by name, it loads gtk-dark.css out of the theme it was given when
+# gtk-application-prefer-dark-theme is set. Breeze/gtk-3.0 ships both gtk.css and
+# gtk-dark.css; Breeze-Dark/gtk-3.0 ships only gtk.css and has no dark variant to
+# find. Naming Breeze-Dark leaves the dialog half dark and half light — the
+# header styled and the file list not. Breeze plus prefer-dark is the pair that
+# works, and is what kde-gtk-config writes into gtk-3.0/settings.ini already.
 echo ">> desktop settings..."
-gsettings set org.gnome.desktop.interface gtk-theme 'Breeze-Dark' 2>/dev/null || true
+gsettings set org.gnome.desktop.interface gtk-theme 'Breeze' 2>/dev/null || true
 gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true
 
 # ─── link the configs ────────────────────────────────────────────────────────
