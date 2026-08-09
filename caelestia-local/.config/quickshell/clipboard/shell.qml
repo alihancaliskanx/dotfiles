@@ -45,7 +45,7 @@ ShellRoot {
         // turns the blur to mud. The click-to-dismiss area stays.
         MouseArea {
             anchors.fill: parent
-            onClicked: Qt.quit()
+            onClicked: clip.close()
         }
 
         // The window is the whole screen so there is something to click on to
@@ -64,6 +64,8 @@ ShellRoot {
             height: Layout.s(700, scale)
 
             ClipboardManager {
+                id: clip
+
                 anchors.fill: parent
                 focus: true
             }

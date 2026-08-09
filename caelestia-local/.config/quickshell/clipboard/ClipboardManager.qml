@@ -211,7 +211,7 @@ Item {
 
     function copyToClipboard(id) {
         Quickshell.execDetached(["bash", "-c", "cliphist decode " + id + " | wl-copy"]);
-        Qt.quit();
+        window.close();
     }
 
     // Delete the highlighted entry and stay open, which is the whole point of
@@ -292,6 +292,37 @@ Item {
     NumberAnimation on introPhase {
         id: introPhaseAnim
         from: 0; to: 1; duration: 600; easing.type: Easing.OutExpo; running: true 
+    }
+
+    // Fade out before quitting rather than quitting outright.
+    //
+    // Qt.quit() tears the object tree down, and MatugenColors goes with it — at
+    // which point every colour on screen falls back to the Catppuccin defaults
+    // declared in it, and the last frame drawn is #1e1e2e blue-purple against a
+    // scheme that is near-black teal. That is the flash of a different colour on
+    // close. Nothing is wrong with the colours; the window is simply still
+    // visible while its source of them is being destroyed.
+    //
+    // Running introPhase back to 0 first means the surface is transparent before
+    // any of that starts, so there is no frame left to get it wrong.
+    property bool closing: false
+
+    NumberAnimation {
+        id: closeAnim
+        target: window
+        property: "introPhase"
+        to: 0
+        duration: 180
+        easing.type: Easing.InQuad
+        onFinished: Qt.quit()
+    }
+
+    function close() {
+        if (window.closing)
+            return;
+        window.closing = true;
+        introPhaseAnim.stop();
+        closeAnim.start();
     }
 
     Rectangle {
@@ -509,7 +540,7 @@ Item {
                         if (window.previewMode) {
                             window.previewMode = false;
                         } else {
-                            Qt.quit();
+                            window.close();
                         }
                         event.accepted = true;
                     }
