@@ -79,6 +79,15 @@ return {
     -- alone.
     kbClipboard   = {},
 
+    -- SUPER+SHIFT+Minus/Equal freed for volume, in hypr-user.lua. Upstream
+    -- gives window height two keys each — { "SUPER + SHIFT + Minus",
+    -- "SUPER + ALT + Up" } — so dropping the SHIFT pair costs the feature
+    -- nothing; SUPER+ALT+Up/Down still resizes, and SUPER+Minus/Equal still
+    -- does width. Named in full rather than filtered, because a list here
+    -- replaces the list there.
+    kbWindowDecreaseHeight = "SUPER + ALT + Up",
+    kbWindowIncreaseHeight = "SUPER + ALT + Down",
+
     -- kbLauncher is deliberately NOT set: the bare SUPER tap stays caelestia's.
     -- It was moved to ALT+SPACE here for a while and that was a mistake worth
     -- writing down, because the reason it half-worked is not obvious.

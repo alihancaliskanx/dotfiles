@@ -132,6 +132,43 @@ hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
 -- press and does not care about finger order.
 hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle launcher"))
 
+-- ─── media, as the Rainy-Night config had it ─────────────────────────────────
+-- SUPER+Space for play/pause and the numpad for volume and tracks. caelestia
+-- puts all of this on CTRL+SUPER (Space, Equal, Minus) and leaves these free,
+-- so this is addition rather than replacement — the CTRL+SUPER keys still work.
+--
+-- The volume commands are caelestia's own, read out of its variables rather
+-- than copied, so the step and the ceiling stay decided in one place and the
+-- shell's OSD behaves the same as it does for the XF86 keys. Note the asymmetry
+-- is upstream's and deliberate: raising passes -l (the ceiling) and lowering
+-- does not, because there is no floor to clamp to. Both unmute first, since
+-- reaching for the volume while muted means you want to hear something.
+local volume_up = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l " ..
+    (vars.volumeMax / 100) .. " @DEFAULT_AUDIO_SINK@ " .. vars.volumeStep .. "%+"
+local volume_down = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ " ..
+    vars.volumeStep .. "%-"
+
+-- locked so they work on the lock screen, and volume repeats when held — the
+-- same two flags caelestia gives the XF86 keys.
+local locked = { locked = true }
+local locked_repeating = { locked = true, repeating = true }
+
+hl.bind("SUPER + Space", hl.dsp.global("caelestia:mediaToggle"), locked)
+
+-- Volume on two pairs of keys. The numpad pair is what this config always had
+-- and the laptop does have one; the SHIFT pair is for reaching it without
+-- crossing the keyboard, and is why kbWindowIncreaseHeight moved.
+hl.bind("SUPER + KP_Add", hl.dsp.exec_cmd(volume_up), locked_repeating)
+hl.bind("SUPER + KP_Subtract", hl.dsp.exec_cmd(volume_down), locked_repeating)
+hl.bind("SUPER + SHIFT + Equal", hl.dsp.exec_cmd(volume_up), locked_repeating)
+hl.bind("SUPER + SHIFT + Minus", hl.dsp.exec_cmd(volume_down), locked_repeating)
+
+-- Tracks on the same keys plus CTRL, which is the shape the numpad pair had
+-- here before. CTRL+SUPER+Equal/Minus is caelestia's and is left alone, so
+-- next/previous answer to both.
+hl.bind("SUPER + CTRL + KP_Add", hl.dsp.global("caelestia:mediaNext"), locked)
+hl.bind("SUPER + CTRL + KP_Subtract", hl.dsp.global("caelestia:mediaPrev"), locked)
+
 -- The clipboard panel from imperative-dots, running as its own quickshell
 -- config out of ~/.config/quickshell/clipboard (this same package). caelestia's
 -- own SUPER+V is fuzzel with cliphist piped into it, which cannot show an image
