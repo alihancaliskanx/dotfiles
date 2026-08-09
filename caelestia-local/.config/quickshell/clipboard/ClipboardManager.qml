@@ -5,7 +5,6 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import Caelestia.Config
 // (Caching, Scaler and MatugenColors sit next to this file, so no import path)
 
 Item {
@@ -25,16 +24,28 @@ Item {
 
     MatugenColors { id: _theme }
 
-    // caelestia's own tokens, straight out of the Caelestia.Config plugin. The
-    // plugin is installed system-wide under /usr/lib/qt6/qml, so this separate
-    // quickshell instance can read the same rounding, spacing and font styles
-    // its shell uses — no numbers copied out by eye, and the panel follows
-    // anything changed in shell.json along with everything else.
+    // caelestia's tokens, copied rather than imported. Importing Caelestia.Config
+    // reads them at their source and would follow anything changed in
+    // shell.json — but the plugin *rewrites* shell.json when it loads, byte for
+    // byte identical and still a write, which the running shell sees as a config
+    // change and announces with a "Config loaded" toast. Every SUPER+V. These
+    // numbers are that plugin's values, read out of it once:
+    //   rounding  extraSmall 4  small 8  medium 12  large 16  extraLarge 28
+    //   font      body 16/14/12, label.small 11, family GoogleSansFlex
+    // Re-read them with a throwaway config if the shell ever looks out of step.
     //
     // Colours do NOT come from here: Colours is a singleton of the shell, not of
     // the plugin, and reaching into /etc/xdg/quickshell/caelestia for it would
     // be borrowing from a package directory. MatugenColors reads the same scheme
     // file the shell does, which gets to the same place by a shorter road.
+    readonly property int roundingSmall: 8
+    readonly property int roundingLarge: 16
+    readonly property int roundingExtraLarge: 28
+    readonly property font fontBodyLarge: Qt.font({ family: "GoogleSansFlex", pointSize: 16 })
+    readonly property font fontBodyMedium: Qt.font({ family: "GoogleSansFlex", pointSize: 14 })
+    readonly property font fontBodySmall: Qt.font({ family: "GoogleSansFlex", pointSize: 12 })
+    readonly property font fontLabelSmall: Qt.font({ family: "GoogleSansFlex", pointSize: 11, weight: Font.Medium })
+
     readonly property var m3: _theme
     readonly property color m3surfaceContainer: _theme.m3surfaceContainer
     readonly property color m3surfaceContainerHigh: _theme.m3surfaceContainerHigh
@@ -303,7 +314,7 @@ Item {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
 
-        radius: Tokens.rounding.extraLarge
+        radius: window.roundingExtraLarge
         color: window.m3surfaceContainer
         border.color: window.m3outlineVariant
         border.width: 0
@@ -395,7 +406,7 @@ Item {
                     Layout.fillHeight: true
                     background: Item {} 
                     color: window.m3onSurface
-                    font: Tokens.font.body.large
+                    font: window.fontBodyLarge
                     
                     placeholderText: "Search"
                     placeholderTextColor: window.subtext0 
@@ -592,7 +603,7 @@ Item {
                 policy: ScrollBar.AsNeeded
                 contentItem: Rectangle {
                     implicitWidth: window.s(4)
-                    radius: Tokens.rounding.full
+                    radius: width / 2
                     color: window.m3outlineVariant
                     opacity: 0.5
                 }
@@ -604,7 +615,7 @@ Item {
                     id: activeHighlight
                     width: clipList.cellWidth - window.s(10)
                     height: clipList.cellHeight - window.s(10)
-                    radius: Tokens.rounding.large
+                    radius: window.roundingLarge
                     color: window.m3primaryContainer
 
                     property int curIdx: clipList.currentIndex
@@ -635,7 +646,7 @@ Item {
                     width: parent.width - window.s(10)
                     height: parent.height - window.s(10)
                     
-                    radius: Tokens.rounding.large
+                    radius: window.roundingLarge
                     
                     color: ma.containsMouse && index !== clipList.currentIndex ? window.m3surfaceContainerHigh : "transparent"
                     Behavior on color { ColorAnimation { duration: 250; easing.type: Easing.OutSine } }
@@ -646,14 +657,14 @@ Item {
                         y: window.s(8)
                         width: window.s(22)
                         height: window.s(22)
-                        radius: Tokens.rounding.small
+                        radius: window.roundingSmall
                         
                         color: index === clipList.currentIndex ? window.m3primary : window.m3surfaceContainerHighest
                         
                         Text {
                             anchors.centerIn: parent
                             text: (index + 1)
-                            font: Tokens.font.label.small
+                            font: window.fontLabelSmall
                             color: index === clipList.currentIndex ? window.m3onPrimary : window.m3onSurfaceVariant
                         }
                     }
@@ -688,7 +699,7 @@ Item {
                             id: clipEntryText
                             anchors.fill: parent
                             text: model.content
-                            font: Tokens.font.body.small
+                            font: window.fontBodySmall
                             color: index === clipList.currentIndex ? window.m3onPrimaryContainer : window.m3onSurface
                             wrapMode: Text.Wrap
                             elide: Text.ElideRight
@@ -800,7 +811,7 @@ Item {
                     }
                     
                     color: window.m3onSurface
-                    font: Tokens.font.body.medium
+                    font: window.fontBodyMedium
                     wrapMode: TextEdit.Wrap
                     readOnly: true
                     selectByMouse: true

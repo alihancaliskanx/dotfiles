@@ -120,6 +120,14 @@ hl.bind("SUPER + B", hl.dsp.exec_cmd(vars.browser))
 -- takes the process down without asking, so it should be awkward to hit.
 hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
 
+-- One key that puts away whatever special workspace is on screen, whichever it
+-- is. The keys that open them (SUPER+S, M, D, R) are toggles and still close
+-- their own — this is the extra one for when you do not want to remember which
+-- one you are looking at. Hyprland has no dispatcher for it: without a name,
+-- togglespecialworkspace toggles the one called "special" rather than the one
+-- showing, so special-close reads the name off the focused monitor first.
+hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"))
+
 -- A second key for the launcher, next to caelestia's bare SUPER tap rather than
 -- instead of it. Not `hl.dsp.global("caelestia:launcher")`, which is what the
 -- tap uses: that global is handled on *release* (Shortcuts.qml), and on a
