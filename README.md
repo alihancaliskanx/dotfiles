@@ -281,6 +281,41 @@ depending on which finger comes up first. `ALT+SPACE` goes through the shell's
 IPC instead — `qs -c caelestia ipc call drawers toggle launcher`, the same
 toggle with no release in it, fired on the press.
 
+#### patching the shell without forking it
+
+Some of caelestia's behaviour is not configurable and lives in QML under
+`/etc/xdg/quickshell/caelestia`, which pacman owns. The launcher was one: with
+`showOnHover` on it opens when the pointer reaches the bottom of the screen and
+then never closes on its own, because `Interactions.qml` only ever assigns it
+`true` — the dashboard, three lines below, assigns the hover test itself and so
+closes when you leave. Escape, a click outside and picking an entry all closed
+it; moving the mouse away did not.
+
+Forking the tree into `~/.config/quickshell/caelestia`, which quickshell prefers
+over `/etc/xdg`, means owning 283 files and 12 MB to re-merge on every release
+for two changed lines. **`caelestia-shell-overlay`** makes that unnecessary, and
+it rests on one fact: quickshell resolves the `qs.` import prefix against the
+*config root directory*, not against wherever `shell.qml` really is. A symlinked
+`shell.qml` still loads `qs.modules.…` out of the directory the symlink sits in.
+So the overlay is a mirror of symlinks with real files punched through it only
+where something is patched — 29 links, two real directories and one real file
+for the launcher change, and the other 282 files keep tracking the package.
+
+Patches, not patched copies: `caelestia-local/.config/caelestia/shell-patches/`
+holds `<relpath>.patch` files. A stored copy of an upstream file goes stale in
+silence; a `.patch` either applies or fails, and a failure is how you learn
+upstream moved. When one fails the overlay leaves the plain symlink in place and
+exits non-zero — a shell that starts and behaves like the package beats a shell
+that does not start.
+
+That last part is the thing to remember: **the overlay must be rebuilt after
+every caelestia-shell upgrade**, because a release that adds a QML file leaves
+the overlay without it and a missing import is a shell that never comes up.
+`link.sh` builds it before starting the shell, and `hypr-user.lua` runs
+`caelestia-shell-overlay --restart-if-changed` at login — a no-op on an ordinary
+login, and on the one after an upgrade it rebuilds and restarts the shell before
+you notice.
+
 caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
 into place, so a symlink at the target is destroyed rather than written through
 and this repo is never in danger — the opposite of matugen, below. What it

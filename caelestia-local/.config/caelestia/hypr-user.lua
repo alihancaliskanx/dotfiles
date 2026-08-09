@@ -173,4 +173,13 @@ hl.on("hyprland.start", function()
     -- came back empty with nothing visible to explain why. Same line as
     -- hypr/hyprland.conf.
     hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE")
+
+    -- Keep the shell overlay in step with the package. caelestia starts its own
+    -- shell from execs.lua before this handler runs, so on the login after a
+    -- caelestia-shell upgrade the shell is already up on an overlay built
+    -- against the previous version. --restart-if-changed does nothing at all on
+    -- an ordinary login, and on that one login rebuilds and restarts the shell.
+    -- Without it an upgrade that adds a QML file leaves the overlay without it,
+    -- and a missing import is a shell that does not come up at all.
+    hl.exec_cmd("caelestia-shell-overlay --restart-if-changed")
 end)

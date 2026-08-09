@@ -585,7 +585,11 @@ proc_start() {
         # `caelestia shell -d` is `qs -c caelestia -n -d`, and -c only resolves
         # against the search path the AUR package installs into. Running the
         # binary bare, the way the default branch does, finds no config at all.
-        qs)          caelestia shell -d >/dev/null 2>&1 ;;
+        # The overlay first, and synchronously: it is what puts the patched
+        # shell in ~/.config/quickshell/caelestia, and starting the shell
+        # before it exists would load the packaged one for this session.
+        qs)          caelestia-shell-overlay --quiet 2>/dev/null
+                     caelestia shell -d >/dev/null 2>&1 ;;
         *)           setsid "$1" >/dev/null 2>&1 & ;;
     esac
 }
@@ -593,7 +597,10 @@ proc_start() {
 proc_stop() {
     case "$1" in
         waybar) systemctl --user stop waybar >/dev/null 2>&1 ;;
-        qs)     caelestia shell -k >/dev/null 2>&1 || pkill -x qs 2>/dev/null ;;
+        # qs kill addresses the instance by config name. `caelestia shell -k`
+        # does not always take, and a start on top of a shell that did not die
+        # leaves two of them fighting over the same strip of screen.
+        qs)     qs kill -c caelestia >/dev/null 2>&1 || pkill -x qs 2>/dev/null ;;
         *)      pkill -x "$1" 2>/dev/null ;;
     esac
 }

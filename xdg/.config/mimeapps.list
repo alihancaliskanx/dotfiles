@@ -31,12 +31,6 @@ application/x-extension-xht=userapp-Zen-2Z2QP3.desktop
 application/x-extension-xhtml=userapp-Zen-2Z2QP3.desktop
 application/x-yaml=org.gnome.TextEditor.desktop;
 application/xhtml+xml=userapp-Zen-2Z2QP3.desktop
-# Images and video have to be named explicitly. Zen is a flatpak and
-# ~/.local/share/flatpak/exports/share is the first entry in XDG_DATA_DIRS, so
-# with nothing set here its .desktop wins every image type it declares — and its
-# sandbox only reaches xdg-download, so an image opened from anywhere else fails
-# without a word. Video went the same way for a different reason: no default
-# meant the first name in mimeinfo.cache won, and that is Stremio.
 image/avif=org.kde.gwenview.desktop;
 image/bmp=org.kde.gwenview.desktop;
 image/gif=org.kde.gwenview.desktop;

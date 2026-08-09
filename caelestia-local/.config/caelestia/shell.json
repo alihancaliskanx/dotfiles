@@ -30,9 +30,17 @@
             "activeTrail": false
         }
     },
+    "general": {
+        "apps": {
+            "explorer": [
+                "nautilus",
+                "--new-window"
+            ]
+        }
+    },
     "launcher": {
         "enableDangerousActions": true,
-        "maxShown": 10,
+        "maxShown": 6,
         "maxWallpapers": 20,
         "showOnHover": true,
         "useFuzzy": {
