@@ -99,6 +99,9 @@ cursor {
 // The equivalent of the exec-once lines in hyprland.conf.
 spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
 spawn-at-startup "systemctl" "--user" "start" "waybar"
+// Keeps ksycoca fresh so Dolphin's "Open With" does not empty out — see the
+// same line in hyprland.conf.
+spawn-at-startup "kded6"
 // Same wallpaper, same ~/.config/hypr/hyprpaper.conf as Hyprland; the config
 // comes from the `desktop` package, which both profiles link.
 spawn-at-startup "hyprpaper"
