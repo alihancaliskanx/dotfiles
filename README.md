@@ -147,7 +147,12 @@ both of them, plus `kdeglobals` for imperative-dots); everything rice-neutral
 linked throughout. Going from one foreign rice to another takes the first one
 out too, and has to: imperative-dots writes `hyprland.conf` where caelestia
 writes `hyprland.lua`, so leaving them side by side is not even a conflict —
-Hyprland prefers lua and would keep running the one you just left.
+Hyprland prefers lua and would keep running the one you just left. Whatever the
+outgoing rice had taken over and the incoming one does not want is linked back
+at the same time: `kdeglobals` is replaced by imperative-dots and not by
+caelestia, and without that step the switch left it linked to nothing at all —
+KDE wrote a stub into the gap and every Qt app, plus everything reading the
+portal's `color-scheme`, came up light.
 
 Symlinks are only half of it, so `RICE_RUNS` names what each rice actually runs
 — `waybar hyprpaper` against `quickshell awww-daemon` against `qs`. Switching

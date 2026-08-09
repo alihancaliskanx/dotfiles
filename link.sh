@@ -680,6 +680,29 @@ rice_apply() {
             for r in "${!RICES[@]}"; do
                 [ "$r" = "$rice" ] || rice_unlink "$r"
             done
+            # ...and then give back what they had taken. rice_unlink only ever
+            # removes, and nothing here put anything back, so going from a rice
+            # that replaces a package straight to one that does not left that
+            # package unlinked with nothing said about it. kdeglobals is where
+            # it showed: imperative-dots replaces it, caelestia does not, and
+            # after the switch there was no kdeglobals at all. KDE wrote a stub
+            # of its own into the gap, Qt fell back to the default light
+            # palette, and everything that reads the portal's color-scheme --
+            # which kde-gtk-config derives from that same file -- went light
+            # with it. A white dolphin and a white zen, from a missing symlink.
+            #
+            # Only packages of the profile are handed back, the same list the
+            # "own" branch links, and only the ones this rice does not want for
+            # itself. link_pkg is a no-op on a package that is already linked.
+            local -A reclaim=()
+            for r in "${!RICES[@]}"; do
+                [ "$r" = "$rice" ] && continue
+                for p in ${RICE_REPLACES[$r]:-}; do reclaim["$p"]=1; done
+            done
+            for p in ${RICE_REPLACES[$rice]:-}; do unset "reclaim[$p]"; done
+            for p in ${PROFILES[$DEFAULT_PROFILE]}; do
+                if [ -n "${reclaim[$p]:-}" ]; then link_pkg "$p" || rc=1; fi
+            done
             for p in ${RICE_REPLACES[$rice]:-}; do unlink_pkg "$p"; done
             printf '\n'
             rice_link "$rice" || rc=1
