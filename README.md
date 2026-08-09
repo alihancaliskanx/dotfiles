@@ -89,6 +89,7 @@ is common to all of them; the desktop-specific ones are added on top.
 ./link.sh unlink nvim          # remove a single package
 ./link.sh rice                 # list the desktops, show which one is on
 ./link.sh rice imperative-dots # switch desktop
+./link.sh rice caelestia       # ditto
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
 ./link.sh -f ...               # rename a conflicting real file to .bak.<date> and link over it
 ```
@@ -98,7 +99,7 @@ A conflict is an **error** by default, nothing is silently overwritten.
 
 To change the default profile: `DOTFILES_PROFILE=niri ./link.sh`
 
-### rices — two desktops, one repo
+### rices — three desktops, one repo
 
 A **profile** picks the compositor; a **rice** picks the desktop on top of it.
 Run `./link.sh` with no arguments on a terminal and it asks which one:
@@ -106,13 +107,15 @@ Run `./link.sh` with no arguments on a terminal and it asks which one:
 ```
 Which desktop?  (on now: own)
 
-  1) Own Dotfiles      waybar, fuzzel, mako, satty, hyprpaper
-  2) imperative-dots   quickshell: bar, launcher, notifications, lock, wallpaper
+  1) own              waybar, fuzzel, mako, satty, hyprpaper
+  2) caelestia        quickshell from the AUR + its own lua Hyprland config
+  3) imperative-dots  quickshell: bar, launcher, notifications, lock, wallpaper
 ```
 
 | rice | where it lives |
 |---|---|
 | `own` | this repo — the profile packages |
+| `caelestia` | `caelestia-shell` from the AUR + `~/Documents/Code/caelestia`, upstream's [dots](https://github.com/caelestia-dots/caelestia) |
 | `imperative-dots` | `~/Documents/Code/imperative-dots`, [a fork](https://github.com/alihancaliskanx/imperative-dots) of ilyamiro's config |
 
 A rice that is not this repo is **linked straight out of its own checkout** —
@@ -121,29 +124,109 @@ away in a repo of its own, and a fork is what makes local changes committable
 (inside a submodule they would sit on a detached HEAD that cannot be cloned
 anywhere else).
 
-Each foreign rice carries a `.linkmap` at its root saying where its directories
-belong under `$HOME`, because those trees are laid out for their own installer,
-not for a symlinker:
+Each foreign rice needs a `.linkmap` saying where its directories belong under
+`$HOME`, because those trees are laid out for their own installer, not for a
+symlinker:
 
 ```
 config/sessions/hyprland     .config/hypr
 config/programs/matugen      .config/matugen
 ```
 
+A fork keeps that file at its own root and commits it there. An upstream
+checkout cannot: a file added to it is untracked noise in someone else's
+`git status` and is gone the next time it is cloned. For those the map lives
+here instead, as `extras/linkmaps/<rice>.linkmap`, and `link.sh` falls back to
+it — which is where caelestia's is.
+
 Switching is always *take one out, put the other in*, never a merge — both want
 `~/.config/hypr` and whoever is linked there wins. `RICE_REPLACES` in `link.sh`
 lists the packages of this repo that a rice takes over (`hypr desktop cli` for
-that one); everything rice-neutral (`scripts`, `git`, `services`, `xdg`,
-`shell`, `nvim`, `terminal`…) stays linked throughout.
+both of them, plus `kdeglobals` for imperative-dots); everything rice-neutral
+(`scripts`, `git`, `services`, `xdg`, `shell`, `nvim`, `terminal`…) stays
+linked throughout. Going from one foreign rice to another takes the first one
+out too, and has to: imperative-dots writes `hyprland.conf` where caelestia
+writes `hyprland.lua`, so leaving them side by side is not even a conflict —
+Hyprland prefers lua and would keep running the one you just left.
 
 Symlinks are only half of it, so `RICE_RUNS` names what each rice actually runs
-— `waybar hyprpaper` against `quickshell awww-daemon`. Switching stops one set,
-reloads the compositor config, and starts the other, because a bar left running
-after its config was unlinked keeps drawing from a file that is gone, and
-starting the other one on top gives you two bars fighting over the same strip.
-No logging out. A dry run says what it would restart and touches nothing, and
-with no `WAYLAND_DISPLAY` the whole step is skipped — linking from a tty to set
-a machine up is a legitimate thing to do.
+— `waybar hyprpaper` against `quickshell awww-daemon` against `qs`. Switching
+stops one set, reloads the compositor config, and starts the other, because a
+bar left running after its config was unlinked keeps drawing from a file that
+is gone, and starting the other one on top gives you two bars fighting over the
+same strip. A dry run says what it would restart and touches nothing, and with
+no `WAYLAND_DISPLAY` the whole step is skipped — linking from a tty to set a
+machine up is a legitimate thing to do.
+
+Usually that means no logging out. The exception is caelestia, and it is worth
+knowing about: Hyprland 0.56 chooses between `hyprland.lua` and `hyprland.conf`
+**once, at startup**, and `hyprctl reload` only re-reads the file it already
+chose. Coming from a rice that writes `.conf`, the reload therefore re-reads a
+file that has just been unlinked, Hyprland regenerates a stub in its place, and
+the session carries on as bare Hyprland with caelestia's bar drawn on top of
+it. Nothing errors; `hyprctl getoption decoration:rounding` just quietly says
+`0`. Nothing can fix that short of restarting the compositor, so `link.sh`
+compares `hyprctl systeminfo`'s `configProvider` against the config now on disk
+and says to log out when they disagree.
+
+#### caelestia — half AUR package, half checkout
+
+Unlike the other two, caelestia is not a config tree you can symlink. Its shell
+is a quickshell config compiled against a C++ plugin and installed system wide,
+so on Arch **the package is the whole of it**:
+
+```bash
+paru -S caelestia-shell caelestia-cli
+```
+
+`install.sh` carries both in its AUR list, and `./link.sh rice caelestia`
+checks for them with `pacman -Qq` before it touches anything — a rice that
+links cleanly and then comes up to an empty screen is the worse failure.
+
+> **Watch which package satisfies `quickshell-git`.** `caelestia-shell` depends
+> on it by name, and `cachyos/noctalia-qs` — a custom Quickshell fork — carries
+> `provides = quickshell quickshell-git`, so an AUR helper will happily take it
+> as the provider and replace the real `quickshell` with it. It is not one:
+> caelestia's `shell.qml` dies on `Unrecognized pragma "DefaultEnv ..."` and no
+> shell comes up. The repo's own `quickshell` (0.3.0) does have that pragma and
+> runs caelestia fine, so the way out is `sudo pacman -Rdd noctalia-qs && sudo
+> pacman -S quickshell` — `-Rdd` because `quickshell` does not *provide*
+> `quickshell-git` and a plain `-R` refuses on caelestia-shell's behalf. That
+> leaves the dependency formally unsatisfied and functionally fine.
+
+What is left over is the Hyprland config, and *that* is the checkout at
+`~/Documents/Code/caelestia` (cloned by `install.sh`). Nothing else from those
+dots is linked — the fish, foot, btop and vscode configs there are paths this
+repo already owns and the desktop changing is no reason for the shell prompt to
+change with it. `extras/linkmaps/caelestia.linkmap` says so line by line.
+
+> **Do not run `caelestia install`.** It is the CLI's own installer and it
+> *copies* those dots over `~/.config`, which is precisely the job `link.sh` is
+> doing — only with no way back and straight over this repo's symlinks.
+
+Upstream's config hard-codes a `us` keyboard and one preferred monitor, and
+knows nothing about this laptop's two GPUs. It reads
+`~/.config/caelestia/hypr-user.lua` last, so that is where the machine goes —
+outside both repos, which is why `link.sh` says so on the way in rather than
+shipping it:
+
+```lua
+hl.env("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
+hl.config({ input = { kb_layout = "tr" } })
+```
+
+Its variables — terminal, browser, gaps, every keybind — are overridden the
+same way from `~/.config/caelestia/hypr-vars.lua`, which takes a plain table:
+`return { terminal = "kitty", browser = "zen-browser" }`.
+
+caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
+into place, so a symlink at the target is destroyed rather than written through
+and this repo is never in danger — the opposite of matugen, below. What it
+leaves behind is a real file where a package wants its symlink back, so
+`RICE_GENERATES` clears `fuzzel.ini`, the cava config, `hypr/scheme/current.lua`
+and the two `gtk.css` on the way out. `gtk` is an extra package outside every
+profile, so the way back to `own` does not relink it: if you use it, run
+`./link.sh -f link gtk` afterwards.
 
 The menu only appears when stdin is a terminal. In a script or in CI a bare
 `./link.sh` still links the default profile, exactly as before, so nothing hangs
@@ -379,6 +462,11 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   the file stayed in `theme` (linked under every rice) the first wallpaper
   change would have overwritten the tracked rainynight palette in this repo
   rather than shadowing it.
+
+  caelestia leaves it alone and stays linked: it sets
+  `QT_QPA_PLATFORMTHEME=qtengine` and colours Qt apps out of
+  `~/.config/qtengine`, a path nothing here owns, so `kdeglobals` is simply not
+  read while it is on and there is nothing to take away.
 - **the `My Dotfiles` global theme** — inside a Plasma session there is a second
   route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
   Settings › Colors & Themes › Global Theme. It lives in the `theme` package at

@@ -88,6 +88,10 @@ PKGS=(
   bluez bluez-utils bluedevil
   # applications
   firefox chromium discord webcord telegram-desktop
+  # the viewer and the player mimeapps.list makes default; both were only here
+  # by accident before (gwenview via a KDE pull-in, mpv via ani-cli), and a
+  # machine that missed them fell back to opening images in a sandboxed Zen
+  gwenview mpv
   vlc vlc-plugins-all obs-studio obs-studio-plugin-browser obs-gstreamer
   gimp drawio-desktop qbittorrent localsend impression gnome-text-editor
   motion shelly winboat
@@ -137,6 +141,17 @@ AUR_PKGS=(
   # music: a terminal player that speaks MPRIS, so the media keys and waybar's
   # mpris module drive it without any glue
   cliamp-bin
+  # the caelestia rice (./link.sh rice caelestia). Its shell is not a config
+  # tree to symlink but a quickshell config compiled against a C++ plugin, so
+  # the AUR package is the whole of it; the CLI is the `caelestia` command its
+  # keybindings call and what starts the shell. Only the Hyprland half is a
+  # checkout, cloned below.
+  #
+  # caelestia-shell depends on quickshell-git, which replaces the quickshell
+  # package the imperative-dots rice runs on. It provides the same two binaries
+  # (quickshell, qs), so that rice keeps working — but this is the line that
+  # swaps it, in case a later quickshell-git ever breaks it.
+  caelestia-shell caelestia-cli
 )
 
 echo "════════════════════════════════════════════════════════════"
@@ -223,6 +238,18 @@ clone_if_missing https://github.com/zsh-users/zsh-autosuggestions.git          "
 clone_if_missing https://github.com/MichaelAquilina/zsh-you-should-use.git     "$ZSH_CUSTOM/plugins/you-should-use"
 clone_if_missing https://github.com/marlonrichert/zsh-autocomplete.git         "$ZSH_CUSTOM/plugins/zsh-autocomplete"
 clone_if_missing https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git "$ZSH_CUSTOM/plugins/autoswitch_virtualenv"
+
+# ─── rices ───────────────────────────────────────────────────────────────────
+# link.sh links a rice straight out of its own checkout, so the checkout has to
+# exist before `./link.sh rice caelestia` can do anything. Only caelestia is
+# cloned here: imperative-dots is a fork of the user's own, pushed to over ssh,
+# and cloning it read-only over https would put the wrong remote in place.
+#
+# This is the clone link.sh reads, not the one `caelestia install` makes for
+# itself under ~/.local/state. Do not run that command: it copies these dots
+# over ~/.config, which is this script's job and has no way back.
+echo ">> rice checkouts..."
+clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Documents/Code/caelestia"
 
 # ─── link the configs ────────────────────────────────────────────────────────
 echo ""
