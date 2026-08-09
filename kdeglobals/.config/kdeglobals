@@ -138,6 +138,9 @@ DeviceLedsAccentColored=false
 TerminalApplication=alacritty
 TerminalService=Alacritty.desktop
 
+[Icons]
+Theme=Papirus-Dark
+
 [KDE]
 AnimationDurationFactor=0.25
 LookAndFeelPackage=my-dotfiles

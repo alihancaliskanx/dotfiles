@@ -69,6 +69,11 @@ PKGS=(
   # KDE integration outside Plasma: Qt apps read kdeglobals, and the portal
   # serves the file dialogs (see the FileChooser pin in *-portals.conf)
   xdg-desktop-portal-kde kdialog kio-admin
+  # the icon theme kdeglobals names. Without it Qt has no Inherits chain to
+  # follow and falls through to hicolor, which carries app icons and none of
+  # the freedesktop naming-spec ones — Konsole, KCalc and a dozen others lose
+  # their icon and draw a placeholder instead.
+  papirus-icon-theme
   # gui helpers
   dolphin pavucontrol nm-connection-editor network-manager-applet
   filelight partitionmanager btrfs-assistant snapper ffmpegthumbnailer
