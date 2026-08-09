@@ -75,7 +75,7 @@ PKGS=(
   # their icon and draw a placeholder instead.
   papirus-icon-theme
   # gui helpers
-  dolphin pavucontrol nm-connection-editor network-manager-applet
+  nautilus dolphin pavucontrol nm-connection-editor network-manager-applet
   filelight partitionmanager btrfs-assistant snapper ffmpegthumbnailer
   # fonts
   ttf-jetbrains-mono-nerd ttf-meslo-nerd
