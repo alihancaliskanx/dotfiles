@@ -257,6 +257,21 @@ clone_if_missing https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.gi
 echo ">> rice checkouts..."
 clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Documents/Code/caelestia"
 
+# ─── desktop settings that are not files ─────────────────────────────────────
+# The portal reads the GTK theme out of gsettings, not out of gtk-3.0/settings.ini
+# — org.freedesktop.impl.portal.Settings is pinned to the gtk backend in
+# *-portals.conf and that backend answers from gsettings. So a name here that is
+# not an installed theme leaves every portal dialog unstyled: the Open/Save
+# window comes up with GTK's bare built-in look while every other GTK app is
+# themed, which is confusing precisely because it is only the dialogs.
+#
+# Breeze-Dark comes with breeze-gtk in the package list above and carries real
+# gtk-3.0 and gtk-4.0 stylesheets, and it is what xsettingsd is already serving,
+# so naming it here makes all three sources of GTK settings agree.
+echo ">> desktop settings..."
+gsettings set org.gnome.desktop.interface gtk-theme 'Breeze-Dark' 2>/dev/null || true
+gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true
+
 # ─── link the configs ────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════"
