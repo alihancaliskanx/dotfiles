@@ -102,6 +102,11 @@ spawn-at-startup "systemctl" "--user" "start" "waybar"
 // Keeps ksycoca fresh so Dolphin's "Open With" does not empty out — see the
 // same line in hyprland.conf.
 spawn-at-startup "kded6"
+// The systemd --user manager never learns XDG_SESSION_CLASS on its own, so
+// units gated on it are skipped forever — localsearch-3.service is one, which
+// is why Nautilus's Recent and search come back empty. Same line as
+// hyprland.conf.
+spawn-at-startup "systemctl" "--user" "import-environment" "XDG_SESSION_CLASS" "XDG_SESSION_TYPE"
 // Same wallpaper, same ~/.config/hypr/hyprpaper.conf as Hyprland; the config
 // comes from the `desktop` package, which both profiles link.
 spawn-at-startup "hyprpaper"

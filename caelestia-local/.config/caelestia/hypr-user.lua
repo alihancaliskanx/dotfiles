@@ -163,4 +163,14 @@ hl.on("hyprland.start", function()
     -- so ksycoca — the cache every KService lookup reads — drifts out of date
     -- after a package install and Dolphin's "Open With" menu comes back empty.
     hl.exec_cmd("kded6")
+
+    -- logind sets XDG_SESSION_CLASS and the compositor inherits it, but the
+    -- systemd --user manager starts before any of that and is only ever handed
+    -- WAYLAND_DISPLAY and XDG_CURRENT_DESKTOP. Units gated on it are skipped
+    -- forever, and localsearch-3.service is gated on exactly it
+    -- (ConditionEnvironment=XDG_SESSION_CLASS=user), so Nautilus asked for the
+    -- indexer, systemd logged "unmet condition check" and its Recent and search
+    -- came back empty with nothing visible to explain why. Same line as
+    -- hypr/hyprland.conf.
+    hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE")
 end)
