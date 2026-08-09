@@ -31,16 +31,43 @@ application/x-extension-xht=userapp-Zen-2Z2QP3.desktop
 application/x-extension-xhtml=userapp-Zen-2Z2QP3.desktop
 application/x-yaml=org.gnome.TextEditor.desktop;
 application/xhtml+xml=userapp-Zen-2Z2QP3.desktop
+# Images and video have to be named explicitly. Zen is a flatpak and
+# ~/.local/share/flatpak/exports/share is the first entry in XDG_DATA_DIRS, so
+# with nothing set here its .desktop wins every image type it declares — and its
+# sandbox only reaches xdg-download, so an image opened from anywhere else fails
+# without a word. Video went the same way for a different reason: no default
+# meant the first name in mimeinfo.cache won, and that is Stremio.
+image/avif=org.kde.gwenview.desktop;
+image/bmp=org.kde.gwenview.desktop;
+image/gif=org.kde.gwenview.desktop;
+image/heif=org.kde.gwenview.desktop;
+image/jpeg=org.kde.gwenview.desktop;
+image/jxl=org.kde.gwenview.desktop;
+image/png=org.kde.gwenview.desktop;
+image/svg+xml=org.kde.gwenview.desktop;
+image/tiff=org.kde.gwenview.desktop;
+image/webp=org.kde.gwenview.desktop;
+image/x-ico=org.kde.gwenview.desktop;
 inode/directory=org.kde.dolphin.desktop;
 text/html=userapp-Zen-2Z2QP3.desktop
 text/markdown=org.gnome.TextEditor.desktop;
 text/plain=org.gnome.TextEditor.desktop;
 text/x-cmake=org.gnome.TextEditor.desktop;
+video/3gpp=mpv.desktop;
+video/mp2t=mpv.desktop;
+video/mp4=mpv.desktop;
+video/mpeg=mpv.desktop;
+video/ogg=mpv.desktop;
+video/quicktime=mpv.desktop;
+video/webm=mpv.desktop;
+video/x-flv=mpv.desktop;
+video/x-m4v=mpv.desktop;
+video/x-matroska=mpv.desktop;
+video/x-ms-wmv=mpv.desktop;
+video/x-msvideo=mpv.desktop;
 x-scheme-handler/antigravity=antigravity.desktop
 x-scheme-handler/chrome=userapp-Zen-2Z2QP3.desktop
 x-scheme-handler/claude=com.anthropic.Claude.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 x-scheme-handler/http=app.zen_browser.zen.desktop;
 x-scheme-handler/https=app.zen_browser.zen.desktop;
-image/bmp=app.zen_browser.zen.desktop
-image/tiff=app.zen_browser.zen.desktop
