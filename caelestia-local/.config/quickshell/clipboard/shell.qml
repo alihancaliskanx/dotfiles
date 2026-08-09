@@ -40,13 +40,9 @@ ShellRoot {
         // stays with whatever was focused underneath.
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
-        // Dim, and a click anywhere outside the panel closes.
-        Rectangle {
-            anchors.fill: parent
-            color: "#000000"
-            opacity: 0.35
-        }
-
+        // No dim. caelestia does not dim behind its panels, and with the layer
+        // blur underneath (hypr-user.lua's layer_rule) a black wash on top only
+        // turns the blur to mud. The click-to-dismiss area stays.
         MouseArea {
             anchors.fill: parent
             onClicked: Qt.quit()

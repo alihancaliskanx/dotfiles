@@ -315,7 +315,11 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
 
         radius: window.roundingExtraLarge
-        color: window.m3surfaceContainer
+        // 0.85 is caelestia's transparency.base — its own surfaces carry the
+        // same alpha (Colours.qml applies it to every m3 colour), and the
+        // layer rule's ignore_alpha is set just under it so the blur shows
+        // through here and nowhere else.
+        color: Qt.alpha(window.m3surfaceContainer, 0.85)
         border.color: window.m3outlineVariant
         border.width: 0
         clip: true
@@ -756,7 +760,7 @@ Item {
             property real startW: clipList.cellWidth - window.s(10)
             property real startH: clipList.cellHeight - window.s(10)
             
-            color: window.m3surfaceContainer
+            color: Qt.alpha(window.m3surfaceContainer, 0.85)
             border.color: window.m3outlineVariant
             border.width: window.previewMode ? window.s(2) : 0
             Behavior on border.width { NumberAnimation { duration: 150 } }

@@ -150,6 +150,21 @@ hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"))
 -- press and does not care about finger order.
 hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle launcher"))
 
+-- ─── the clipboard panel's layer ─────────────────────────────────────────────
+-- Transparency and the open animation are not the panel's to give: they are
+-- Hyprland layer rules, and caelestia sets its own from the shell at runtime
+-- (Colours.qml issues a layerrule over IPC whenever transparency changes). This
+-- one is static because the panel is ours and its namespace never moves.
+--
+-- The numbers are caelestia's, read out of its tokens rather than picked:
+-- transparency.base is 0.85, and ignore_alpha is base - 0.03 = 0.82, which is
+-- the same arithmetic Colours.qml does. ignore_alpha is what stops the blur
+-- bleeding through the fully opaque parts of the panel.
+--
+-- popin 80% is the animation caelestia gives fuzzel's launcher, so the panel
+-- arrives the way the launcher it was asked to resemble does.
+hl.layer_rule({ match = { namespace = "clipboard" }, blur = true, ignore_alpha = 0.82, animation = "popin 80%" })
+
 -- ─── media, as the Rainy-Night config had it ─────────────────────────────────
 -- SUPER+Space for play/pause and the numpad for volume and tracks. caelestia
 -- puts all of this on CTRL+SUPER (Space, Equal, Minus) and leaves these free,
