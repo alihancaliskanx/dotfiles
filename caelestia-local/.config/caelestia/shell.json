@@ -52,6 +52,9 @@
         },
         "vimKeybinds": true
     },
+    "services": {
+        "maxVolume": 1.5
+    },
     "sidebar": {
         "enabled": true
     }

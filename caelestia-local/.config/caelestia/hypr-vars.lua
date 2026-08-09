@@ -88,6 +88,17 @@ return {
     kbWindowDecreaseHeight = "SUPER + ALT + Up",
     kbWindowIncreaseHeight = "SUPER + ALT + Down",
 
+    -- Volume above 100%, the way Plasma allows it. There are two ceilings and
+    -- lifting one alone does nothing: this one is the -l passed to wpctl by the
+    -- keybinds, and the other is services.maxVolume in shell.json, which the
+    -- shell clamps its own slider and OSD scroll against (Math.min, Audio.qml).
+    -- Both are set to 150.
+    --
+    -- Past 100% PipeWire is applying software gain, not turning anything up —
+    -- the same trade Plasma makes. It gets loud on quiet sources and it will
+    -- clip on ones that were already near the top.
+    volumeMax     = 150,
+
     -- kbLauncher is deliberately NOT set: the bare SUPER tap stays caelestia's.
     -- It was moved to ALT+SPACE here for a while and that was a mistake worth
     -- writing down, because the reason it half-worked is not obvious.
