@@ -472,6 +472,15 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `QT_QPA_PLATFORMTHEME=qtengine` and colours Qt apps out of
   `~/.config/qtengine`, a path nothing here owns, so `kdeglobals` is simply not
   read while it is on and there is nothing to take away.
+
+  In practice it *is* read, because `qtengine` is an AUR package out of
+  caelestia's own manifest — its `qt` component, with `darkly-bin` and
+  `frameworkintegration` — and the shell here comes from the AUR instead of
+  that manifest, so the plugin is not installed. Qt does not complain about a
+  platform theme it cannot find; it falls back to none at all, which is the
+  default light palette. Point it at `kde` in `~/.config/caelestia/hypr-user.lua`
+  and Qt apps read `kdeglobals` under caelestia exactly as they do under `own`.
+  Install that stack and drop the line to get the wallpaper-coloured version.
 - **the `My Dotfiles` global theme** — inside a Plasma session there is a second
   route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
   Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
