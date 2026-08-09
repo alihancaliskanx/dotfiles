@@ -210,19 +210,29 @@ change with it. `extras/linkmaps/caelestia.linkmap` says so line by line.
 > doing — only with no way back and straight over this repo's symlinks.
 
 Upstream's config hard-codes a `us` keyboard and one preferred monitor, and
-knows nothing about this laptop's two GPUs. It reads
-`~/.config/caelestia/hypr-user.lua` last, so that is where the machine goes —
-outside both repos, which is why `link.sh` says so on the way in rather than
-shipping it:
+knows nothing about this laptop. Two files reach all of it: `hypr-vars.lua` is
+merged over its variables before anything runs, and `hypr-user.lua` is required
+last, so it wins outright. Both are the **`caelestia-local`** package here, and
+that is what `RICE_LOCAL` is for — a rice is somebody else's checkout, so there
+is nowhere in it to keep what this machine has to say back. It goes in with the
+rice and comes out with it, and is in no profile: a config for a shell that is
+not running is just clutter.
 
 ```lua
-hl.env("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
-hl.config({ input = { kb_layout = "tr" } })
+-- caelestia-local/.config/caelestia/hypr-vars.lua — a table, merged over theirs
+return { terminal = "alacritty", blurPasses = 1, kbLauncher = "ALT + SPACE" }
 ```
 
-Its variables — terminal, browser, gaps, every keybind — are overridden the
-same way from `~/.config/caelestia/hypr-vars.lua`, which takes a plain table:
-`return { terminal = "kitty", browser = "zen-browser" }`.
+```lua
+-- caelestia-local/.config/caelestia/hypr-user.lua — ordinary config, read last
+hl.config({ input = { kb_layout = "tr" } })
+hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1 })
+```
+
+`shell.json` is the quickshell side of it and rides along in the same package.
+Symlinking these three is only safe because nothing generates them: the CLI and
+the shell both read them and never write back. Check that again before adding a
+fourth — see `RICE_GENERATES` just below for what happens when that is not true.
 
 caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
 into place, so a symlink at the target is destroyed rather than written through

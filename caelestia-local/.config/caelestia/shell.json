@@ -1,0 +1,36 @@
+{
+    "appearance": {
+        "anim": {
+            "durations": {
+                "scale": 0.6
+            }
+        },
+        "transparency": {
+            "enabled": true
+        }
+    },
+    "background": {
+        "wallpaperEnabled": true
+    },
+    "bar": {
+        "activeWindow": {
+            "showOnHover": false
+        },
+        "clock": {
+            "background": false,
+            "showDate": false
+        },
+        "dragThreshold": 20,
+        "persistent": true,
+        "popouts": {
+            "activeWindow": false
+        },
+        "showOnHover": true,
+        "workspaces": {
+            "activeTrail": false
+        }
+    },
+    "sidebar": {
+        "enabled": true
+    }
+}

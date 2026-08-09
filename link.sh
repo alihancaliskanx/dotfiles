@@ -102,6 +102,27 @@ declare -A RICE_REPLACES=(
     [caelestia]="hypr desktop cli"
 )
 
+# The other direction: packages of this repo that exist *for* a rice and are
+# linked alongside it. A rice is somebody else's checkout, so there is nowhere
+# in it to keep what this machine has to say back to it — the tr keyboard, the
+# panel scale, the keybinds these dotfiles keep, the blur that a GT1 iGPU can
+# afford. caelestia reads all of that out of ~/.config/caelestia, a directory
+# neither repo owned, so none of it survived a reinstall and none of it was
+# ever reviewed in a diff.
+#
+# Kept out of every profile on purpose: the files are meaningless with the rice
+# off, and linking them anyway would leave a config for a shell that is not
+# running. They go in with the rice and come out with it.
+#
+# Only safe because nothing generates these. caelestia-cli renders its
+# templates to a temp file and os.replace()s them into place, which destroys a
+# symlink rather than writing through it — see RICE_GENERATES below — but
+# hypr-vars.lua, hypr-user.lua and shell.json are all read and never written,
+# by either the CLI or the shell. Check that again before adding a fourth.
+declare -A RICE_LOCAL=(
+    [caelestia]="caelestia-local"
+)
+
 # The compositor a rice needs, when it only runs on one. imperative-dots calls
 # hyprctl from 15 of its files — monitors, keyboard layout, workspaces, submaps
 # — so under niri its bar comes up and everything behind it is dead. Warned
@@ -112,14 +133,14 @@ declare -A RICE_NEEDS=(
     [caelestia]="Hyprland"
 )
 
-# A line printed after a rice goes in, for the things it cannot be given from
-# here. caelestia's Hyprland config is upstream's and stays upstream's: it hard
-# codes a us keyboard and a single preferred monitor, and knows nothing about
-# this laptop's two GPUs. hypr-user.lua is the file it reads last, so anything
-# put there wins, and it is outside both repos — see the README for the block
-# this machine wants.
+# A line printed after a rice goes in, for what is worth saying once it is on.
+# caelestia's Hyprland config is upstream's and stays upstream's: it hard codes
+# a us keyboard and a single preferred monitor, and knows nothing about this
+# laptop. hypr-user.lua is the file it reads last, so anything put there wins —
+# and it is the caelestia-local package above, so it is tracked here rather
+# than sitting loose in ~/.config.
 declare -A RICE_NOTE=(
-    [caelestia]="machine-specific bits (tr keyboard, AQ_DRM_DEVICES, monitors) belong in ~/.config/caelestia/hypr-user.lua"
+    [caelestia]="what this machine says back to it — keyboard, scale, keybinds, blur — is the caelestia-local package, linked alongside"
 )
 
 # What each rice actually runs. A rice is not only its symlinks: a bar left
@@ -484,7 +505,10 @@ rice_link() {
 }
 
 rice_unlink() {
-    local rice="$1" src rel dst gen n=0 g=0
+    local rice="$1" src rel dst gen p n=0 g=0
+    # Ahead of the guard below on purpose: the local package is in this repo,
+    # so it is linked whether or not the rice itself was ever cloned.
+    for p in ${RICE_LOCAL[$rice]:-}; do unlink_pkg "$p"; done
     [ -d "${RICES[$rice]:-}" ] || return 0      # not cloned, nothing of it is linked
     while IFS=$'\t' read -r src rel; do
         dst="$TARGET/$rel"
@@ -706,6 +730,7 @@ rice_apply() {
             for p in ${RICE_REPLACES[$rice]:-}; do unlink_pkg "$p"; done
             printf '\n'
             rice_link "$rice" || rc=1
+            for p in ${RICE_LOCAL[$rice]:-}; do link_pkg "$p" || rc=1; done
             printf '\n%sDesktop: %s  (own packages put aside: %s)%s\n' \
                 "$DIM" "$rice" "${RICE_REPLACES[$rice]:-none}" "$RST"
             [ -n "${RICE_NOTE[$rice]:-}" ] && dim "${RICE_NOTE[$rice]}"
