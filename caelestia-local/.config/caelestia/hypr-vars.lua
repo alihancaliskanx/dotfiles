@@ -79,22 +79,23 @@ return {
     -- alone.
     kbClipboard   = {},
 
-    -- Launcher off the bare SUPER tap and onto ALT+SPACE. Upstream's default is
-    -- "SUPER + SUPER_L", which keybinds.lua special-cases: it is the only bind
-    -- in the whole config that fires on key *release*, because a modifier has
-    -- no press event of its own to hang off. The cost of that is every SUPER
-    -- you press and think better of — every combo you start and abandon — ends
-    -- in a launcher. ALT+SPACE is an ordinary press bind, so the special-casing
-    -- (`normalise_keybind(key) == launcher_default`) simply stops applying.
+    -- kbLauncher is deliberately NOT set: the bare SUPER tap stays caelestia's.
+    -- It was moved to ALT+SPACE here for a while and that was a mistake worth
+    -- writing down, because the reason it half-worked is not obvious.
     --
-    -- Free here: plain ALT+SPACE was unbound, and the two Space binds that do
-    -- exist are CTRL+SUPER+Space (media) and SUPER+ALT+Space (float). Note it
-    -- is the traditional window menu in Xwayland apps, which the compositor
-    -- bind now swallows.
+    -- The shell toggles the launcher in Shortcuts.qml on `onReleased`, not
+    -- onPressed — that is what makes tapping a bare modifier possible at all,
+    -- and there is a second shortcut, launcherInterrupt, to cancel it when the
+    -- tap turns out to be the start of a combo. On "SUPER + SUPER_L" the key
+    -- *is* the modifier, so the release is unambiguous. On "ALT + SPACE" it is
+    -- not: release ALT before SPACE and the combination never reports a clean
+    -- release, so the launcher does not open. Release SPACE first and it does.
+    -- Same keypress, opposite result depending on which finger lifts first,
+    -- which is exactly what "it works sometimes" felt like.
     --
-    -- Want both? This takes a list, and the release flag is decided per key:
-    --   kbLauncher = { "ALT + SPACE", "SUPER + SUPER_L" },
-    kbLauncher    = "ALT + SPACE",
+    -- ALT+SPACE now goes through the shell's IPC instead, in hypr-user.lua,
+    -- which acts on the press and has no release to miss. Both keys, one
+    -- launcher.
 
     -- Window groups off. They are a niri habit, not one used here, and the
     -- four keys they cost are all keys that mean something else in these

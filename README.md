@@ -220,7 +220,7 @@ not running is just clutter.
 
 ```lua
 -- caelestia-local/.config/caelestia/hypr-vars.lua — a table, merged over theirs
-return { terminal = "alacritty", blurPasses = 1, kbLauncher = "ALT + SPACE" }
+return { terminal = "alacritty", blurPasses = 1, kbCloseWindow = "SUPER + W" }
 ```
 
 ```lua
@@ -253,6 +253,13 @@ now reads `~/.local/state/caelestia/scheme.json` — caelestia publishes the sam
 with no mapping table. The file keeps its upstream name so it can still be
 diffed against where it came from.
 
+It is drawn in an 800×700 box in the middle of the screen, out of the same
+layout table and the same scale function imperative-dots sizes it with, so it
+comes out the size it is over there rather than the size that happens to suit
+this laptop. The window behind it is still the whole screen — that is what a
+click outside lands on to dismiss it — but filling the window with the panel is
+what made the first attempt enormous.
+
 `SUPER+V` toggles it out of two exit codes: `qs kill -c clipboard` returns 0
 when it killed something and 255 when there was nothing to kill, so
 `qs kill -c clipboard || qs -c clipboard` opens it when it is closed and closes
@@ -260,6 +267,19 @@ it when it is open. caelestia's own bind is dropped in `hypr-vars.lua`
 (`kbClipboard = {}`) rather than shadowed, since the action is written into its
 `keybinds.lua` and only the key is a variable. `SUPER+ALT+V` (delete an entry)
 and `CTRL+SHIFT+ALT+V` (paste the newest) are still caelestia's.
+
+**The launcher answers to two keys**, caelestia's bare `SUPER` tap and
+`ALT+SPACE`, and they get there by different roads for a reason. The tap is the
+`caelestia:launcher` global, which `Shortcuts.qml` handles on *release* — that
+is what makes tapping a bare modifier possible at all, and there is a second
+global, `launcherInterrupt`, to cancel it when the tap turns out to be the start
+of a combo. Point `kbLauncher` at `ALT + SPACE` and that release handling comes
+along with it, which is where "it works sometimes" comes from: on a
+modifier+key combination the release only reports cleanly if you lift the key
+before the modifier, so the same keypress opens the launcher or does nothing
+depending on which finger comes up first. `ALT+SPACE` goes through the shell's
+IPC instead — `qs -c caelestia ipc call drawers toggle launcher`, the same
+toggle with no release in it, fired on the press.
 
 caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
 into place, so a symlink at the target is destroyed rather than written through

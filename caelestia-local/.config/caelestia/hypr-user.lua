@@ -120,6 +120,18 @@ hl.bind("SUPER + B", hl.dsp.exec_cmd(vars.browser))
 -- takes the process down without asking, so it should be awkward to hit.
 hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
 
+-- A second key for the launcher, next to caelestia's bare SUPER tap rather than
+-- instead of it. Not `hl.dsp.global("caelestia:launcher")`, which is what the
+-- tap uses: that global is handled on *release* (Shortcuts.qml), and on a
+-- modifier+key combination the release only reports cleanly if you lift the key
+-- before the modifier. Lift ALT first and nothing happens. That is the whole
+-- story behind "ALT+SPACE works sometimes".
+--
+-- The shell's IPC has the same toggle with no release in it — `drawers list`
+-- names them: bar, osd, session, launcher, dashboard — so this fires on the
+-- press and does not care about finger order.
+hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle launcher"))
+
 -- The clipboard panel from imperative-dots, running as its own quickshell
 -- config out of ~/.config/quickshell/clipboard (this same package). caelestia's
 -- own SUPER+V is fuzzel with cliphist piped into it, which cannot show an image
