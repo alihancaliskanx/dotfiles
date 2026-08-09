@@ -30,6 +30,20 @@
             "activeTrail": false
         }
     },
+    "launcher": {
+        "enableDangerousActions": true,
+        "maxShown": 10,
+        "maxWallpapers": 20,
+        "showOnHover": true,
+        "useFuzzy": {
+            "actions": true,
+            "apps": true,
+            "schemes": true,
+            "variants": true,
+            "wallpapers": true
+        },
+        "vimKeybinds": true
+    },
     "sidebar": {
         "enabled": true
     }

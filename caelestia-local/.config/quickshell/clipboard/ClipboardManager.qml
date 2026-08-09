@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
+import Caelestia.Config
 // (Caching, Scaler and MatugenColors sit next to this file, so no import path)
 
 Item {
@@ -23,7 +24,30 @@ Item {
     }
 
     MatugenColors { id: _theme }
-    
+
+    // caelestia's own tokens, straight out of the Caelestia.Config plugin. The
+    // plugin is installed system-wide under /usr/lib/qt6/qml, so this separate
+    // quickshell instance can read the same rounding, spacing and font styles
+    // its shell uses — no numbers copied out by eye, and the panel follows
+    // anything changed in shell.json along with everything else.
+    //
+    // Colours do NOT come from here: Colours is a singleton of the shell, not of
+    // the plugin, and reaching into /etc/xdg/quickshell/caelestia for it would
+    // be borrowing from a package directory. MatugenColors reads the same scheme
+    // file the shell does, which gets to the same place by a shorter road.
+    readonly property var m3: _theme
+    readonly property color m3surfaceContainer: _theme.m3surfaceContainer
+    readonly property color m3surfaceContainerHigh: _theme.m3surfaceContainerHigh
+    readonly property color m3surfaceContainerHighest: _theme.m3surfaceContainerHighest
+    readonly property color m3onSurface: _theme.m3onSurface
+    readonly property color m3onSurfaceVariant: _theme.m3onSurfaceVariant
+    readonly property color m3outlineVariant: _theme.m3outlineVariant
+    readonly property color m3primary: _theme.m3primary
+    readonly property color m3onPrimary: _theme.m3onPrimary
+    readonly property color m3primaryContainer: _theme.m3primaryContainer
+    readonly property color m3onPrimaryContainer: _theme.m3onPrimaryContainer
+    readonly property color m3secondary: _theme.m3secondary
+
     readonly property color base: _theme.base
     readonly property color crust: _theme.crust
     readonly property color text: _theme.text
@@ -252,30 +276,36 @@ Item {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
 
-        radius: window.s(16)
-        color: Qt.rgba(window.base.r, window.base.g, window.base.b, 1.0)
-        border.color: window.surface1
-        border.width: 1
+        radius: Tokens.rounding.extraLarge
+        color: window.m3surfaceContainer
+        border.color: window.m3outlineVariant
+        border.width: 0
         clip: true
 
         transform: Translate { y: (window.introPhase - 1) * window.s(60) }
         opacity: window.introPhase
 
+        // The two orbiting glows are imperative-dots' character, not
+        // caelestia's: its panels are flat surfaces, and an 8%-opacity disc
+        // over one reads as a smudge rather than a gradient. Kept, not
+        // deleted -- flip visible back to true for the original look.
         Rectangle {
+            visible: false
             width: parent.width * 0.8; height: width; radius: width / 2
             x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * window.s(150)
             y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * window.s(100)
             opacity: 0.08
-            color: window.mauve
+            color: window.m3primary
             Behavior on color { ColorAnimation { duration: 1000 } }
         }
         
         Rectangle {
+            visible: false
             width: parent.width * 0.9; height: width; radius: width / 2
             x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * window.s(-150)
             y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * window.s(-100)
             opacity: 0.06
-            color: window.blue
+            color: window.m3secondary
             Behavior on color { ColorAnimation { duration: 1000 } }
         }
 
@@ -303,7 +333,7 @@ Item {
                         text: "󰅌"
                         font.family: "Iosevka Nerd Font"
                         font.pixelSize: window.s(18)
-                        color: searchInput.activeFocus ? window.mauve : window.subtext0
+                        color: searchInput.activeFocus ? window.m3primary : window.m3onSurfaceVariant
                         
                         opacity: !window.previewMode ? 1 : 0
                         scale: !window.previewMode ? 1 : 0.5
@@ -320,7 +350,7 @@ Item {
                         text: "󰈈"
                         font.family: "Iosevka Nerd Font"
                         font.pixelSize: window.s(18)
-                        color: window.mauve
+                        color: window.m3primary
                         
                         opacity: window.previewMode ? 1 : 0
                         scale: window.previewMode ? 1 : 0.5
@@ -337,9 +367,8 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     background: Item {} 
-                    color: window.text
-                    font.family: "JetBrains Mono"
-                    font.pixelSize: window.s(16)
+                    color: window.m3onSurface
+                    font: Tokens.font.body.large
                     
                     placeholderText: "Search"
                     placeholderTextColor: window.subtext0 
@@ -446,7 +475,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             height: mainBg.separatorHeight
-            color: Qt.rgba(window.surface1.r, window.surface1.g, window.surface1.b, 0.5)
+            color: window.m3outlineVariant
         }
 
         GridView {
@@ -530,8 +559,8 @@ Item {
                 policy: ScrollBar.AsNeeded
                 contentItem: Rectangle {
                     implicitWidth: window.s(4)
-                    radius: window.s(2)
-                    color: window.surface2
+                    radius: Tokens.rounding.full
+                    color: window.m3outlineVariant
                     opacity: 0.5
                 }
             }
@@ -542,8 +571,8 @@ Item {
                     id: activeHighlight
                     width: clipList.cellWidth - window.s(10)
                     height: clipList.cellHeight - window.s(10)
-                    radius: window.s(8)
-                    color: window.mauve
+                    radius: Tokens.rounding.large
+                    color: window.m3primaryContainer
 
                     property int curIdx: clipList.currentIndex
                     property real targetX: curIdx === -1 || clipList.model === null ? 0 : (curIdx % mainBg.cols) * clipList.cellWidth
@@ -573,9 +602,9 @@ Item {
                     width: parent.width - window.s(10)
                     height: parent.height - window.s(10)
                     
-                    radius: window.s(8)
+                    radius: Tokens.rounding.large
                     
-                    color: ma.containsMouse && index !== clipList.currentIndex ? Qt.rgba(window.surface0.r, window.surface0.g, window.surface0.b, 0.4) : "transparent"
+                    color: ma.containsMouse && index !== clipList.currentIndex ? window.m3surfaceContainerHigh : "transparent"
                     Behavior on color { ColorAnimation { duration: 250; easing.type: Easing.OutSine } }
 
                     Rectangle {
@@ -584,17 +613,15 @@ Item {
                         y: window.s(8)
                         width: window.s(22)
                         height: window.s(22)
-                        radius: window.s(6)
+                        radius: Tokens.rounding.small
                         
-                        color: index === clipList.currentIndex ? window.crust : Qt.rgba(window.surface0.r, window.surface0.g, window.surface0.b, 0.85)
+                        color: index === clipList.currentIndex ? window.m3primary : window.m3surfaceContainerHighest
                         
                         Text {
                             anchors.centerIn: parent
                             text: (index + 1)
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: window.s(11)
-                            font.weight: Font.Bold
-                            color: index === clipList.currentIndex ? window.mauve : window.text
+                            font: Tokens.font.label.small
+                            color: index === clipList.currentIndex ? window.m3onPrimary : window.m3onSurfaceVariant
                         }
                     }
 
@@ -628,10 +655,8 @@ Item {
                             id: clipEntryText
                             anchors.fill: parent
                             text: model.content
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: window.s(13)
-                            font.weight: index === clipList.currentIndex ? Font.Bold : Font.Medium
-                            color: index === clipList.currentIndex ? window.base : window.text
+                            font: Tokens.font.body.small
+                            color: index === clipList.currentIndex ? window.m3onPrimaryContainer : window.m3onSurface
                             wrapMode: Text.Wrap
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignTop
@@ -684,8 +709,8 @@ Item {
             property real startW: clipList.cellWidth - window.s(10)
             property real startH: clipList.cellHeight - window.s(10)
             
-            color: window.crust
-            border.color: window.mauve
+            color: window.m3surfaceContainer
+            border.color: window.m3outlineVariant
             border.width: window.previewMode ? window.s(2) : 0
             Behavior on border.width { NumberAnimation { duration: 150 } }
             clip: true
@@ -741,14 +766,13 @@ Item {
                         return previewMorph.curItem.content; 
                     }
                     
-                    color: window.text
-                    font.family: "JetBrains Mono"
-                    font.pixelSize: window.s(14)
+                    color: window.m3onSurface
+                    font: Tokens.font.body.medium
                     wrapMode: TextEdit.Wrap
                     readOnly: true
                     selectByMouse: true
-                    selectionColor: window.surface2
-                    selectedTextColor: window.mauve
+                    selectionColor: window.m3primaryContainer
+                    selectedTextColor: window.m3onPrimaryContainer
                 }
             }
             

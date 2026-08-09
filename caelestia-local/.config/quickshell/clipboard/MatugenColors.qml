@@ -48,6 +48,27 @@ Item {
     property color maroon: "#eba0ac"
     property color teal: "#94e2d5"
 
+    // The Material 3 half of the same file. The names above are what
+    // ClipboardManager was written against; these are what caelestia's own
+    // panels are written against, and using them is what makes the clipboard
+    // look like the dashboard rather than merely share its hues. A surface is
+    // not a background and a primaryContainer is not an accent — M3 draws that
+    // line and the Catppuccin names do not, which is why a "mauve" fill came
+    // out as a slab of saturated cyan next to caelestia's muted cards.
+    property color m3surface: "#11111b"
+    property color m3surfaceContainer: "#1e1e2e"
+    property color m3surfaceContainerHigh: "#313244"
+    property color m3surfaceContainerHighest: "#45475a"
+    property color m3onSurface: "#cdd6f4"
+    property color m3onSurfaceVariant: "#a6adc8"
+    property color m3outline: "#6c7086"
+    property color m3outlineVariant: "#45475a"
+    property color m3primary: "#cba6f7"
+    property color m3onPrimary: "#11111b"
+    property color m3primaryContainer: "#45475a"
+    property color m3onPrimaryContainer: "#cdd6f4"
+    property color m3secondary: "#89b4fa"
+
     property string rawJson: ""
 
     // "0a0f0f" -> "#0a0f0f", and anything already prefixed is left alone, so the
@@ -71,6 +92,15 @@ Item {
             for (const n of names)
                 if (c[n])
                     root[n] = root.hex(c[n]);
+
+            // Same file, M3 names. They are stored unprefixed there, so
+            // "surfaceContainer" in the scheme becomes m3surfaceContainer here —
+            // the prefix goes straight on, with no capitalisation, because that
+            // is exactly what caelestia's QML calls Colours.palette.m3*.
+            const m3 = ["surface", "surfaceContainer", "surfaceContainerHigh", "surfaceContainerHighest", "onSurface", "onSurfaceVariant", "outline", "outlineVariant", "primary", "onPrimary", "primaryContainer", "onPrimaryContainer", "secondary"];
+            for (const n of m3)
+                if (c[n])
+                    root["m3" + n] = root.hex(c[n]);
         } catch (e) {}
     }
 
