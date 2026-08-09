@@ -179,7 +179,23 @@ hl.bind("SUPER + CTRL + KP_Subtract", hl.dsp.global("caelestia:mediaPrev"), lock
 -- and 255 when there was nothing to kill, so the second half only runs when the
 -- panel was not already up. The panel closes itself on Escape and on picking an
 -- entry, so this is only for pressing SUPER+V twice.
-hl.bind("SUPER + V", hl.dsp.exec_cmd("qs kill -c clipboard || qs -c clipboard"))
+local clipboard_panel = "qs kill -c clipboard || qs -c clipboard"
+hl.bind("SUPER + V", hl.dsp.exec_cmd(clipboard_panel))
+
+-- Same panel on the old delete key. Deleting is the Delete key inside it now,
+-- so there is no second interface left for this one to open — but the hands
+-- know where it is, so it lands on the panel rather than on nothing.
+hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd(clipboard_panel))
+
+-- Wipe the lot, with no picker in the way — asked for deliberately, so it is
+-- worth being clear that there is no confirmation and no undo. The count is
+-- read before the wipe so the toast can say what it cost you, and the toast is
+-- the shell's own (the "Config loaded" one comes out of the same IPC), which is
+-- why this is a notification rather than another window.
+hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd(
+    "n=$(cliphist list | wc -l); cliphist wipe; " ..
+    "qs -c caelestia ipc call toaster success 'Clipboard cleared' \"$n entries deleted\" delete_sweep"
+))
 
 -- Move the window to a workspace. caelestia puts this on SUPER+ALT+number and
 -- leaves SUPER+SHIFT+number free; the hands here go to SHIFT. Built from

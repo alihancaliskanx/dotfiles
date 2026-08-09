@@ -203,6 +203,33 @@ Item {
         Qt.quit();
     }
 
+    // Delete the highlighted entry and stay open, which is the whole point of
+    // doing this here rather than in the fuzzel picker caelestia binds to
+    // SUPER+ALT+V: deleting is usually several entries in a row, and a picker
+    // that exits after each one makes you reopen it every time.
+    //
+    // `cliphist delete` reads the line to remove from stdin rather than taking
+    // an id argument, and the line it wants is the one `cliphist list` prints —
+    // id, a tab, then the preview. Only the id is known here, so the line is
+    // fished back out of the list by it.
+    function deleteEntry(id) {
+        Quickshell.execDetached(["bash", "-c",
+            "cliphist list | grep -m1 -P '^" + id + "\\t' | cliphist delete"]);
+
+        // Drop it from the view immediately rather than refetching: the entry is
+        // gone as far as the user is concerned, and a reload would lose the
+        // scroll position and the highlight.
+        for (let i = 0; i < window.allClips.length; i++) {
+            if (window.allClips[i].id === id) {
+                window.allClips.splice(i, 1);
+                break;
+            }
+        }
+        const idx = clipList.currentIndex;
+        clipModel.remove(idx);
+        clipList.currentIndex = Math.min(idx, clipModel.count - 1);
+    }
+
     Timer {
         id: focusTimer
         interval: 50
@@ -457,6 +484,12 @@ Item {
                         event.accepted = true;
                     }
                     
+                    Keys.onDeletePressed: {
+                        if (!window.previewMode && clipList.currentIndex >= 0 && clipList.currentIndex < clipModel.count)
+                            window.deleteEntry(clipModel.get(clipList.currentIndex).id);
+                        event.accepted = true;
+                    }
+
                     Keys.onEscapePressed: {
                         if (window.previewMode) {
                             window.previewMode = false;

@@ -79,6 +79,13 @@ return {
     -- alone.
     kbClipboard   = {},
 
+    -- The delete picker goes the same way, for the same reason: deleting an
+    -- entry is now the Delete key inside the panel, on whatever is highlighted,
+    -- and it stays open afterwards — which the fuzzel picker could not do, since
+    -- it exits after each one. SUPER+ALT+V is rebound in hypr-user.lua to open
+    -- that panel, so the key still does what the hands expect.
+    kbClipboardDel = {},
+
     -- SUPER+SHIFT+Minus/Equal freed for volume, in hypr-user.lua. Upstream
     -- gives window height two keys each — { "SUPER + SHIFT + Minus",
     -- "SUPER + ALT + Up" } — so dropping the SHIFT pair costs the feature
