@@ -349,7 +349,7 @@ Item {
 
         Rectangle {
             id: headerArea
-            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
             height: mainBg.searchHeight
@@ -515,7 +515,7 @@ Item {
 
         Rectangle {
             id: separatorLine
-            anchors.top: headerArea.bottom
+            anchors.bottom: headerArea.top
             anchors.left: parent.left
             anchors.right: parent.right
             height: mainBg.separatorHeight
@@ -524,7 +524,7 @@ Item {
 
         GridView {
             id: clipList
-            anchors.top: separatorLine.bottom
+            anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.topMargin: mainBg.animatedMargins / 2
@@ -616,7 +616,10 @@ Item {
                     width: clipList.cellWidth - window.s(10)
                     height: clipList.cellHeight - window.s(10)
                     radius: window.roundingLarge
-                    color: window.m3primaryContainer
+                    // The launcher's highlight is m3onSurface at 8%. The alpha goes
+                    // into the colour and not into opacity, because opacity here is
+                    // already bound to whether anything is selected at all.
+                    color: Qt.alpha(window.m3onSurface, 0.08)
 
                     property int curIdx: clipList.currentIndex
                     property real targetX: curIdx === -1 || clipList.model === null ? 0 : (curIdx % mainBg.cols) * clipList.cellWidth
@@ -648,7 +651,7 @@ Item {
                     
                     radius: window.roundingLarge
                     
-                    color: ma.containsMouse && index !== clipList.currentIndex ? window.m3surfaceContainerHigh : "transparent"
+                    color: ma.containsMouse && index !== clipList.currentIndex ? Qt.alpha(window.m3onSurface, 0.08) : "transparent"
                     Behavior on color { ColorAnimation { duration: 250; easing.type: Easing.OutSine } }
 
                     Rectangle {
@@ -700,7 +703,7 @@ Item {
                             anchors.fill: parent
                             text: model.content
                             font: window.fontBodySmall
-                            color: index === clipList.currentIndex ? window.m3onPrimaryContainer : window.m3onSurface
+                            color: window.m3onSurface
                             wrapMode: Text.Wrap
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignTop
@@ -744,7 +747,7 @@ Item {
             property int curIdx: clipList.currentIndex !== -1 ? clipList.currentIndex : 0
             
             property real gridX: window.s(10)
-            property real gridY: mainBg.searchHeight + mainBg.separatorHeight + mainBg.animatedMargins / 2
+            property real gridY: mainBg.animatedMargins / 2
             property real gridW: mainBg.width - window.s(20)
             property real gridH: mainBg.animatedListHeight
             
