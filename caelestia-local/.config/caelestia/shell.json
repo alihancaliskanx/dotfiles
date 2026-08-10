@@ -35,6 +35,10 @@
             "explorer": [
                 "nautilus",
                 "--new-window"
+            ],
+            "terminal": [
+                "alacritty",
+                "-e"
             ]
         }
     },
