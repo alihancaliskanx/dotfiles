@@ -1,0 +1,15 @@
+--- base.qml	2026-08-10 10:24:15.543262705 +0300
++++ new.qml	2026-08-10 10:24:15.558394826 +0300
+@@ -166,7 +166,11 @@
+             autoPaddingEnabled: false
+             blurEnabled: true
+             blur: 1
+-            blurMax: 64
++            // 64 is the whole wallpaper reduced to colour smears; this is still
++            // obviously blurred but the desktop behind it is recognisable. It is
++            // also cheaper: blurMax is what decides how many passes MultiEffect
++            // runs, and this is a third of them.
++            blurMax: 20
+             blurMultiplier: 1
+         }
+     }
