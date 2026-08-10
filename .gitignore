@@ -1,0 +1,16 @@
+# Nothing in this repository is generated, so this list is not the usual one.
+# It is here for the other direction: paths that could arrive by accident — a
+# stray copy, or `./link.sh adopt` reaching one file too far — and that must not
+# leave the machine.
+
+# The dashboard profile picture. caelestia's "Select a profile picture" writes
+# whatever you pick to ~/.face, and the package layout here mirrors $HOME, so a
+# careless adopt would put a photograph of a face into a public repository.
+.face
+.face.icon
+
+# What link.sh leaves behind when -f replaces a real file. They live in $HOME
+# rather than here, but a wholesale adopt would bring them along, and a backup
+# is by definition the version nobody reviewed.
+*.bak
+*.bak.*
