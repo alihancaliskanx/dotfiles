@@ -101,6 +101,13 @@ hl.animation({ leaf = "border",  enabled = true, speed = 3,   bezier = "standard
 local vars = require("variables")
 local fn   = require("utils.functions")
 
+-- Bind flags, declared here because Lua locals have to exist before the line
+-- that uses them and these are used from two sections below. locked keeps a
+-- bind working on the lock screen; repeating lets it fire while held. They are
+-- the same two flags caelestia gives its own XF86 keys.
+local locked = { locked = true }
+local locked_repeating = { locked = true, repeating = true }
+
 -- The other half of alt-tab. caelestia already binds ALT+TAB and it cycles
 -- windows on the current workspace, which is what a compositor does by itself;
 -- what these dotfiles add on top is the cross-workspace picker, and caelestia
@@ -165,6 +172,28 @@ hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle 
 -- arrives the way the launcher it was asked to resemble does.
 hl.layer_rule({ match = { namespace = "clipboard" }, blur = true, ignore_alpha = 0.82, animation = "popin 80%" })
 
+-- ─── keyboard backlight ──────────────────────────────────────────────────────
+-- The laptop has the keys — the TUXEDO Keyboard input device emits
+-- KBDILLUMTOGGLE, KBDILLUMDOWN and KBDILLUMUP — and nothing was listening, which
+-- is why only the colour could be changed. Colour and brightness are two
+-- different files on the same LED: multi_intensity holds the RGB channels and
+-- brightness holds the level, and whatever was setting the colour never touched
+-- the second one.
+--
+-- brightnessctl writes it without root (its udev rule covers the leds class), so
+-- there is no polkit dance here. -s saves the level before zeroing it and -r
+-- puts it back, which is the whole of the on/off toggle.
+--
+-- locked, so the keys still work at the lock screen — reaching for the keyboard
+-- light in the dark is exactly when the screen is locked.
+local kbd = "brightnessctl --device=rgb:kbd_backlight"
+
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd(kbd .. " set 10%+"), locked_repeating)
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd(kbd .. " set 10%-"), locked_repeating)
+hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd(
+    "[ \"$(" .. kbd .. " get)\" -gt 0 ] && " .. kbd .. " -s set 0 || " .. kbd .. " -r"
+), locked)
+
 -- ─── media, as the Rainy-Night config had it ─────────────────────────────────
 -- SUPER+Space for play/pause and the numpad for volume and tracks. caelestia
 -- puts all of this on CTRL+SUPER (Space, Equal, Minus) and leaves these free,
@@ -180,11 +209,6 @@ local volume_up = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l " 
     (vars.volumeMax / 100) .. " @DEFAULT_AUDIO_SINK@ " .. vars.volumeStep .. "%+"
 local volume_down = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ " ..
     vars.volumeStep .. "%-"
-
--- locked so they work on the lock screen, and volume repeats when held — the
--- same two flags caelestia gives the XF86 keys.
-local locked = { locked = true }
-local locked_repeating = { locked = true, repeating = true }
 
 hl.bind("SUPER + Space", hl.dsp.global("caelestia:mediaToggle"), locked)
 
