@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#
+# pam-kwallet-env — finish the half of the wallet unlock that Plasma does and a
+# bare compositor does not.
+#
+# THE SYMPTOM: once per boot, the first application to want a stored secret puts
+# up "KDE has requested to open the wallet 'kdewallet'" and asks for a password,
+# even though pam already took that password at login.
+#
+# pam does its part. /usr/lib/pam.d/plasmalogin loads pam_kwallet5, and at login
+# it hashes the password, creates a socket, and starts the daemon holding both:
+#
+#     plasmalogin-helper[1045]: pam_kwallet5(plasmalogin:auth): pam_sm_authenticate
+#     plasmalogin-helper[1083]: pam_kwallet5: final socket path: /run/user/1000/kwallet5.socket
+#     $ ss -lxp | grep kwallet5
+#     LISTEN /run/user/1000/kwallet5.socket users:(("ksecretd",pid=1063,fd=9))
+#
+# And there it stays, for the whole session, having never printed a line or
+# claimed a bus name. ksecretd's own main.cpp says why:
+#
+#     // Waits until startkde sends the environment variables
+#     static int waitForEnvironment()
+#     {
+#         if ((s2 = accept(socketfd, ...)) == -1) { ... }
+#         while (!feof(s3)) { if (fgets(str, BSIZE, s3)) putenv(strdup(str)); }
+#
+# It reads the hash from the pipe, then blocks in accept() waiting for the
+# session to connect and hand it the environment. Under Plasma, startplasma is
+# what connects. Under Hyprland or niri nobody does, so the daemon that has the
+# key never finishes starting, a second keyless one gets D-Bus activated in its
+# place, and that one has no choice but to ask.
+#
+# So: connect, write the environment one KEY=VALUE per line, close. The daemon
+# comes out of accept(), unlocks the wallet with the hash it has been holding,
+# and takes the bus name.
+#
+# Run it FIRST at session start. If a keyless ksecretd has already claimed
+# org.kde.ksecretd, the pam one loses the name and exits, and the session is back
+# where it started.
+
+set -uo pipefail
+
+die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+sock="${PAM_KWALLET5_LOGIN:-}"
+
+# Nothing to do rather than an error: a session that did not come through
+# pam_kwallet (a nested compositor, a tty login, a machine without kwallet-pam)
+# has no socket and no daemon waiting on one.
+[ -n "$sock" ] || exit 0
+[ -S "$sock" ] || exit 0
+
+command -v python3 >/dev/null || die "python3 is not installed"
+
+python3 - "$sock" <<'PY'
+import os
+import socket
+import sys
+
+path = sys.argv[1]
+
+try:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(5)
+    s.connect(path)
+except OSError:
+    # Nobody listening: the daemon already got its environment, or pam never
+    # started one. Either way there is nothing to finish.
+    sys.exit(0)
+
+with s:
+    for key, value in os.environ.items():
+        # fgets reads at most BSIZE (1000) bytes, so a longer line arrives as two
+        # putenv calls and the tail of the value becomes a variable of its own.
+        # A newline in a value would do the same. Neither is worth sending.
+        line = f"{key}={value}\n"
+        if "\n" in value or "=" in key or len(line) >= 1000:
+            continue
+        try:
+            s.sendall(line.encode())
+        except OSError:
+            break
+PY

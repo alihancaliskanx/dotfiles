@@ -265,6 +265,14 @@ for i = 1, 10 do
 end
 
 hl.on("hyprland.start", function()
+    -- First, and it has to be first: it hands the environment to the ksecretd
+    -- pam started at login, which is blocked in accept() until someone does.
+    -- Until then the wallet is locked and anything that wants a secret asks for
+    -- a password. If a keyless ksecretd claims the bus name before this runs,
+    -- the one holding the key loses it and the session is back where it began.
+    -- The whole story is in the script.
+    hl.exec_cmd("pam-kwallet-env")
+
     -- caelestia's execs.lua starts polkit-gnome, which is not installed here.
     -- hyprpolkitagent is, and is a systemd user unit like everywhere else in
     -- these dotfiles.

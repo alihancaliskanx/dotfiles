@@ -424,6 +424,8 @@ bash script under `scripts/.local/bin/`:
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
+| `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
+| `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
 change its parent's environment, so these cannot be scripts: `proxy_on/off`,

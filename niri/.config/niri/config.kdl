@@ -97,6 +97,11 @@ cursor {
 
 // ─── run at startup ──────────────────────────────────────────────────────────
 // The equivalent of the exec-once lines in hyprland.conf.
+// First, and it has to be first: the ksecretd that pam started at login is
+// blocked in accept() until the session hands it the environment, so the wallet
+// stays locked and the first application to want a secret asks for a password.
+// Same line as hyprland.conf, where the whole story is written down.
+spawn-at-startup "sh" "-c" r#"exec "$HOME/.local/bin/pam-kwallet-env""#
 spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
 spawn-at-startup "systemctl" "--user" "start" "waybar"
 // Keeps ksycoca fresh so Dolphin's "Open With" does not empty out — see the
