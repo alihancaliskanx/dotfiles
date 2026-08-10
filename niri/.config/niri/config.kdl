@@ -354,9 +354,9 @@ binds {
     // Keyboard backlight. Colour and brightness are separate files on the same
     // LED; brightnessctl writes the level without root. Same three keys as
     // hyprland.conf.
-    XF86KbdBrightnessUp   allow-when-locked=true { spawn "brightnessctl" "--device=rgb:kbd_backlight" "set" "10%+"; }
-    XF86KbdBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--device=rgb:kbd_backlight" "set" "10%-"; }
-    XF86KbdLightOnOff     allow-when-locked=true { spawn "sh" "-c" r#"[ "$(brightnessctl --device=rgb:kbd_backlight get)" -gt 0 ] && brightnessctl --device=rgb:kbd_backlight -s set 0 || brightnessctl --device=rgb:kbd_backlight -r"#; }
+    XF86KbdBrightnessUp   allow-when-locked=true { spawn "sh" "-c" r#"exec "$HOME/.local/bin/TuxedoRGBKeyboard.sh" up"#; }
+    XF86KbdBrightnessDown allow-when-locked=true { spawn "sh" "-c" r#"exec "$HOME/.local/bin/TuxedoRGBKeyboard.sh" down"#; }
+    XF86KbdLightOnOff     allow-when-locked=true { spawn "sh" "-c" r#"exec "$HOME/.local/bin/TuxedoRGBKeyboard.sh" toggle"#; }
     XF86AudioPlay         allow-when-locked=true { spawn "playerctl" "play-pause"; }
     XF86AudioNext         allow-when-locked=true { spawn "playerctl" "next"; }
     XF86AudioPrev         allow-when-locked=true { spawn "playerctl" "previous"; }

@@ -186,13 +186,14 @@ hl.layer_rule({ match = { namespace = "clipboard" }, blur = true, ignore_alpha =
 --
 -- locked, so the keys still work at the lock screen — reaching for the keyboard
 -- light in the dark is exactly when the screen is locked.
-local kbd = "brightnessctl --device=rgb:kbd_backlight"
-
-hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd(kbd .. " set 10%+"), locked_repeating)
-hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd(kbd .. " set 10%-"), locked_repeating)
-hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd(
-    "[ \"$(" .. kbd .. " get)\" -gt 0 ] && " .. kbd .. " -s set 0 || " .. kbd .. " -r"
-), locked)
+-- Hyprland's exec is not a real shell: it splits on ; and || and runs the
+-- parts, so `||` works but $(...) and `[ ... ]` do not — which is what an
+-- on/off toggle is made of, and why the toggle key did nothing while up and
+-- down worked. The logic lives in the script instead, which also gives one
+-- place to change the step and adds colour on top.
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh up"), locked_repeating)
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh down"), locked_repeating)
+hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh toggle"), locked)
 
 -- ─── media, as the Rainy-Night config had it ─────────────────────────────────
 -- SUPER+Space for play/pause and the numpad for volume and tracks. caelestia
