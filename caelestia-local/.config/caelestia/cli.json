@@ -1,0 +1,5 @@
+{
+    "theme": {
+        "postHook": "$HOME/.local/bin/caelestia-adwaita-colours"
+    }
+}
