@@ -270,16 +270,43 @@ clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Document
 # window comes up with GTK's bare built-in look while every other GTK app is
 # themed, which is confusing precisely because it is only the dialogs.
 #
-# Breeze and not Breeze-Dark, which is the trap: GTK3 does not switch to a dark
-# theme by name, it loads gtk-dark.css out of the theme it was given when
-# gtk-application-prefer-dark-theme is set. Breeze/gtk-3.0 ships both gtk.css and
-# gtk-dark.css; Breeze-Dark/gtk-3.0 ships only gtk.css and has no dark variant to
-# find. Naming Breeze-Dark leaves the dialog half dark and half light — the
-# header styled and the file list not. Breeze plus prefer-dark is the pair that
-# works, and is what kde-gtk-config writes into gtk-3.0/settings.ini already.
+# adw-gtk3-dark, because it is the only GTK3 theme that reads the colours the
+# caelestia rice regenerates from the wallpaper: it is libadwaita's stylesheet
+# ported to GTK3, so the @define-color block in gtk-3.0/gtk.css reaches it. Every
+# other theme hardcodes its palette and ignores that file. Naming a theme that is
+# not installed is worse than naming none, so adw-gtk-theme is in the list above.
 echo ">> desktop settings..."
-gsettings set org.gnome.desktop.interface gtk-theme 'Breeze' 2>/dev/null || true
+gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark' 2>/dev/null || true
 gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true
+
+# GTK3 itself does not read gsettings — it reads settings.ini, and over the top of
+# that whatever xsettingsd is serving. Both of those belong to kde-gtk-config's
+# kded module, which regenerates them from kdeglobals at every login and cannot be
+# talked out of it: [Module-gtkconfig] autoload=false in kdedrc is ignored, tested
+# on a clean kded6 start. So these two files are deliberately NOT in the repo.
+# Symlinking them only means the module writes through the symlink and the repo
+# gets a login's worth of churn in it.
+#
+# What the module does do is merge rather than overwrite: it keeps a theme name it
+# finds and adds its own keys around it. So the name only has to be put there once,
+# which is what this is. From then on the module carries it forward, and the shell
+# recolours the theme through gtk.css without touching the name.
+for v in 3.0 4.0; do
+    ini="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-$v/settings.ini"
+    mkdir -p "${ini%/*}"
+    [ -f "$ini" ] || printf '[Settings]\n' > "$ini"
+    grep -q '^gtk-application-prefer-dark-theme=' "$ini" ||
+        sed -i '1a gtk-application-prefer-dark-theme=true' "$ini"
+    # GTK4 gets no theme name: adw-gtk3 is GTK3 only, and a GTK4 application either
+    # uses libadwaita, which ignores the name, or falls back to Adwaita — and both
+    # take their colours from the same regenerated gtk.css.
+    [ "$v" = 3.0 ] || continue
+    if grep -q '^gtk-theme-name=' "$ini"; then
+        sed -i 's/^gtk-theme-name=.*/gtk-theme-name=adw-gtk3-dark/' "$ini"
+    else
+        sed -i '1a gtk-theme-name=adw-gtk3-dark' "$ini"
+    fi
+done
 
 # ─── link the configs ────────────────────────────────────────────────────────
 echo ""
