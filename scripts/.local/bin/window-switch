@@ -7,6 +7,32 @@
 #
 # Works under Hyprland and niri; the compositor is detected from the running
 # session rather than configured.
+#
+# WHAT THE LIST LOOKS LIKE, and why it takes this much code to get there. A
+# window gives you three raw strings — a class, a title and a workspace — and
+# printing them is what the first version of this did:
+#
+#     2    app.zen_browser.zen    Zen Browser  0x560bc6342b00
+#
+# The class is an application id, not a name; the handle has to travel with the
+# line so the choice can be resolved, so it is on screen too; and there is no
+# icon, because dmenu input is text. All three are fixable:
+#
+#   * the .desktop entry that owns the class knows the human name and the icon,
+#     so an index of those is built once per launch (283 files here, ~20 ms)
+#   * fuzzel speaks Rofi's extended dmenu protocol, so an icon is a \0icon\x1f
+#     suffix on the line
+#   * --with-nth/--accept-nth display one column and return another, so the
+#     window handle travels in a column that is never drawn
+#
+# leaving the list to be the two things you actually recognise a window by:
+#
+#     ▸ 🖳  1  Alacritty      sups@SupSws:~
+#       🦊  2  Zen Browser    Arch dotfiles için shell konfigürasyonu ekle
+#
+# The order is workspace, then application, then title — the same list every
+# time, in the order they are on screen. Not most-recently-used: a picker whose
+# rows move between launches cannot be used without reading it.
 
 set -uo pipefail
 
@@ -14,38 +40,236 @@ die() { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
 
 command -v fuzzel >/dev/null || die "fuzzel is not installed"
 command -v jq     >/dev/null || die "jq is not installed"
+# --accept-nth arrived in fuzzel 1.11 and the whole layout below depends on it.
+# Without the check the failure is a menu that does not open and no reason why.
+fuzzel --help 2>&1 | grep -q -- --accept-nth || die "fuzzel is too old — needs 1.11 or newer"
 
-pick() { fuzzel --dmenu --prompt "$1 " --width 70 --lines 15; }
+# Icon theme. fuzzel's own default is hicolor, which carries almost no
+# application icons, so the list would be a column of blank squares. gsettings
+# is where install.sh puts the desktop-wide choice.
+icon_theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'\"")
 
-case "${XDG_CURRENT_DESKTOP:-}" in
-  *Hyprland*)
-    command -v hyprctl >/dev/null || die "hyprctl not found"
-    # address is carried in the line so the choice can be resolved without a
-    # second lookup; it is cut off again before display.
-    sel=$(hyprctl clients -j | jq -r '
+# ---------------------------------------------------------------------------
+# The .desktop index: class -> human name + icon name.
+#
+# Three keys per entry, in the order they are worth trusting: StartupWMClass is
+# what an application declares its window class to be, the desktop id is what
+# most of them use without declaring it, and the tail of a reverse-dns id
+# (org.kde.dolphin -> dolphin) catches the rest.
+desktop_index() {
+    local dirs=() data=() d
+    # Straight out of XDG_DATA_DIRS rather than a list of guesses, because that
+    # is where the interesting ones are: a per-user flatpak exports its entries
+    # under ~/.local/share/flatpak, which no hardcoded list would have had.
+    IFS=: read -ra data <<< "${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    for d in "${data[@]}"; do
+        [ -n "$d" ] && [ -d "$d/applications" ] && dirs+=("$d/applications")
+    done
+    [ "${#dirs[@]}" -gt 0 ] || return 0
+
+    find "${dirs[@]}" -maxdepth 2 -name '*.desktop' -print0 2>/dev/null |
+        xargs -0 -r awk '
+            BEGINFILE { entry = 0; name = ""; icon = ""; wm = "" }
+            /^\[/     { entry = ($0 == "[Desktop Entry]") }
+
+            entry && name == "" && /^Name=/           { name = substr($0, 6) }
+            entry && icon == "" && /^Icon=/           { icon = substr($0, 6) }
+            entry && wm   == "" && /^StartupWMClass=/ { wm   = substr($0, 16) }
+
+            ENDFILE {
+                id = FILENAME
+                sub(/.*\//, "", id)
+                sub(/\.desktop$/, "", id)
+                if (name == "") name = id
+
+                if (wm != "") print "1\t" tolower(wm) "\t" name "\t" icon
+                print "2\t" tolower(id) "\t" name "\t" icon
+                tail = id
+                sub(/.*\./, "", tail)
+                if (tail != id) print "3\t" tolower(tail) "\t" name "\t" icon
+            }'
+}
+
+# ---------------------------------------------------------------------------
+# One window per line, as:
+#
+#   sort key <tab> workspace <tab> class <tab> initial class <tab> title
+#            <tab> focused <tab> handle
+#
+# The sort key is a string rather than a number so a single plain sort orders
+# it: workspaces in order first, special workspaces after them.
+hypr_windows() {
+    hyprctl clients -j | jq -r '
         .[]
         | select(.mapped and .title != "")
-        | "\(.workspace.name)	\(.class)	\(.title)	\(.address)"' \
-      | sort -V \
-      | awk -F'\t' '{ printf "%-4s %-22s %s\t%s\n", $1, $2, $3, $4 }' \
-      | pick "Window") || exit 0
-    [ -n "$sel" ] || exit 0
-    hyprctl dispatch focuswindow "address:${sel##*$'\t'}" >/dev/null
-    ;;
+        | (.workspace.name // "") as $wn
+        | (if (.workspace.id // 0) < 0 then "1" + $wn
+           else "0" + (("000" + ((.workspace.id // 0) | tostring)) | .[-4:]) end) as $sort
+        | [ $sort,
+            (if ($wn | startswith("special:")) then $wn[8:] else $wn end),
+            ((.class // "") | ascii_downcase),
+            ((.initialClass // "") | ascii_downcase),
+            (.title // ""),
+            (if .focusHistoryID == 0 then "*" else "" end),
+            .address ]
+        | @tsv'
+}
 
-  *niri*)
-    command -v niri >/dev/null || die "niri not found"
-    sel=$(niri msg -j windows | jq -r '
-        .[]
-        | "\(.workspace_id)	\(.app_id // "?")	\(.title // "")	\(.id)"' \
-      | sort -V \
-      | awk -F'\t' '{ printf "%-4s %-22s %s\t%s\n", $1, $2, $3, $4 }' \
-      | pick "Window") || exit 0
-    [ -n "$sel" ] || exit 0
-    niri msg action focus-window --id "${sel##*$'\t'}" >/dev/null
-    ;;
+# niri numbers workspaces per monitor and hands windows the internal id, so the
+# workspace list has to be read as well to turn that back into what is on the
+# workspace indicator.
+niri_windows() {
+    jq -n --slurpfile ws <(niri msg -j workspaces) --slurpfile wins <(niri msg -j windows) '
+        ($ws[0] | map({key: (.id | tostring), value: .}) | from_entries) as $wsmap
+        | $wins[0][]
+        | ((.workspace_id // 0) | tostring) as $wid
+        | ($wsmap[$wid] // {}) as $w
+        | [ "0" + (("000" + (($w.idx // 0) | tostring)) | .[-4:]),
+            ($w.name // (($w.idx // 0) | tostring)),
+            ((.app_id // "") | ascii_downcase),
+            ((.app_id // "") | ascii_downcase),
+            (.title // ""),
+            (if .is_focused then "*" else "" end),
+            (.id | tostring) ]
+        | @tsv'
+}
 
-  *)
-    die "unsupported session: ${XDG_CURRENT_DESKTOP:-unset} (Hyprland or niri)"
-    ;;
+# ---------------------------------------------------------------------------
+# Rows in, fuzzel input out. Two columns — what is drawn, and the handle that
+# is not — plus the icon suffix.
+#
+# The columns are padded here rather than left to fuzzel because dmenu input is
+# a flat string: there is no column support to lean on, only a monospace font
+# and the widths of the rows actually in this list.
+render() {
+    awk -F'\t' '
+        # ARGIND rather than the usual NR == FNR: an empty index file makes that
+        # idiom read the *windows* as the index and print nothing at all.
+        ARGIND == 1 {                        # the .desktop index
+            key = $1 "\t" $2
+            if (!(key in nm)) { nm[key] = $3; ic[key] = $4 }
+            next
+        }
+
+        function lookup(c,   p, k) {
+            if (c == "") return ""
+            for (p = 1; p <= 3; p++) {
+                k = p "\t" c
+                if (k in nm) return k
+            }
+            return ""
+        }
+        function tail(s) { sub(/.*\./, "", s); return s }
+
+        {
+            cls = $3
+            key = lookup(cls)
+            if (key == "") key = lookup($4)
+
+            if (key == "") {
+                # Nothing owns this class: a terminal-less GUI, an xwayland
+                # window with a made-up class, a flatpak that shipped no entry.
+                # Best effort — the tail of the class, capitalised.
+                t = tail(cls)
+                app = toupper(substr(t, 1, 1)) substr(t, 2)
+                icon = cls
+            } else {
+                app = nm[key]
+                icon = ic[key]
+            }
+
+            n++
+            mark[n]  = ($6 == "*") ? "▸" : " "
+            wsp[n]   = $2
+            appn[n]  = app
+            title[n] = $5
+            id[n]    = $7
+            # Fallbacks, tried in order until one resolves. The class is worth a
+            # try on its own: plenty of applications name their icon after it.
+            icons[n] = icon "," cls "," tail(cls) ",application-x-executable"
+
+            if (length($2) > wsw)  wsw  = length($2)
+            if (length(app) > appw) appw = length(app)
+        }
+
+        END {
+            if (appw > 22) appw = 22         # a long name may not eat the title
+            for (i = 1; i <= n; i++) {
+                a = appn[i]
+                if (length(a) > appw) a = substr(a, 1, appw - 1) "…"
+                printf "%s %-*s  %-*s  %s\t%s%cicon%c%s\n",
+                    mark[i], wsw, wsp[i], appw, a, title[i], id[i], 0, 31, icons[i]
+            }
+        }
+    ' "$@"
+}
+
+# fuzzel does not shrink to its content: --lines is the height of the box, empty
+# rows and all. Six windows in a twelve-row box is mostly empty box, so the list
+# is written out first and its length is the height.
+tmp=$(mktemp) || die "cannot create a temp file"
+trap 'rm -f "$tmp"' EXIT
+
+pick() {
+    local lines
+    lines=$(wc -l < "$tmp")
+    [ "$lines" -gt 0 ] || return 1      # nothing is open, nothing to switch to
+    [ "$lines" -gt 12 ] && lines=12
+
+    local args=(--dmenu --with-nth=1 --accept-nth=2
+                --prompt "Window " --width 80 --lines "$lines")
+    [ -n "$icon_theme" ] && args+=(--icon-theme "$icon_theme")
+    fuzzel "${args[@]}" < "$tmp"
+}
+
+# ---------------------------------------------------------------------------
+case "${XDG_CURRENT_DESKTOP:-}" in
+    *Hyprland*)
+        command -v hyprctl >/dev/null || die "hyprctl not found"
+
+        render <(desktop_index) <(hypr_windows | LC_ALL=C sort) > "$tmp"
+        sel=$(pick) || exit 0
+        # fuzzel prints the typed text when nothing matched, so this is not
+        # necessarily a window handle.
+        [[ $sel =~ ^0x[0-9a-f]+$ ]] || exit 0
+
+        # Under the Lua config provider the arguments of `hyprctl dispatch` are
+        # parsed as Lua, where `focuswindow address:0x…` is a syntax error; the
+        # legacy parser in turn has no eval. Ask which one is in front of us —
+        # and still fall through, so a wrong answer is a slower switch, not none.
+        LUA=0
+        [ "$(hyprctl eval 'true' 2>/dev/null)" = "ok" ] && LUA=1
+        dispatch() {                        # $1 the Lua form, the rest legacy
+            local form="$1"; shift
+            [ "$LUA" -eq 1 ] && [ "$(hyprctl eval "hl.dispatch($form)" 2>/dev/null)" = "ok" ] && return 0
+            hyprctl dispatch "$@" >/dev/null 2>&1
+        }
+
+        # A window on a special workspace is in the list like any other, and
+        # focusing one while its workspace is hidden puts the keyboard on a
+        # window that is not on screen. Pull the workspace up first — but only
+        # when it is down, because the dispatcher for it is a toggle.
+        ws=$(hyprctl clients -j | jq -r --arg a "$sel" '.[] | select(.address == $a) | .workspace.name')
+        if [[ $ws == special:* ]] &&
+           ! hyprctl monitors -j | jq -e --arg w "$ws" 'any(.[]; .specialWorkspace.name == $w)' >/dev/null; then
+            dispatch "hl.dsp.workspace.toggle_special(\"${ws#special:}\")" \
+                     togglespecialworkspace "${ws#special:}"
+        fi
+
+        dispatch "hl.dsp.focus({ window = \"address:$sel\" })" focuswindow "address:$sel"
+        ;;
+
+    *niri*)
+        command -v niri >/dev/null || die "niri not found"
+
+        render <(desktop_index) <(niri_windows | LC_ALL=C sort) > "$tmp"
+        sel=$(pick) || exit 0
+        [[ $sel =~ ^[0-9]+$ ]] || exit 0
+
+        niri msg action focus-window --id "$sel" >/dev/null
+        ;;
+
+    *)
+        die "unsupported session: ${XDG_CURRENT_DESKTOP:-unset} (Hyprland or niri)"
+        ;;
 esac
