@@ -1,5 +1,5 @@
---- base.qml	2026-08-10 03:06:44.937748456 +0300
-+++ new.qml	2026-08-10 03:06:44.948268518 +0300
+--- base.qml	2026-08-10 03:12:15.787168888 +0300
++++ new.qml	2026-08-10 03:12:15.797270338 +0300
 @@ -1,6 +1,7 @@
  import QtQuick
  import QtQuick.Controls
@@ -108,7 +108,7 @@
          }
      }
  
-@@ -198,8 +263,14 @@
+@@ -198,8 +263,13 @@
  
          // Show launcher on hover, or show/hide on drag if hover is disabled
          if (Config.launcher.showOnHover) {
@@ -116,38 +116,39 @@
 -                screenState.launcher = true;
 +            const showLauncher = inBottomPanel(panels.launcher, x, y);
 +
-+            if (pinnedPanel === "launcher") {
-+                // pinned
-+            } else if (!launcherShortcutActive)
-+                screenState.launcher = showLauncher;
-+            else if (showLauncher)
++            if (!launcherShortcutActive) {
++                if (showLauncher || pinnedPanel !== "launcher")
++                    screenState.launcher = showLauncher;
++            } else if (showLauncher)
 +                launcherShortcutActive = false;
          } else if (pressed && inBottomPanel(panels.launcher, dragStart.x, dragStart.y) && withinPanelWidth(panels.launcher, x, y)) {
              if (dragY < -Config.launcher.dragThreshold)
                  screenState.launcher = true;
-@@ -211,7 +282,9 @@
-         const showDashboard = Config.dashboard.showOnHover && inTopPanel(panels.dashboard, x, y);
+@@ -212,7 +282,12 @@
  
          // Always update visibility based on hover if not in shortcut mode
--        if (!dashboardShortcutActive) {
-+        if (pinnedPanel === "dashboard") {
-+            // pinned: hover neither opens nor closes it
-+        } else if (!dashboardShortcutActive) {
-             screenState.dashboard = showDashboard;
+         if (!dashboardShortcutActive) {
+-            screenState.dashboard = showDashboard;
++            // Pinned means hover cannot close it. It must still be able to open it:
++            // other paths close the dashboard behind our back (onLauncherChanged
++            // does, when the launcher goes away), and a pin that also blocked
++            // opening left it shut for good with no way back but unpinning.
++            if (showDashboard || pinnedPanel !== "dashboard")
++                screenState.dashboard = showDashboard;
          } else if (showDashboard) {
              // If hovering over dashboard area while in shortcut mode, transition to hover control
-@@ -230,7 +303,9 @@
-         const showUtilities = inBottomPanel(panels.utilities, x, y, true);
+             dashboardShortcutActive = false;
+@@ -231,7 +306,8 @@
  
          // Always update visibility based on hover if not in shortcut mode
--        if (!utilitiesShortcutActive) {
-+        if (pinnedPanel === "utilities") {
-+            // pinned
-+        } else if (!utilitiesShortcutActive) {
-             screenState.utilities = showUtilities;
+         if (!utilitiesShortcutActive) {
+-            screenState.utilities = showUtilities;
++            if (showUtilities || pinnedPanel !== "utilities")
++                screenState.utilities = showUtilities;
          } else if (showUtilities) {
              // If hovering over utilities area while in shortcut mode, transition to hover control
-@@ -249,6 +324,14 @@
+             utilitiesShortcutActive = false;
+@@ -249,6 +325,14 @@
      // Monitor individual visibility changes
      Connections {
          function onLauncherChanged() {
@@ -162,3 +163,16 @@
              // If launcher is hidden, clear shortcut flags for dashboard and OSD
              if (!root.screenState.launcher) {
                  root.dashboardShortcutActive = false;
+@@ -259,10 +343,10 @@
+                 const inDashboardArea = root.inTopPanel(root.panels.dashboard, root.mouseX, root.mouseY);
+                 const inOsdArea = root.inRightPanel(root.panels.osdWrapper, root.mouseX, root.mouseY);
+ 
+-                if (!inDashboardArea) {
++                if (!inDashboardArea && root.pinnedPanel !== "dashboard") {
+                     root.screenState.dashboard = false;
+                 }
+-                if (!inOsdArea) {
++                if (!inOsdArea && root.pinnedPanel !== "osd") {
+                     root.screenState.osd = false;
+                     root.panels.osd.hovered = false;
+                 }
