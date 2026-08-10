@@ -1,15 +1,17 @@
---- base.qml	2026-08-10 10:24:15.543262705 +0300
-+++ new.qml	2026-08-10 10:24:15.558394826 +0300
-@@ -166,7 +166,11 @@
+--- base.qml	2026-08-10 10:30:13.556594958 +0300
++++ new.qml	2026-08-10 10:30:13.574571498 +0300
+@@ -166,7 +166,13 @@
              autoPaddingEnabled: false
              blurEnabled: true
              blur: 1
 -            blurMax: 64
-+            // 64 is the whole wallpaper reduced to colour smears; this is still
-+            // obviously blurred but the desktop behind it is recognisable. It is
-+            // also cheaper: blurMax is what decides how many passes MultiEffect
-+            // runs, and this is a third of them.
-+            blurMax: 20
++            // Measured rather than guessed, by rendering this same effect over a
++            // fullscreen layer surface at each value and looking at the result.
++            // At 64 the screen is colour smears with nothing recognisable in it.
++            // At 20 it is only legible text that looks blurred at all — over a
++            // wallpaper, which is what is usually behind this, 20px of blur on
++            // 1920 reads as none. 40 is soft on both.
++            blurMax: 40
              blurMultiplier: 1
          }
      }
