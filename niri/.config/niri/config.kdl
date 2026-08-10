@@ -106,11 +106,7 @@ spawn-at-startup "kded6"
 // units gated on it are skipped forever — localsearch-3.service is one, which
 // is why Nautilus's Recent and search come back empty. Same line as
 // hyprland.conf.
-// PAM_KWALLET5_LOGIN is on the same line for the same reason: pam_kwallet names
-// the socket holding the wallet key only in the session environment, so the
-// D-Bus activated ksecretd starts without it and the wallet stays locked. Same
-// line as hyprland.conf, where the whole story is written down.
-spawn-at-startup "systemctl" "--user" "import-environment" "XDG_SESSION_CLASS" "XDG_SESSION_TYPE" "PAM_KWALLET5_LOGIN"
+spawn-at-startup "systemctl" "--user" "import-environment" "XDG_SESSION_CLASS" "XDG_SESSION_TYPE"
 // Same wallpaper, same ~/.config/hypr/hyprpaper.conf as Hyprland; the config
 // comes from the `desktop` package, which both profiles link.
 spawn-at-startup "hyprpaper"

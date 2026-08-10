@@ -283,18 +283,7 @@ hl.on("hyprland.start", function()
     -- indexer, systemd logged "unmet condition check" and its Recent and search
     -- came back empty with nothing visible to explain why. Same line as
     -- hypr/hyprland.conf.
-    -- PAM_KWALLET5_LOGIN is on the same line for the same reason. pam_kwallet
-    -- unlocks the wallet at login by starting `ksecretd --pam-login`, leaving a
-    -- socket at $XDG_RUNTIME_DIR/kwallet5.socket and naming it in that variable
-    -- -- but only in the session's environment. The ksecretd that actually
-    -- serves the bus is D-Bus activated by the systemd --user manager, which
-    -- never had the variable, so it starts with no key:
-    --
-    --     ksecretd[204936]: Lacking a socket, pipe: 0 env: 0
-    --
-    -- and the first application to want a secret gets a password dialog. See
-    -- hypr/hyprland.conf for the rest of it.
-    hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE PAM_KWALLET5_LOGIN")
+    hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE")
 
     -- Keep the shell overlay in step with the package. caelestia starts its own
     -- shell from execs.lua before this handler runs, so on the login after a
