@@ -1,5 +1,5 @@
---- base.qml	2026-08-10 02:16:37.212656668 +0300
-+++ new.qml	2026-08-10 02:16:37.234736221 +0300
+--- base.qml	2026-08-10 03:06:44.937748456 +0300
++++ new.qml	2026-08-10 03:06:44.948268518 +0300
 @@ -1,6 +1,7 @@
  import QtQuick
  import QtQuick.Controls
@@ -8,11 +8,18 @@
  import Caelestia.Config
  import qs.components
  import qs.components.controls
-@@ -20,9 +21,66 @@
+@@ -20,9 +21,70 @@
  
      property point dragStart
      property bool dashboardShortcutActive
 +    property bool launcherShortcutActive
++
++    // Which panel is pinned, if any. Deliberately NOT one of the
++    // *ShortcutActive flags: those mean "opened by shortcut" and are cleared
++    // the moment the pointer touches the panel, which is upstream handing
++    // control back to hover. Pinning has to survive exactly that — you pin
++    // the thing you are pointing at — so it needs a flag hover never touches.
++    property string pinnedPanel: ""
      property bool osdShortcutActive
      property bool utilitiesShortcutActive
  
@@ -26,14 +33,11 @@
 +    // Only the panels that have such a flag can be pinned. The bar and the
 +    // sidebar close through other paths and would need their own.
 +    function pinnedAny(): bool {
-+        return dashboardShortcutActive || osdShortcutActive || utilitiesShortcutActive || launcherShortcutActive;
++        return pinnedPanel !== "";
 +    }
 +
 +    function unpinAll(): void {
-+        dashboardShortcutActive = false;
-+        osdShortcutActive = false;
-+        utilitiesShortcutActive = false;
-+        launcherShortcutActive = false;
++        pinnedPanel = "";
 +    }
 +
 +    function pinHovered(): void {
@@ -41,13 +45,13 @@
 +        const y = root.mouseY;
 +
 +        if (inTopPanel(panels.dashboard, x, y))
-+            dashboardShortcutActive = true;
++            pinnedPanel = "dashboard";
 +        else if (inRightPanel(panels.osdWrapper, x, y))
-+            osdShortcutActive = true;
++            pinnedPanel = "osd";
 +        else if (inBottomPanel(panels.utilities, x, y, true))
-+            utilitiesShortcutActive = true;
++            pinnedPanel = "utilities";
 +        else if (inBottomPanel(panels.launcher, x, y))
-+            launcherShortcutActive = true;
++            pinnedPanel = "launcher";
 +    }
 +
 +    IpcHandler {
@@ -75,17 +79,36 @@
      function withinPanelHeight(panel: Item, x: real, y: real): bool {
          const panelY = root.borderThickness + panel.y;
          return y >= panelY - Config.border.rounding && y <= panelY + panel.height + Config.border.rounding;
-@@ -88,6 +146,9 @@
+@@ -67,15 +129,15 @@
+     onContainsMouseChanged: {
+         if (!containsMouse) {
+             // Only hide if not activated by shortcut
+-            if (!osdShortcutActive) {
++            if (!osdShortcutActive && pinnedPanel !== "osd") {
+                 screenState.osd = false;
+                 root.panels.osd.hovered = false;
+             }
+ 
+-            if (!dashboardShortcutActive)
++            if (!dashboardShortcutActive && pinnedPanel !== "dashboard")
+                 screenState.dashboard = false;
+ 
+-            if (!utilitiesShortcutActive)
++            if (!utilitiesShortcutActive && pinnedPanel !== "utilities")
+                 screenState.utilities = false;
+ 
+             if (!popouts.currentName.startsWith("traymenu") || ((popouts.current as StackView)?.depth ?? 0) <= 1) {
+@@ -88,6 +150,9 @@
  
              if (Config.sidebar.showOnHover)
                  screenState.sidebar = false;
 +
-+            if (Config.launcher.showOnHover && !launcherShortcutActive)
++            if (Config.launcher.showOnHover && !launcherShortcutActive && pinnedPanel !== "launcher")
 +                screenState.launcher = false;
          }
      }
  
-@@ -198,8 +259,12 @@
+@@ -198,8 +263,14 @@
  
          // Show launcher on hover, or show/hide on drag if hover is disabled
          if (Config.launcher.showOnHover) {
@@ -93,14 +116,38 @@
 -                screenState.launcher = true;
 +            const showLauncher = inBottomPanel(panels.launcher, x, y);
 +
-+            if (!launcherShortcutActive)
++            if (pinnedPanel === "launcher") {
++                // pinned
++            } else if (!launcherShortcutActive)
 +                screenState.launcher = showLauncher;
 +            else if (showLauncher)
 +                launcherShortcutActive = false;
          } else if (pressed && inBottomPanel(panels.launcher, dragStart.x, dragStart.y) && withinPanelWidth(panels.launcher, x, y)) {
              if (dragY < -Config.launcher.dragThreshold)
                  screenState.launcher = true;
-@@ -249,6 +314,14 @@
+@@ -211,7 +282,9 @@
+         const showDashboard = Config.dashboard.showOnHover && inTopPanel(panels.dashboard, x, y);
+ 
+         // Always update visibility based on hover if not in shortcut mode
+-        if (!dashboardShortcutActive) {
++        if (pinnedPanel === "dashboard") {
++            // pinned: hover neither opens nor closes it
++        } else if (!dashboardShortcutActive) {
+             screenState.dashboard = showDashboard;
+         } else if (showDashboard) {
+             // If hovering over dashboard area while in shortcut mode, transition to hover control
+@@ -230,7 +303,9 @@
+         const showUtilities = inBottomPanel(panels.utilities, x, y, true);
+ 
+         // Always update visibility based on hover if not in shortcut mode
+-        if (!utilitiesShortcutActive) {
++        if (pinnedPanel === "utilities") {
++            // pinned
++        } else if (!utilitiesShortcutActive) {
+             screenState.utilities = showUtilities;
+         } else if (showUtilities) {
+             // If hovering over utilities area while in shortcut mode, transition to hover control
+@@ -249,6 +324,14 @@
      // Monitor individual visibility changes
      Connections {
          function onLauncherChanged() {
