@@ -1,0 +1,23 @@
+# kded6 modules, for the caelestia rice only.
+#
+# kded6 is started at login for ksycoca — see hypr-user.lua — and that is the
+# only thing it is wanted for here. It also loads kde-gtk-config's `gtkconfig`
+# module, which does something nobody asked it to: it regenerates
+# gtk-3.0/settings.ini, gtk-4.0/settings.ini and xsettingsd.conf from
+# kdeglobals, then runs xsettingsd to serve the result over XSETTINGS.
+#
+# XSETTINGS wins over settings.ini in every GTK3 application, so that module has
+# the last word on the GTK theme, and its answer is always the static one out of
+# kdeglobals. caelestia regenerates the GTK colours from the wallpaper on every
+# change and sets the theme to adw-gtk3-dark; kde-gtk-config quietly put Breeze
+# back over the top of it, which is why the wallpaper recoloured the shell and
+# left every GTK window exactly as it was.
+#
+# Unloading the one module keeps ksycoca and stops the fight. Nothing else here
+# reads GTK settings out of kdeglobals — Qt applications get their colours from
+# qtengine, which caelestia also regenerates.
+#
+# Under the `own` rice this file is not linked, and kde-gtk-config is exactly
+# what is wanted there: it is the only thing that writes settings.ini at all.
+[Module-gtkconfig]
+autoload=false

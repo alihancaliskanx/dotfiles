@@ -75,6 +75,11 @@ PKGS=(
   # the freedesktop naming-spec ones — Konsole, KCalc and a dozen others lose
   # their icon and draw a placeholder instead.
   papirus-icon-theme
+  # libadwaita's stylesheet ported to GTK3, so a GTK3 window takes its colours
+  # from the @define-color block in gtk-3.0/gtk.css instead of hardcoding them.
+  # That is what lets the caelestia rice recolour GTK applications from the
+  # wallpaper; every other theme ignores the file and stays as it was.
+  adw-gtk-theme
   # gui helpers
   nautilus dolphin pavucontrol nm-connection-editor network-manager-applet
   filelight partitionmanager btrfs-assistant snapper ffmpegthumbnailer
