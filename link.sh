@@ -200,6 +200,12 @@ declare -A RICE_RUNS=(
 # from the desktop palette, and caelestia's `dconf write gtk-theme` is enough to
 # set that off — the two end up with the same mtime and colours to the second.
 # So it is caelestia's leftover all the same, and gets cleaned up like one.
+#
+# Safe to delete only because the gtk package no longer ships colors.css nor
+# imports it: it is kde-gtk-config's file end to end, and the kded writes it
+# again from kdeglobals at the next login. Do not put that @import back without
+# taking these two paths out again — a gtk.css importing a file this switch has
+# just removed is a parse error on the startup of every GTK application.
 declare -A RICE_GENERATES=(
     [imperative-dots]=".config/swayosd/style.css .config/kdeglobals"
     [caelestia]=".config/hypr/scheme/current.lua .config/fuzzel/fuzzel.ini .config/cava/config .config/gtk-3.0/gtk.css .config/gtk-3.0/colors.css .config/gtk-4.0/gtk.css .config/gtk-4.0/colors.css"

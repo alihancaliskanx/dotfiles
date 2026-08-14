@@ -325,6 +325,13 @@ and the two `gtk.css` on the way out. `gtk` is an extra package outside every
 profile, so the way back to `own` does not relink it: if you use it, run
 `./link.sh -f link gtk` afterwards.
 
+The two `colors.css` are on that list without being caelestia's own work.
+caelestia-cli renders `gtk.css` and `thunar.css` and stops there; what recolours
+`colors.css` is kde-gtk-config's kded, set off by the `dconf write gtk-theme`
+the CLI does on the way past — both files came out at the same minute with the
+same palette. The kded writes it again from `kdeglobals` at the next login,
+which is why this repo can delete it without owning it.
+
 The menu only appears when stdin is a terminal. In a script or in CI a bare
 `./link.sh` still links the default profile, exactly as before, so nothing hangs
 on a prompt it cannot answer.
@@ -662,11 +669,21 @@ KDE's `kde-gtk-config` tool generates `colors.css`, `window_decorations.css` and
 end of `gtk.css` — meaning these files are rewritten on every KDE settings
 change. The css in the repo is the hand-written rainynight part. If you want to
 link it, `./link.sh -f link gtk`, but know that KDE will overwrite it. The
-package is therefore kept in sync by hand, not by a symlink; `colors.css` in it
-is a snapshot of what kde-gtk-config produced.
+package is therefore kept in sync by hand, not by a symlink.
 
-`gtk-4.0/gtk.css` and `gtk-4.0/colors.css` are symlinks to the `gtk-3.0` ones —
-one file, two locations, so the two toolkits cannot drift apart.
+`colors.css` used to be in it as a snapshot of what kde-gtk-config produced, and
+is not any more — for the same reason the two `settings.ini` left: the kded
+module rewrites that file from `kdeglobals` at every login and a symlink is not
+a wall, so the repo's copy was one login away from being overwritten in place.
+The `@import "colors.css"` at the top of `gtk.css` went with it. Nothing was
+lost: `gtk.css` defines every colour it uses itself and referenced none of the
+`*_breeze` names that file declares, so the import only ever pulled in dead
+weight — and now that the package no longer ships the file, an import of it
+would be a parse error at the startup of every GTK application each time
+`link.sh rice own` cleared caelestia's copy.
+
+`gtk-4.0/gtk.css` is a symlink to the `gtk-3.0` one — one file, two locations,
+so the two toolkits cannot drift apart.
 
 **GTK has no `filter` property.** The theme this css came from carried a
 `.svg-icon { filter: invert(…) … }` block, which is web CSS. GTK ignored the
