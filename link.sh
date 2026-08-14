@@ -189,14 +189,20 @@ declare -A RICE_RUNS=(
 # `caelestia scheme set`. hypr/scheme/current.lua is the colour scheme its own
 # lua config copies out of scheme/default.lua on first load.
 #
-# gtk.css is here without gtk being in RICE_REPLACES on purpose: `gtk` is an
-# extra package, outside every profile, so the way back to "own" would not
-# relink it. Removing what caelestia wrote is still right — a stale caelestia
+# The gtk files are here without gtk being in RICE_REPLACES on purpose: `gtk` is
+# an extra package, outside every profile, so the way back to "own" would not
+# relink it. Removing what caelestia left is still right — a stale caelestia
 # palette on a Rainy-Night desktop is worse than no gtk.css — but if you use
 # that package, put it back with `./link.sh -f link gtk`.
+#
+# colors.css is the one file here caelestia does not write itself: its CLI only
+# renders gtk.css and thunar.css. kde-gtk-config's kded regenerates colors.css
+# from the desktop palette, and caelestia's `dconf write gtk-theme` is enough to
+# set that off — the two end up with the same mtime and colours to the second.
+# So it is caelestia's leftover all the same, and gets cleaned up like one.
 declare -A RICE_GENERATES=(
     [imperative-dots]=".config/swayosd/style.css .config/kdeglobals"
-    [caelestia]=".config/hypr/scheme/current.lua .config/fuzzel/fuzzel.ini .config/cava/config .config/gtk-3.0/gtk.css .config/gtk-4.0/gtk.css"
+    [caelestia]=".config/hypr/scheme/current.lua .config/fuzzel/fuzzel.ini .config/cava/config .config/gtk-3.0/gtk.css .config/gtk-3.0/colors.css .config/gtk-4.0/gtk.css .config/gtk-4.0/colors.css"
 )
 
 # Directories linked as a whole instead of file by file, as paths relative to
