@@ -22,7 +22,7 @@ skip() { printf '%s- %s (%s missing)%s\n' "$DIM" "$1" "$2" "$RST"; }
 warn() { printf '%s! %s%s\n' "$YLW" "$*" "$RST"; }
 
 # ─── shell ───────────────────────────────────────────────────────────────────
-shell_files=(link.sh install.sh check.sh scripts/.local/bin/*)
+shell_files=(link.sh install.sh check.sh repo.sh scripts/.local/bin/*)
 err=0
 for f in "${shell_files[@]}"; do
     [ -f "$f" ] || continue
