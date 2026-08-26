@@ -64,7 +64,8 @@
         "enableHowdy": false
     },
     "services": {
-        "maxVolume": 1.5
+        "maxVolume": 1.5,
+        "weatherLocation": "41.0082,28.9784"
     },
     "sidebar": {
         "enabled": true

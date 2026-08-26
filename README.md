@@ -432,6 +432,7 @@ bash script under `scripts/.local/bin/`:
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
+| `hibernate-setup` | a btrfs swapfile big enough to hibernate into, and the `resume=` to find it again (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
@@ -669,6 +670,29 @@ does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
 the login screen from `sudo plasmalogin-theme`. caelestia is the exception: it
 keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
 tracked — the image it points at is, now.
+
+**Hibernation needs somewhere to go, and zram is not it.** The only swap this
+machine had was `/dev/zram0`, which is a compressed block device living *in* RAM
+— writing RAM into it and then cutting power leaves nothing to come back to. So
+`logind` answered `CanHibernate` with `na`, caelestia's session menu offered a
+hibernate button that could not work, and its 600-second idle action
+(`suspendThenHibernate`) quietly degraded to a plain suspend. `hibernate-setup`
+is the fix: a 32 GiB swapfile in a btrfs subvolume of its own, at priority -2 so
+zram stays the swap everything normally pages to, plus the `resume=` and
+`resume_offset=` on the kernel command line without which the kernel has no idea
+where to look before any filesystem is mounted. The subvolume matters — a btrfs
+snapshot is not recursive, so a nested subvolume is invisible to the snapshots
+snapper takes of `@`, and a swapfile that gets snapshotted or moved is a swapfile
+that cannot be resumed from.
+
+**The weather has a location setting and no way to pick one.** caelestia reads
+`services.weatherLocation` out of `shell.json`, and with it empty it geolocates
+by IP — which on a machine that spends its time behind a phone's tethering proxy
+or Tor reports wherever the exit is. Its own settings page says "Choose your
+weather location on a map in a future update", so the file is the only way for
+now: `"41.0082,28.9784"` in `caelestia-local`. Coordinates rather than a city
+name on purpose — the name goes through open-meteo's geocoder and takes the
+first hit.
 
 **hyprpaper 0.8 changed its config format.** `preload = <path>` plus
 `wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo

@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+#
+# hibernate-setup — gives this machine somewhere to hibernate to.
+#
+# Suspend keeps RAM powered: instant wake, and the battery still drains. Hibernate
+# writes RAM to disk and cuts power entirely, then restores it at the next boot.
+# logind refuses it here — `CanHibernate` answers "na" — for two reasons, and both
+# are addressed below.
+#
+# THE FIRST IS ZRAM. The only swap on this machine is /dev/zram0, and zram is a
+# compressed block device that lives *in RAM*. Writing RAM into it and then
+# cutting power leaves nothing to come back to. zram is genuinely good at what it
+# is for and is left alone: it keeps priority 100 and stays the swap everything
+# normally pages to. The swapfile this creates sits at priority -2, so it is only
+# touched when zram is full or when the kernel is hibernating into it.
+#
+# THE SECOND IS THAT NOBODY TOLD THE KERNEL WHERE TO LOOK. Restoring happens
+# before any filesystem is mounted, so the location has to be on the kernel
+# command line: `resume=` for the filesystem and `resume_offset=` for where in it
+# the swapfile physically starts. Neither is there now.
+#
+# BTRFS MAKES THIS FUSSIER THAN IT SOUNDS. A swapfile must not be copy-on-write,
+# must not be compressed, and must not move — which is exactly what snapshots and
+# defragmentation do to a file. `btrfs filesystem mkswapfile` handles the first
+# two, and the third is why the file goes in a subvolume of its own: a btrfs
+# snapshot is not recursive, so a nested subvolume is invisible to the snapshots
+# snapper takes of @, and the swapfile cannot be caught in one.
+#
+#   sudo hibernate-setup          set it up (32 GiB by default)
+#   sudo hibernate-setup -n       show what it would do, touch nothing
+#   SIZE=20 sudo hibernate-setup  a different size, in GiB
+#
+# Run once per machine. Idempotent: anything already in place is left alone, so a
+# second run is a check rather than a change. A reboot is needed at the end,
+# because the kernel command line is only read at boot.
+
+set -uo pipefail
+
+SIZE="${SIZE:-32}"
+SUBVOL="${SUBVOL:-/swap}"
+SWAPFILE="$SUBVOL/swapfile"
+DRY=0
+
+RED=$'\e[31m'; GRN=$'\e[32m'; YLW=$'\e[33m'; CYN=$'\e[36m'; DIM=$'\e[2m'; RST=$'\e[0m'
+die()  { printf '%s✘ %s%s\n' "$RED" "$*" "$RST" >&2; exit 1; }
+warn() { printf '%s! %s%s\n' "$YLW" "$*" "$RST" >&2; }
+ok()   { printf '%s✔%s %s\n' "$GRN" "$RST" "$*"; }
+dim()  { printf '%s  %s%s\n' "$DIM" "$*" "$RST"; }
+run()  { if [ "$DRY" -eq 1 ]; then dim "would: $*"; else "$@"; fi; }
+
+usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -n|--dry-run) DRY=1 ;;
+        -h|--help)    usage; exit 0 ;;
+        *)            die "unknown option: $1" ;;
+    esac
+    shift
+done
+
+printf '%sHibernate setup%s\n\n' "$CYN" "$RST"
+[ "$DRY" -eq 1 ] && printf '%s(dry-run — nothing will change)%s\n\n' "$DIM" "$RST"
+[ "$DRY" -eq 1 ] || [ "$(id -u)" -eq 0 ] || die "needs root: sudo hibernate-setup"
+
+# ─── refuse anything this script was not written for ─────────────────────────
+FSTYPE="$(findmnt -no FSTYPE /)"
+[ "$FSTYPE" = btrfs ] || die "/ is $FSTYPE, and this script only knows btrfs"
+
+# A swapfile cannot live on a multi-device btrfs: the kernel needs one physical
+# offset and there is no such thing across two disks.
+devs="$(findmnt -no SOURCE / | sed 's/\[.*//')"
+[ "$(btrfs filesystem show / 2>/dev/null | grep -c 'devid ')" -le 1 ] \
+    || die "this btrfs spans more than one device; a swapfile cannot be resumed from it"
+
+UUID="$(findmnt -no UUID /)"
+[ -n "$UUID" ] || die "could not read the filesystem UUID of /"
+
+RAM_KB="$(awk '/^MemTotal:/{print $2}' /proc/meminfo)"
+RAM_GB=$(( (RAM_KB + 1048575) / 1048576 ))
+if [ "$SIZE" -lt "$RAM_GB" ]; then
+    die "swap of ${SIZE}G is smaller than ${RAM_GB}G of RAM — hibernation needs at least as much"
+fi
+
+AVAIL_GB="$(findmnt -nbo AVAIL / | awk '{printf "%d", $1/1073741824}')"
+[ "$AVAIL_GB" -gt $(( SIZE + 10 )) ] \
+    || die "only ${AVAIL_GB}G free on /; ${SIZE}G swap plus headroom will not fit"
+
+dim "filesystem  btrfs on $devs  (UUID $UUID)"
+dim "RAM         ${RAM_GB}G"
+dim "swapfile    $SWAPFILE  ${SIZE}G"
+dim "free        ${AVAIL_GB}G"
+printf '\n'
+
+# ─── the subvolume ───────────────────────────────────────────────────────────
+if btrfs subvolume show "$SUBVOL" >/dev/null 2>&1; then
+    ok "$SUBVOL is already a subvolume"
+elif [ -e "$SUBVOL" ]; then
+    die "$SUBVOL exists and is not a btrfs subvolume — move it aside first"
+else
+    run btrfs subvolume create "$SUBVOL" || die "could not create $SUBVOL"
+    ok "created the subvolume $SUBVOL"
+fi
+run chmod 700 "$SUBVOL"
+
+# ─── the swapfile ────────────────────────────────────────────────────────────
+if [ -f "$SWAPFILE" ]; then
+    have=$(( $(stat -c %s "$SWAPFILE" 2>/dev/null || echo 0) / 1073741824 ))
+    if [ "$have" -ge "$RAM_GB" ]; then
+        ok "$SWAPFILE already exists (${have}G)"
+    else
+        die "$SWAPFILE is only ${have}G, smaller than ${RAM_GB}G of RAM — remove it and re-run"
+    fi
+else
+    # mkswapfile sets NOCOW and no-compression itself, which is the whole reason
+    # to use it rather than fallocate + mkswap. --uuid clear keeps a restored
+    # image from colliding with a previous one.
+    run btrfs filesystem mkswapfile --size "${SIZE}g" --uuid clear "$SWAPFILE" \
+        || die "mkswapfile failed"
+    ok "created $SWAPFILE (${SIZE}G, nocow, uncompressed)"
+fi
+
+# ─── fstab ───────────────────────────────────────────────────────────────────
+# pri=-2 puts it below zram's 100, so nothing pages here while zram has room.
+FSTAB_LINE="$SWAPFILE none swap defaults,pri=-2 0 0"
+if grep -qF "$SWAPFILE" /etc/fstab 2>/dev/null; then
+    ok "already in /etc/fstab"
+else
+    run cp -a /etc/fstab "/etc/fstab.bak.$(date +%Y%m%d-%H%M%S)"
+    if [ "$DRY" -eq 1 ]; then
+        dim "would append to /etc/fstab: $FSTAB_LINE"
+    else
+        printf '\n# hibernation target — see hibernate-setup\n%s\n' "$FSTAB_LINE" >> /etc/fstab
+    fi
+    ok "added to /etc/fstab"
+fi
+
+if ! swapon --show=NAME --noheadings 2>/dev/null | grep -qF "$SWAPFILE"; then
+    run swapon "$SWAPFILE" || warn "could not swapon $SWAPFILE now; it will come up at boot"
+fi
+
+# ─── where the kernel has to look ────────────────────────────────────────────
+if [ "$DRY" -eq 1 ] && [ ! -f "$SWAPFILE" ]; then
+    dim "would compute resume_offset once the swapfile exists"
+    OFFSET="<computed after creation>"
+else
+    OFFSET="$(btrfs inspect-internal map-swapfile -r "$SWAPFILE" 2>/dev/null)"
+    [ -n "$OFFSET" ] || die "could not read the physical offset of $SWAPFILE"
+    dim "resume_offset $OFFSET"
+fi
+
+RESUME="resume=UUID=$UUID resume_offset=$OFFSET"
+
+GRUBDEF=/etc/default/grub
+[ -f "$GRUBDEF" ] || die "no $GRUBDEF — this script only knows GRUB"
+
+if grep -q 'resume=' "$GRUBDEF"; then
+    ok "GRUB already carries a resume= parameter"
+    dim "$(grep -n 'resume=' "$GRUBDEF" | head -1)"
+    dim "check it matches:  $RESUME"
+else
+    run cp -a "$GRUBDEF" "$GRUBDEF.bak.$(date +%Y%m%d-%H%M%S)"
+    if [ "$DRY" -eq 1 ]; then
+        dim "would append to GRUB_CMDLINE_LINUX_DEFAULT: $RESUME"
+    else
+        # Appended inside the existing quotes rather than replacing the line, so
+        # nothing already on the command line is lost.
+        sed -i "s|^\(GRUB_CMDLINE_LINUX_DEFAULT=\"[^\"]*\)\"|\1 $RESUME\"|" "$GRUBDEF" \
+            || die "could not edit $GRUBDEF"
+        grep -q "resume=UUID=$UUID" "$GRUBDEF" \
+            || die "the edit to $GRUBDEF did not take — check it by hand"
+    fi
+    ok "added resume= to $GRUBDEF"
+fi
+
+if [ "$DRY" -eq 1 ]; then
+    dim "would regenerate /boot/grub/grub.cfg"
+else
+    run cp -a /boot/grub/grub.cfg "/boot/grub/grub.cfg.bak.$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+    grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || die "grub-mkconfig failed"
+    grep -q "resume=UUID=$UUID" /boot/grub/grub.cfg \
+        || die "grub.cfg came out without resume= — do NOT reboot, check $GRUBDEF"
+    ok "regenerated /boot/grub/grub.cfg"
+fi
+
+# ─── the initramfs has to be able to act on it ───────────────────────────────
+# With the `systemd` hook, resuming is systemd-hibernate-resume-generator's job
+# and it reads resume= off the command line by itself — there is no `resume` hook
+# to add. Without that hook the classic one would be needed, so it is checked
+# rather than assumed.
+if grep -qE '^HOOKS=.*\bsystemd\b' /etc/mkinitcpio.conf 2>/dev/null; then
+    ok "mkinitcpio uses the systemd hook — resume is handled by systemd"
+elif grep -qE '^HOOKS=.*\bresume\b' /etc/mkinitcpio.conf 2>/dev/null; then
+    ok "mkinitcpio carries the resume hook"
+else
+    warn "mkinitcpio has neither the systemd nor the resume hook"
+    dim "add 'resume' to HOOKS in /etc/mkinitcpio.conf, after 'filesystems',"
+    dim "then: mkinitcpio -P"
+fi
+
+printf '\n'
+if [ "$DRY" -eq 1 ]; then
+    dim "dry run — nothing was written"
+    exit 0
+fi
+
+ok "done — reboot, then check it took:"
+dim "  swapon --show                 # the swapfile, priority -2, next to zram"
+dim "  cat /sys/power/resume         # a device, not 0:0"
+dim "  systemctl hibernate           # the real test"
