@@ -55,6 +55,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service`, the Qt theme env, cliamp's D-Bus name      |
 | `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, the `My Dotfiles` Plasma global theme |
+| `wallpapers` | `~/Pictures/Wallpapers/` — the images themselves, which every rice looks at and none of them owns |
 | `kdeglobals` | the palette Qt apps read outside Plasma — its own package because a rice may need to take it over |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
@@ -65,7 +66,7 @@ every file inside a package lands in `$HOME` at the same relative path.
 
 ### Profiles
 
-A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme git xdg`
+A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme wallpapers kdeglobals git xdg`
 is common to all of them; the desktop-specific ones are added on top.
 
 | Profile    | Extra packages    |
@@ -647,14 +648,27 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
 
 ## Things worth knowing
 
-**One wallpaper, three sessions.** `extras/backgrounds/starrysky.jpg` is the
-background everywhere, but only one real copy of it exists, inside the
-`StarrySky` wallpaper package — KPackage will not follow a symlink, so the file
-has to be real where Plasma reads it, and `extras/` holds the symlink. niri and
-Hyprland both run **hyprpaper** against that same path
+**The wallpapers are in the repo, and one of them twice over would be a bug.**
+`wallpapers` carries `~/Pictures/Wallpapers/` — 27 MB of photographs, which is
+why it is its own package and not part of `theme`. It is common to every profile
+because every rice reads that directory and none of them owns it: caelestia's
+picker lists it, matugen is pointed at whatever is in it, and `own` ignores it
+entirely and uses hyprpaper.
+
+`starry-sky.jpg` in that package is a **symlink**, not a ninth image. The same
+picture is the `StarrySky` KPackage in `theme`, and KPackage drops any file whose
+canonical path leaves the package directory — so that copy has to be real where
+Plasma reads it, and everything else points at it. `extras/backgrounds/starrysky.jpg`
+is the same symlink from the other side. Three references, one file on disk;
+adopting it as a real file again would put 2.4 MB of duplicate into the history.
+
+**One wallpaper reaches all three sessions.** niri and Hyprland both run
+**hyprpaper** against the `StarrySky` path
 (`desktop/.config/hypr/hyprpaper.conf`, in `desktop` because the niri profile
 does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
-the login screen from `sudo plasmalogin-theme`.
+the login screen from `sudo plasmalogin-theme`. caelestia is the exception: it
+keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
+tracked — the image it points at is, now.
 
 **hyprpaper 0.8 changed its config format.** `preload = <path>` plus
 `wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo
