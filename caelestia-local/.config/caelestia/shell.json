@@ -40,6 +40,9 @@
                 "alacritty",
                 "-e"
             ]
+        },
+        "idle": {
+            "lockBeforeSleep": false
         }
     },
     "launcher": {
@@ -55,6 +58,10 @@
             "wallpapers": true
         },
         "vimKeybinds": true
+    },
+    "lock": {
+        "enableFprint": false,
+        "enableHowdy": false
     },
     "services": {
         "maxVolume": 1.5

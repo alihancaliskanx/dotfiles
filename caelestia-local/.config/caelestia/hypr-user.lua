@@ -343,6 +343,14 @@ hl.on("hyprland.start", function()
     -- registers before the watcher exists is an icon that never shows up.
     hl.exec_cmd("tuxedo-control-center --tray")
 
+    -- Put the picture back after a suspend. Waking leaves the panel showing the
+    -- frame it slept on while everything behind it keeps running, so the lock
+    -- screen takes your password and never shows you a single dot of it. The
+    -- `own` rice got this for free from hypridle's after_sleep_cmd; that file is
+    -- in the `hypr` package, caelestia replaces it, and nothing here ran in its
+    -- place. The script waits on logind's PrepareForSleep and kicks the
+    -- renderer. Reasoning in full at the top of it.
+    hl.exec_cmd("caelestia-resume-fix")
 
     -- Keep the shell overlay in step with the package. caelestia starts its own
     -- shell from execs.lua before this handler runs, so on the login after a

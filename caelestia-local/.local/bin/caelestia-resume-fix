@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+# caelestia-resume-fix — locks on the way back up instead of on the way down.
+#
+# THE BUG. Closing the lid under caelestia gave a lock screen that was a still
+# picture. Not a dead session: keys reached it and PAM authenticated them, so
+# typing the password blind unlocked the machine and the desktop behind it was
+# perfectly healthy. Only the lock surface had stopped painting, and only ever
+# when the lid did it — SUPER+L by hand has always been fine.
+#
+# That difference is the whole diagnosis. `lockBeforeSleep` locks from
+# SessionManager's PrepareForSleep handler, so the WlSessionLockSurface is
+# created inside the sleep transition and the machine suspends before the
+# compositor has presented it. It never starts. What it is not: Hyprland's
+# renderer (a force_renderer_reload and a full dpms cycle on resume both changed
+# nothing, and the desktop draws fine the moment the lock goes away), the output
+# (eDP-1 is never removed, it re-modesets), or the entrance animation.
+#
+# THE FIX. Take the lock out of the sleep transition. shell.json turns
+# lockBeforeSleep off and this asks for the lock on PrepareForSleep(false)
+# instead — a compositor that is awake and presenting, which is the same state
+# SUPER+L has always been pressed in.
+#
+# The window this opens is between the lid closing and the machine waking, which
+# it spends suspended with the panel dark. The lock is up before the screen is.
+#
+# systemd's user manager has no sleep.target to hang a unit off, so the signal is
+# read straight off the system bus. Started from hypr-user.lua.
+
+set -uo pipefail
+
+command -v qs >/dev/null || exit 0
+
+lock() {
+    # By config name, and only if it is not already locked — a second lock() on a
+    # locked session is harmless but this keeps the log honest.
+    [ "$(qs -c caelestia ipc call lock isLocked 2>/dev/null)" = "true" ] && return 0
+    qs -c caelestia ipc call lock lock >/dev/null 2>&1
+}
+
+dbus-monitor --system \
+    "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'" \
+    2>/dev/null |
+while read -r line; do
+    # One boolean: true on the way down, false on the way back.
+    case "$line" in
+        *"boolean false"*) lock ;;
+    esac
+done
