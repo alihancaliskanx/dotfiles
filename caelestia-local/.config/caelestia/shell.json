@@ -82,7 +82,7 @@
     },
     "services": {
         "maxVolume": 1.5,
-        "weatherLocation": "41.0082,28.9784"
+        "weatherLocation": "40.76499,29.92928"
     },
     "sidebar": {
         "enabled": true
