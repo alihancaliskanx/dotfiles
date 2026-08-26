@@ -1,6 +1,7 @@
 # dotfiles
 
-My Arch-based (CachyOS) setup. Theme: **rainynight**.
+My Arch-based (CachyOS) setup. Theme: **rainynight** — with **ryoku** as a
+second palette on this branch, shipped alongside and selected by nothing.
 Three desktop profiles are supported — **Hyprland**, **niri**, **KDE** — and two shells: **zsh**, **fish**.
 
 Everything is symlinked into `$HOME`; the real files live in this repo, so the
@@ -428,6 +429,57 @@ one thing it will not do for you; that needs `strap.sh`, and a script in this
 repo is not going to download and execute a remote installer on your behalf.
 
 Idempotent, and it backs up `pacman.conf` before touching it.
+
+---
+
+## ryoku — the second palette
+
+`ryoku.dev` is not a colour scheme; it is a whole Arch distribution with its own
+Hyprland desktop, and it generates almost all of its colour from the wallpaper
+with matugen. What it *publishes* is two values and a rule: `PAPER #000000`,
+`INK #cdc4ba`, "one ramp, four tiers", minimum contrast 4.6:1 scaling to 12:1.
+The generated part cannot travel in a file. The ramp can, and that is what is
+here.
+
+The tiers are computed rather than picked — each is the warm grey whose WCAG
+contrast on PAPER lands on its target while holding INK's own channel ratio
+(1 : 0.956 : 0.907), so it reads as one colour getting lighter instead of four
+greys that happen to look related:
+
+| | contrast on PAPER | |
+|---|---|---|
+| `#7a756f` | 4.60:1 | the floor ryoku states |
+| `#958e87` | 6.50:1 | |
+| `#b0a8a0` | 8.95:1 | |
+| `#cdc4ba` | 12.20:1 | INK itself |
+
+Two places need more than a single ramp, and both say so in the file rather than
+quietly inventing an accent. A terminal with eight identical ANSI slots has no
+`ls` colours, no git diff and no error text, so the slots vary in **hue and
+nothing else** — each sits exactly on a tier's luminance, `normal` at the 4.6:1
+floor and `bright` at 8.95:1. btop's graphs are the other: a gradient from a
+colour to itself is a flat bar, so they run the ramp, and only the temperature
+graph keeps a hue, because "too hot" should not have to be read off a bar's
+length.
+
+Five files, the same five rainynight has, so switching is a matter of naming the
+other one:
+
+| | |
+|---|---|
+| `cli/.config/btop/themes/ryoku.theme` | btop |
+| `theme/.config/vicinae/themes/ryoku.toml` | vicinae |
+| `theme/.local/share/warp-terminal/themes/ryoku.yaml` | warp |
+| `theme/.config/Vencord/themes/ryoku.theme.css` | Discord |
+| `theme/.local/share/color-schemes/Ryoku.colors` | Qt / KDE apps |
+
+The `.colors` file keeps rainynight's structure key for key — only the palette
+moved — so nothing Plasma reads goes missing.
+
+**Nothing selects it.** These sit next to the rainynight files; the repo still
+comes up rainynight, and there is no theme switch in `link.sh`. Picking one per
+application is by hand for now: btop's theme name in `btop.conf`, vicinae's in
+its settings, `Ryoku` in System Settings → Colours.
 
 ---
 
