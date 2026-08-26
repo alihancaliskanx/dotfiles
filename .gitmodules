@@ -1,0 +1,3 @@
+[submodule "extras/omarchy-rainynight-theme"]
+	path = extras/omarchy-rainynight-theme
+	url = git@github.com:alihancaliskanx/omarchy-rainynight-theme.git
