@@ -12,7 +12,7 @@
 #   ./link.sh -f                   back up conflicting real files and link over them
 #   ./link.sh link gtk fish        link specific packages
 #   ./link.sh profile              list the profiles
-#   ./link.sh profile niri         link the packages of a profile
+#   ./link.sh profile hyprland     link the packages of a profile
 #   ./link.sh rice                 list the desktops and show which one is on
 #   ./link.sh rice own             switch to the desktop of this repo
 #   ./link.sh rice imperative-dots switch to the quickshell desktop
@@ -49,7 +49,6 @@ COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme wallpaper
 # Profiles: package sets per desktop environment.
 declare -A PROFILES=(
     [hyprland]="$COMMON_PACKAGES hypr desktop"
-    [niri]="$COMMON_PACKAGES niri desktop"
     [kde]="$COMMON_PACKAGES"
 )
 DEFAULT_PROFILE="${DOTFILES_PROFILE:-hyprland}"
@@ -133,8 +132,8 @@ declare -A RICE_LOCAL=(
 
 # The compositor a rice needs, when it only runs on one. imperative-dots calls
 # hyprctl from 15 of its files — monitors, keyboard layout, workspaces, submaps
-# — so under niri its bar comes up and everything behind it is dead. Warned
-# about rather than refused: linking it while still in niri, to log into
+# — so anywhere else its bar comes up and everything behind it is dead. Warned
+# about rather than refused: linking it from another session, to log into
 # Hyprland afterwards, is the normal way to install it.
 declare -A RICE_NEEDS=(
     [imperative-dots]="Hyprland"
@@ -447,7 +446,7 @@ adopt_pkg() {
 
 # Form 2: adopt <package> <home-path>...
 #   Moves a file that is not yet in the repo into the package. For writing the
-#   niri/fish config in $HOME first and then pulling it into the repo.
+#   fish config in $HOME first and then pulling it into the repo.
 adopt_paths() {
     local pkg="$1"; shift
     local p abs rel src
@@ -660,7 +659,6 @@ compositor_reload() {
             [ "$want_lua" = "$running_lua" ] && return 0
             warn "this session started on Hyprland's ${provider} config and only picks that at startup — log out and back in for the new one to apply"
             ;;
-        *niri*)     niri msg action load-config-file >/dev/null 2>&1 ;;
     esac
     return 0
 }

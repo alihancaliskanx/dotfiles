@@ -37,7 +37,6 @@ alias gco='git checkout'
 alias zc='nvim ~/.config/zsh'                      # zsh module directory
 alias reloadzsh='source ~/.zshrc'
 alias hconfig='nvim ~/.config/hypr/hyprland.conf'
-alias nconfig='nvim ~/.config/niri/config.kdl'
 alias terconf='nvim ~/.config/alacritty/alacritty.toml'
 alias gconfig='nvim ~/.config/git/config'
 alias dotfiles='cd ~/Documents/Code/dotfiles'

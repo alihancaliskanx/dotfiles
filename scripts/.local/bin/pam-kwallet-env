@@ -26,7 +26,7 @@
 #
 # It reads the hash from the pipe, then blocks in accept() waiting for the
 # session to connect and hand it the environment. Under Plasma, startplasma is
-# what connects. Under Hyprland or niri nobody does, so the daemon that has the
+# what connects. Under Hyprland nobody does, so the daemon that has the
 # key never finishes starting, a second keyless one gets D-Bus activated in its
 # place, and that one has no choice but to ask.
 #
