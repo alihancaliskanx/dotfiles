@@ -484,7 +484,7 @@ bash script under `scripts/.local/bin/`:
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
-| `hibernate-setup` | a btrfs swapfile big enough to hibernate into, and the `resume=` to find it again (root, once per machine) |
+| `hibernate-setup` | a btrfs swapfile big enough to hibernate into, the `resume=` to find it again, and `--fix-nvidia` for the module option that blocks the way back (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
 | `weather-location` | pick where caelestia's weather comes from — a city, coordinates, `status`, `clear` |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
@@ -735,6 +735,21 @@ does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
 the login screen from `plasmalogin-theme`. caelestia is the exception: it
 keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
 tracked — the image it points at is, now.
+
+**Hibernation also needs the nvidia driver to agree to be frozen.** Resuming
+reads the image and then freezes every device the boot kernel has bound; a driver
+that refuses aborts the resume *after* the image is read, and the session is
+gone. `NVreg_PreserveVideoMemoryAllocations=1` makes the module refuse, because
+it then insists on being suspended through `/proc/driver/nvidia/suspend` by
+`nvidia-suspend.service`, and no such service exists inside an initramfs. This
+machine had it from `gpu-screen-recorder`'s
+`/usr/lib/modprobe.d/gsr-nvidia.conf`, while `nvidia-sleep.conf` set the option
+the *open* modules actually want, `NVreg_UseKernelSuspendNotifiers=1` — the two
+contradict, and the open driver preserves video memory through the second one
+anyway. `hibernate-setup --fix-nvidia` shadows the first file with an `/etc` one
+and rebuilds the initramfs. It only bites on the way back up: hibernating always
+worked, because `PM_HIBERNATION_PREPARE` reaches the driver and it consents,
+while resuming sends `PM_RESTORE_PREPARE`, which it does not.
 
 **Hibernation needs somewhere to go, and zram is not it.** The only swap this
 machine had was `/dev/zram0`, which is a compressed block device living *in* RAM

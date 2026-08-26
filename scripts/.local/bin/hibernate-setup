@@ -29,6 +29,7 @@
 #   hibernate-setup               set it up (32 GiB by default)
 #   hibernate-setup -n            show what it would do, touch nothing (still asks for sudo)
 #   hibernate-setup --revert      take resume= back out of GRUB, keep the swapfile
+#   hibernate-setup --fix-nvidia  clear the module option that blocks resume
 #   SIZE=20 hibernate-setup       a different size, in GiB
 #
 # No `sudo` in front: it re-runs itself under sudo by absolute path, the way
@@ -62,10 +63,12 @@ run()  { if [ "$DRY" -eq 1 ]; then dim "would: $*"; else "$@"; fi; }
 usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
 
 REVERT=0
+FIXNV=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -n|--dry-run) DRY=1 ;;
         --revert)     REVERT=1 ;;
+        --fix-nvidia) FIXNV=1 ;;
         -h|--help)    usage; exit 0 ;;
         *)            die "unknown option: $1" ;;
     esac
@@ -92,6 +95,52 @@ printf '%sHibernate setup%s\n\n' "$CYN" "$RST"
 # Disarms hibernation without undoing any of the rest: the swapfile stays and
 # goes on being swap, only the kernel's instruction to resume from it is taken
 # away. For when resume is known not to work and the next reboot should not try.
+# ─── --fix-nvidia ────────────────────────────────────────────────────────────
+# Shadows gpu-screen-recorder's module option with one that says the opposite.
+# A file in /etc/modprobe.d hides the file of the same name in /usr/lib, so this
+# replaces gsr-nvidia.conf outright rather than fighting it — and it survives
+# the package being updated, which editing /usr/lib would not.
+#
+# What is given up: gpu-screen-recorder set it so that video memory survives a
+# suspend while recording. The open kernel modules preserve it anyway through
+# NVreg_UseKernelSuspendNotifiers=1, which nvidia-sleep.conf already sets, so
+# the setting is redundant here and costs a working resume.
+if [ "$FIXNV" -eq 1 ]; then
+    TARGET=/etc/modprobe.d/gsr-nvidia.conf
+    if [ -f "$TARGET" ]; then
+        dim "$TARGET already exists:"
+        dim "$(cat "$TARGET")"
+        run cp -a "$TARGET" "$TARGET.bak.$(date +%Y%m%d-%H%M%S)"
+    fi
+    if [ "$DRY" -eq 1 ]; then
+        dim "would write $TARGET:"
+        dim "  options nvidia NVreg_PreserveVideoMemoryAllocations=0"
+        dim "would run: mkinitcpio -P"
+        exit 0
+    fi
+    printf 'options nvidia NVreg_PreserveVideoMemoryAllocations=0\n' > "$TARGET" \
+        || die "could not write $TARGET"
+    ok "wrote $TARGET"
+
+    # Read back through modprobe rather than trusting the write: the point is
+    # what modprobe resolves after precedence, not what is in one file.
+    if modprobe --showconfig 2>/dev/null \
+        | grep -E '^options[[:space:]]+nvidia[[:space:]].*NVreg_PreserveVideoMemoryAllocations=1([[:space:]]|$)' \
+        >/dev/null; then
+        die "something still sets PreserveVideoMemoryAllocations=1 — check modprobe --showconfig"
+    fi
+    ok "modprobe no longer resolves PreserveVideoMemoryAllocations=1"
+
+    command -v mkinitcpio >/dev/null || die "mkinitcpio not found"
+    dim "rebuilding the initramfs, this takes a moment"
+    mkinitcpio -P >/dev/null 2>&1 || die "mkinitcpio -P failed"
+    ok "initramfs rebuilt"
+    printf '\n'
+    dim "reboot, then hibernate is worth trying again:"
+    dim "  systemctl hibernate"
+    exit 0
+fi
+
 if [ "$REVERT" -eq 1 ]; then
     GRUBDEF=/etc/default/grub
     [ -f "$GRUBDEF" ] || die "no $GRUBDEF"
@@ -259,13 +308,13 @@ if [ "$NV_EARLY" -eq 1 ] && [ "$NV_PRESERVE" -eq 1 ]; then
     warn "the nvidia module is loaded in the initramfs and told to preserve video memory"
     dim "hibernating will work; resuming will read the whole image and then throw it away."
     dim ""
-    dim "take the preserve away — the open driver does not need it:"
-    dim "  printf '%s\\n' 'options nvidia NVreg_PreserveVideoMemoryAllocations=0' \\"
-    dim "    | sudo tee /etc/modprobe.d/gsr-nvidia.conf"
-    dim "  sudo mkinitcpio -P"
+    dim "take the preserve away — the open driver does not need it, it already"
+    dim "preserves video memory through NVreg_UseKernelSuspendNotifiers:"
+    dim "  hibernate-setup --fix-nvidia      # then reboot"
     dim ""
-    dim "then check it took, before rebooting:"
-    dim "  modprobe --showconfig | grep PreserveVideoMemoryAllocations"
+    dim "that shadows gpu-screen-recorder's /usr/lib/modprobe.d/gsr-nvidia.conf"
+    dim "with an /etc one saying =0, rebuilds the initramfs, and checks that"
+    dim "modprobe really stopped resolving =1 before calling it done."
     dim ""
     dim "GRUB was left alone. If a previous run already wrote resume= into it,"
     dim "take it back out until this passes:  hibernate-setup --revert"
