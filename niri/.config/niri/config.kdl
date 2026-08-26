@@ -86,7 +86,7 @@ environment {
     QT_QPA_PLATFORMTHEME "kde"
     XDG_CURRENT_DESKTOP "niri:KDE"
     XDG_MENU_PREFIX "plasma-"
-    FILEMANAGER "nautilus"
+    FILEMANAGER "dolphin"
     // DIFF: AQ_DRM_DEVICES is specific to Hyprland's aquamarine backend, absent in niri.
 }
 

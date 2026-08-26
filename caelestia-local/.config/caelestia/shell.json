@@ -33,7 +33,7 @@
     "general": {
         "apps": {
             "explorer": [
-                "nautilus",
+                "dolphin",
                 "--new-window"
             ],
             "terminal": [
