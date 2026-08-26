@@ -10,7 +10,7 @@
 return {
     terminal      = "alacritty",
     editor        = "code",
-    fileExplorer  = "nautilus",
+    fileExplorer  = "dolphin",
     audioSettings = "pavucontrol",
 
     -- The default browser is Zen, and Zen is a flatpak, so there is no binary

@@ -1,0 +1,21 @@
+# Hand org.freedesktop.FileManager1 to dolphin.
+#
+# mimeapps.list decides what opens when you double-click a folder. It is not what
+# decides "Show in folder" — a browser, or anything behind the portal, asks D-Bus
+# for org.freedesktop.FileManager1 and gets whoever claims that name. Both file
+# managers ship a .service file claiming it, at
+#   /usr/share/dbus-1/services/org.freedesktop.FileManager1.service   (nautilus)
+#   /usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service   (dolphin)
+# and with two files declaring one name the winner is whichever the bus read
+# last. Here that was nautilus, so `xdg-mime query default inode/directory`
+# answered dolphin while the browser went on opening the other one.
+#
+# $XDG_DATA_HOME/dbus-1/services is searched before /usr/share, so this settles
+# it rather than relying on scan order.
+#
+# SystemdService= is deliberately not carried over from dolphin's copy: it names
+# plasma-dolphin.service, which belongs to a Plasma session and is not what runs
+# here. Without it the bus just execs the command.
+[D-BUS Service]
+Name=org.freedesktop.FileManager1
+Exec=/usr/bin/dolphin --daemon

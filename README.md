@@ -534,6 +534,7 @@ bash script under `scripts/.local/bin/`:
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 | `hibernate-setup` | a btrfs swapfile big enough to hibernate into, and the `resume=` to find it again (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
+| `weather-location` | pick where caelestia's weather comes from — a city, coordinates, `status`, `clear` |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
@@ -797,14 +798,24 @@ snapshot is not recursive, so a nested subvolume is invisible to the snapshots
 snapper takes of `@`, and a swapfile that gets snapshotted or moved is a swapfile
 that cannot be resumed from.
 
-**The weather has a location setting and no way to pick one.** caelestia reads
-`services.weatherLocation` out of `shell.json`, and with it empty it geolocates
-by IP — which on a machine that spends its time behind a phone's tethering proxy
-or Tor reports wherever the exit is. Its own settings page says "Choose your
-weather location on a map in a future update", so the file is the only way for
-now: `"41.0082,28.9784"` in `caelestia-local`. Coordinates rather than a city
-name on purpose — the name goes through open-meteo's geocoder and takes the
-first hit.
+**The weather has a location setting and caelestia has no way to pick one.**
+It reads `services.weatherLocation` out of `shell.json`, and with it empty it
+geolocates by IP — which on a machine that spends its time behind a phone's
+tethering proxy or Tor reports wherever the exit is. Its own settings page says
+"Choose your weather location on a map in a future update", so `weather-location`
+is that picker until it exists: it asks for a city, geocodes it through
+open-meteo, and lets you choose between the matches.
+
+Coordinates are what it writes, even when you type a name, because the shell
+would otherwise re-geocode the string on every reload and take the first hit —
+and there is more than one Antalya. The shell reloads on the change, so nothing
+needs restarting.
+
+Two things it is careful about. `shell.json` is a symlink into this repo, so it
+writes *through* the link rather than moving a temp file onto it, which would
+replace the symlink with a real file and quietly detach the config. And it passes
+`--indent 4` to jq, because jq's default is two and the file would otherwise be
+reformatted end to end on every use.
 
 **hyprpaper 0.8 changed its config format.** `preload = <path>` plus
 `wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+#
+# weather-location — pick where caelestia's weather comes from.
+#
+# The shell has the setting and no way to reach it. `services.weatherLocation` in
+# shell.json is read on startup and again whenever it changes; caelestia's own
+# settings page says "Choose your weather location on a map in a future update",
+# so until that exists this is the picker.
+#
+# Left empty, the shell geolocates by IP. On a laptop that spends its time behind
+# a phone's tethering proxy or Tor that reports wherever the exit is, which is the
+# whole reason for pinning it.
+#
+#   weather-location              ask for a city, then pick from the matches
+#   weather-location Ankara       set it without the prompt
+#   weather-location 41.01,28.98  set coordinates directly
+#   weather-location status       show what is set now
+#   weather-location clear        back to guessing from the IP
+#
+# Coordinates rather than the name are what gets written, even when you type a
+# name: the shell would otherwise geocode the string itself on every reload and
+# take the first hit, and "Antalya" is not the only place called Antalya.
+
+set -uo pipefail
+
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/caelestia/shell.json"
+GEO="https://geocoding-api.open-meteo.com/v1/search"
+
+RED=$'\e[31m'; GRN=$'\e[32m'; CYN=$'\e[36m'; DIM=$'\e[2m'; RST=$'\e[0m'
+die()  { printf '%s✘ %s%s\n' "$RED" "$*" "$RST" >&2; exit 1; }
+ok()   { printf '%s✔%s %s\n' "$GRN" "$RST" "$*"; }
+dim()  { printf '%s  %s%s\n' "$DIM" "$*" "$RST"; }
+
+command -v jq >/dev/null || die "jq is not installed"
+[ -f "$CONF" ] || die "no $CONF — is the caelestia rice linked?"
+
+# Written back through the symlink rather than over it. shell.json is a symlink
+# into the dotfiles repo, and `mv`ing a temp file onto it would replace the link
+# with a real file and quietly detach the config from version control.
+write_location() {
+    local value="$1" tmp
+    tmp="$(mktemp)" || die "no temp file"
+    if [ -z "$value" ]; then
+        jq --indent 4 'del(.services.weatherLocation)' "$CONF" > "$tmp" || die "jq failed"
+    else
+        jq --indent 4 --arg v "$value" '.services.weatherLocation = $v' "$CONF" > "$tmp" || die "jq failed"
+    fi
+    jq -e . "$tmp" >/dev/null || die "refusing to write invalid json"
+    cat "$tmp" > "$CONF" || die "could not write $CONF"
+    rm -f "$tmp"
+}
+
+current() { jq -r '.services.weatherLocation // ""' "$CONF"; }
+
+case "${1:-}" in
+    status)
+        loc="$(current)"
+        if [ -n "$loc" ]; then
+            ok "weather location: $loc"
+        else
+            ok "weather location: unset — the shell guesses from your IP"
+        fi
+        exit 0
+        ;;
+    clear)
+        write_location ""
+        ok "cleared — the shell will guess from the IP again"
+        exit 0
+        ;;
+    -h|--help)
+        awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"
+        exit 0
+        ;;
+esac
+
+query="${*:-}"
+
+# Straight through if it already looks like coordinates.
+if [[ "$query" =~ ^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$ ]]; then
+    write_location "$query"
+    ok "weather location: $query"
+    exit 0
+fi
+
+# No argument: ask. fuzzel when there is a display, read when there is not, so
+# this works over ssh and from a tty as well as from a keybind.
+if [ -z "$query" ]; then
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && command -v fuzzel >/dev/null; then
+        query=$(: | fuzzel --dmenu --prompt "City " --lines 0 --width 32) || exit 0
+    else
+        printf '%sCity:%s ' "$CYN" "$RST"
+        read -r query || exit 0
+    fi
+fi
+[ -n "$query" ] || exit 0
+
+command -v curl >/dev/null || die "curl is not installed"
+
+results="$(curl -sf --max-time 20 --get "$GEO" \
+    --data-urlencode "name=$query" --data-urlencode "count=10" \
+    --data-urlencode "format=json")" || die "could not reach the geocoding API"
+
+count="$(jq -r '(.results // []) | length' <<< "$results")"
+[ "$count" -gt 0 ] || die "nothing found for: $query"
+
+# One line per match, with enough around the name to tell two of them apart.
+menu="$(jq -r '.results[]
+    | [ (.name
+         + (if .admin1 then ", " + .admin1 else "" end)
+         + (if .country then ", " + .country else "" end)),
+        ((.latitude|tostring) + "," + (.longitude|tostring)) ]
+    | @tsv' <<< "$results")"
+
+if [ "$count" -eq 1 ]; then
+    choice="$menu"
+else
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && command -v fuzzel >/dev/null; then
+        choice=$(cut -f1 <<< "$menu" \
+            | fuzzel --dmenu --prompt "Where " --width 48 --lines 10) || exit 0
+        choice="$(grep -m1 -F "$choice"$'\t' <<< "$menu")"
+    else
+        printf '\n'
+        nl -w2 -s') ' <<< "$(cut -f1 <<< "$menu")"
+        printf '\n  choice [1]: '
+        read -r n || exit 0
+        choice="$(sed -n "${n:-1}p" <<< "$menu")"
+    fi
+fi
+[ -n "$choice" ] || exit 0
+
+name="$(cut -f1 <<< "$choice")"
+coords="$(cut -f2 <<< "$choice")"
+
+write_location "$coords"
+ok "weather location: $name"
+dim "$coords"
+dim "the shell reloads on the change — no restart needed"
