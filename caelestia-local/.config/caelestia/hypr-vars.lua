@@ -106,23 +106,25 @@ return {
     -- clip on ones that were already near the top.
     volumeMax     = 150,
 
-    -- kbLauncher is deliberately NOT set: the bare SUPER tap stays caelestia's.
-    -- It was moved to ALT+SPACE here for a while and that was a mistake worth
-    -- writing down, because the reason it half-worked is not obvious.
+    -- The bare SUPER tap is dropped. Upstream puts the launcher on
+    -- "SUPER + SUPER_L" and a modifier that opens a menu on its own is a
+    -- modifier you cannot rest a finger on: every abandoned combo, every
+    -- SUPER held on the way to something else, is a launcher flashing open.
+    -- SUPER+SPACE and ALT+SPACE do the job in hypr-user.lua instead.
     --
-    -- The shell toggles the launcher in Shortcuts.qml on `onReleased`, not
-    -- onPressed — that is what makes tapping a bare modifier possible at all,
-    -- and there is a second shortcut, launcherInterrupt, to cancel it when the
-    -- tap turns out to be the start of a combo. On "SUPER + SUPER_L" the key
-    -- *is* the modifier, so the release is unambiguous. On "ALT + SPACE" it is
-    -- not: release ALT before SPACE and the combination never reports a clean
-    -- release, so the launcher does not open. Release SPACE first and it does.
-    -- Same keypress, opposite result depending on which finger lifts first,
-    -- which is exactly what "it works sometimes" felt like.
-    --
-    -- ALT+SPACE now goes through the shell's IPC instead, in hypr-user.lua,
-    -- which acts on the press and has no release to miss. Both keys, one
-    -- launcher.
+    -- Both of those have to go through the shell's IPC rather than
+    -- hl.dsp.global("caelestia:launcher"), and the reason is worth keeping
+    -- because it is not obvious. Shortcuts.qml toggles the launcher on
+    -- `onReleased`, not onPressed — that is what makes tapping a bare modifier
+    -- possible at all, and there is a second shortcut, launcherInterrupt, to
+    -- cancel it when the tap turns out to be the start of a combo. On
+    -- "SUPER + SUPER_L" the key *is* the modifier, so the release is
+    -- unambiguous. On any modifier+key combination it is not: release the
+    -- modifier before the key and the combination never reports a clean
+    -- release, so nothing opens. Release the key first and it does. Same
+    -- keypress, opposite result depending on which finger lifts first, which
+    -- is exactly what "it works sometimes" felt like.
+    kbLauncher = {},
 
     -- Window groups off. They are a niri habit, not one used here, and the
     -- four keys they cost are all keys that mean something else in these

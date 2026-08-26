@@ -170,18 +170,22 @@ hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"),
 hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"),
     desc("Pin the panel under the pointer"))
 
--- A second key for the launcher, next to caelestia's bare SUPER tap rather than
--- instead of it. Not `hl.dsp.global("caelestia:launcher")`, which is what the
--- tap uses: that global is handled on *release* (Shortcuts.qml), and on a
+-- The launcher, on two keys and no longer on a bare modifier. caelestia's
+-- SUPER tap is dropped in hypr-vars.lua (kbLauncher = {}) because a modifier
+-- that opens a menu by itself cannot be rested on.
+--
+-- Neither of these is `hl.dsp.global("caelestia:launcher")`, which is what the
+-- tap used: that global is handled on *release* (Shortcuts.qml), and on a
 -- modifier+key combination the release only reports cleanly if you lift the key
--- before the modifier. Lift ALT first and nothing happens. That is the whole
+-- before the modifier. Lift the modifier first and nothing happens — the whole
 -- story behind "ALT+SPACE works sometimes".
 --
 -- The shell's IPC has the same toggle with no release in it — `drawers list`
--- names them: bar, osd, session, launcher, dashboard — so this fires on the
--- press and does not care about finger order.
-hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle launcher"),
-    desc("Launcher"))
+-- names them: bar, osd, session, launcher, dashboard — so these fire on the
+-- press and do not care about finger order.
+local launcher = "qs -c caelestia ipc call drawers toggle launcher"
+hl.bind("SUPER + SPACE", hl.dsp.exec_cmd(launcher), desc("Launcher"))
+hl.bind("ALT + SPACE", hl.dsp.exec_cmd(launcher), desc("Launcher"))
 
 -- ─── the clipboard panel's layer ─────────────────────────────────────────────
 -- Transparency and the open animation are not the panel's to give: they are
@@ -225,9 +229,13 @@ hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh toggle"),
     desc("Keyboard backlight on and off", locked))
 
 -- ─── media, as the Rainy-Night config had it ─────────────────────────────────
--- SUPER+Space for play/pause and the numpad for volume and tracks. caelestia
--- puts all of this on CTRL+SUPER (Space, Equal, Minus) and leaves these free,
--- so this is addition rather than replacement — the CTRL+SUPER keys still work.
+-- The numpad for volume and tracks. caelestia puts all of this on CTRL+SUPER
+-- (Space, Equal, Minus) and leaves these free, so this is addition rather than
+-- replacement — the CTRL+SUPER keys still work.
+--
+-- Play/pause used to be here on SUPER+Space; that key is the launcher now. It
+-- is not lost: caelestia's own CTRL+SUPER+Space still toggles it, and so do the
+-- XF86AudioPlay/Pause keys this laptop has.
 --
 -- The volume commands are caelestia's own, read out of its variables rather
 -- than copied, so the step and the ceiling stay decided in one place and the
@@ -239,9 +247,6 @@ local volume_up = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l " 
     (vars.volumeMax / 100) .. " @DEFAULT_AUDIO_SINK@ " .. vars.volumeStep .. "%+"
 local volume_down = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ " ..
     vars.volumeStep .. "%-"
-
-hl.bind("SUPER + Space", hl.dsp.global("caelestia:mediaToggle"),
-    desc("Play and pause", locked))
 
 -- Volume on two pairs of keys. The numpad pair is what this config always had
 -- and the laptop does have one; the SHIFT pair is for reaching it without

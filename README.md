@@ -273,18 +273,26 @@ it when it is open. caelestia's own bind is dropped in `hypr-vars.lua`
 `keybinds.lua` and only the key is a variable. `SUPER+ALT+V` (delete an entry)
 and `CTRL+SHIFT+ALT+V` (paste the newest) are still caelestia's.
 
-**The launcher answers to two keys**, caelestia's bare `SUPER` tap and
-`ALT+SPACE`, and they get there by different roads for a reason. The tap is the
-`caelestia:launcher` global, which `Shortcuts.qml` handles on *release* — that
-is what makes tapping a bare modifier possible at all, and there is a second
-global, `launcherInterrupt`, to cancel it when the tap turns out to be the start
-of a combo. Point `kbLauncher` at `ALT + SPACE` and that release handling comes
-along with it, which is where "it works sometimes" comes from: on a
-modifier+key combination the release only reports cleanly if you lift the key
-before the modifier, so the same keypress opens the launcher or does nothing
-depending on which finger comes up first. `ALT+SPACE` goes through the shell's
-IPC instead — `qs -c caelestia ipc call drawers toggle launcher`, the same
-toggle with no release in it, fired on the press.
+**The launcher answers to `SUPER+SPACE` and `ALT+SPACE`, and not to a bare
+modifier.** Upstream puts it on the `SUPER` tap; `kbLauncher = {}` in
+`hypr-vars.lua` drops that, because a modifier that opens a menu on its own is
+one you cannot rest a finger on — every abandoned combo and every `SUPER` held
+on the way somewhere else flashes the launcher open.
+
+Both keys go through the shell's IPC —
+`qs -c caelestia ipc call drawers toggle launcher` — rather than the
+`caelestia:launcher` global, and that is not incidental. `Shortcuts.qml` handles
+the global on *release*, which is what makes tapping a bare modifier possible at
+all, and there is a second global, `launcherInterrupt`, to cancel it when the tap
+turns out to be the start of a combo. Point `kbLauncher` at a modifier+key
+combination and that release handling comes along with it: the release only
+reports cleanly if you lift the key before the modifier, so the same keypress
+opens the launcher or does nothing depending on which finger comes up first.
+That is where "it works sometimes" came from. The IPC toggle has no release in
+it and fires on the press.
+
+`SUPER+SPACE` used to be play/pause here. That is not lost — caelestia's own
+`CTRL+SUPER+SPACE` still toggles it, and so do the `XF86AudioPlay`/`Pause` keys.
 
 #### patching the shell without forking it
 
