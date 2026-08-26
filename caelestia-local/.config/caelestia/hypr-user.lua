@@ -330,6 +330,18 @@ hl.on("hyprland.start", function()
     -- hypr/hyprland.conf.
     hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE")
 
+    -- The TUXEDO control centre as a tray icon rather than a window. tccd is a
+    -- system service and applies the fan and power profiles with or without
+    -- this; the GUI is what starts here, and --tray is the flag its own tray
+    -- entry uses. Ticking Autostart in that GUI writes exactly this command to
+    -- ~/.config/autostart, which nothing in this session ever reads: XDG
+    -- autostart needs xdg-desktop-autostart.target, which comes from
+    -- graphical-session.target, and that target is inactive the whole session
+    -- here. Same line as hypr/hyprland.conf.
+    --
+    -- After kded6, which owns org.kde.StatusNotifierWatcher. An icon that
+    -- registers before the watcher exists is an icon that never shows up.
+    hl.exec_cmd("tuxedo-control-center --tray")
 
 
     -- Keep the shell overlay in step with the package. caelestia starts its own

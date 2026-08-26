@@ -120,6 +120,12 @@ spawn-at-startup "swayosd-server"
 spawn-at-startup "hypridle"
 spawn-at-startup "sh" "-c" "wl-paste --type text --watch cliphist store"
 spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
+// The TUXEDO control centre as a tray icon; tccd applies the profiles either
+// way, this is just the GUI. Its own autostart entry is never run because
+// nothing starts xdg-desktop-autostart.target — the whole story is on the same
+// line in hyprland.conf. After kded6, which owns the StatusNotifierWatcher a
+// tray icon has to register with.
+spawn-at-startup "tuxedo-control-center" "--tray"
 
 prefer-no-csd
 
