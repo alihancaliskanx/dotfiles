@@ -27,7 +27,8 @@
 # snapper takes of @, and the swapfile cannot be caught in one.
 #
 #   hibernate-setup               set it up (32 GiB by default)
-#   hibernate-setup -n            show what it would do, touch nothing
+#   hibernate-setup -n            show what it would do, touch nothing (still asks for sudo)
+#   hibernate-setup --revert      take resume= back out of GRUB, keep the swapfile
 #   SIZE=20 hibernate-setup       a different size, in GiB
 #
 # No `sudo` in front: it re-runs itself under sudo by absolute path, the way
@@ -60,22 +61,57 @@ run()  { if [ "$DRY" -eq 1 ]; then dim "would: $*"; else "$@"; fi; }
 
 usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
 
+REVERT=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -n|--dry-run) DRY=1 ;;
+        --revert)     REVERT=1 ;;
         -h|--help)    usage; exit 0 ;;
         *)            die "unknown option: $1" ;;
     esac
     shift
 done
 
-printf '%sHibernate setup%s\n\n' "$CYN" "$RST"
-[ "$DRY" -eq 1 ] && printf '%s(dry-run — nothing will change)%s\n\n' "$DIM" "$RST"
-# Elevate rather than telling you to. Through `env` rather than sudo's own
-# VAR=value, so SIZE and SUBVOL survive whatever env_reset policy is in force.
-if [ "$DRY" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
+# Elevate rather than telling you to, and before anything is printed — otherwise
+# the banner comes out once here and again in the elevated run. Through `env`
+# rather than sudo's own VAR=value, so SIZE and SUBVOL survive whatever
+# env_reset policy is in force.
+#
+# A dry run elevates too, and has to: /swap is root-owned, so without it the
+# preview cannot see the subvolume or the swapfile and reports the wrong thing.
+# It still writes nothing.
+if [ "$(id -u)" -ne 0 ]; then
     command -v sudo >/dev/null || die "needs root, and there is no sudo here"
     exec sudo -- env "SIZE=$SIZE" "SUBVOL=$SUBVOL" "$SELF" ${ARGV[@]+"${ARGV[@]}"}
+fi
+
+printf '%sHibernate setup%s\n\n' "$CYN" "$RST"
+[ "$DRY" -eq 1 ] && printf '%s(dry-run — nothing will change)%s\n\n' "$DIM" "$RST"
+
+# ─── --revert ────────────────────────────────────────────────────────────────
+# Disarms hibernation without undoing any of the rest: the swapfile stays and
+# goes on being swap, only the kernel's instruction to resume from it is taken
+# away. For when resume is known not to work and the next reboot should not try.
+if [ "$REVERT" -eq 1 ]; then
+    GRUBDEF=/etc/default/grub
+    [ -f "$GRUBDEF" ] || die "no $GRUBDEF"
+    if ! grep -q 'resume=' "$GRUBDEF"; then
+        ok "no resume= in $GRUBDEF — nothing to take out"
+        exit 0
+    fi
+    run cp -a "$GRUBDEF" "$GRUBDEF.bak.$(date +%Y%m%d-%H%M%S)"
+    if [ "$DRY" -eq 1 ]; then
+        dim "would strip resume= and resume_offset= from $GRUBDEF"
+        dim "would regenerate /boot/grub/grub.cfg"
+        exit 0
+    fi
+    sed -i -E 's/ ?resume=[^ "'"'"']*//g; s/ ?resume_offset=[0-9]*//g' "$GRUBDEF"
+    grep -q 'resume=' "$GRUBDEF" && die "resume= is still in $GRUBDEF — take it out by hand"
+    ok "stripped resume= from $GRUBDEF"
+    grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || die "grub-mkconfig failed"
+    ok "regenerated /boot/grub/grub.cfg"
+    dim "the swapfile is untouched and still swap; hibernation is simply not armed"
+    exit 0
 fi
 
 # ─── refuse anything this script was not written for ─────────────────────────
@@ -154,6 +190,41 @@ if ! swapon --show=NAME --noheadings 2>/dev/null | grep -qF "$SWAPFILE"; then
     run swapon "$SWAPFILE" || warn "could not swapon $SWAPFILE now; it will come up at boot"
 fi
 
+# ─── the file has to be in one piece ─────────────────────────────────────────
+# Learned the hard way: the first run of this script produced a swapfile in four
+# extents, wrote resume= anyway, and the machine hibernated fine and then failed
+# to come back — "Image signature found" (so the offset was right), image loading
+# to 80%, then "Failed to load image, recovering" and a lost session.
+#
+# A fragmented swapfile is fine for swap, because the filesystem is there to
+# follow the extents. Resume has no filesystem: it happens in the initramfs from
+# a raw offset. The documented requirement is a file in one extent, and this now
+# refuses to arm anything until that holds, rather than finding out at the next
+# reboot.
+if [ -f "$SWAPFILE" ] && command -v filefrag >/dev/null; then
+    EXTENTS="$(filefrag "$SWAPFILE" 2>/dev/null | sed -nE 's/.*: ([0-9]+) extents? found.*/\1/p')"
+    if [ -n "$EXTENTS" ] && [ "$EXTENTS" -gt 1 ]; then
+        warn "$SWAPFILE is in $EXTENTS extents, and hibernation needs one"
+        dim "swap itself works fine like this; resuming from it does not."
+        dim "the filesystem is 58%-full, so mkswapfile could not find one run."
+        dim ""
+        dim "to fix, smallest change first:"
+        dim "  swapoff $SWAPFILE && rm $SWAPFILE"
+        dim "  SIZE=17 hibernate-setup        # smaller, more likely to fit one run"
+        dim ""
+        dim "if it is still fragmented, consolidate the free space first:"
+        dim "  btrfs balance start -dusage=50 /"
+        dim ""
+        dim "GRUB was left alone. If a previous run already wrote resume= into it,"
+        dim "take it back out until this passes:  hibernate-setup --revert"
+        exit 1
+    fi
+    [ -n "$EXTENTS" ] && ok "$SWAPFILE is a single extent"
+elif [ -f "$SWAPFILE" ]; then
+    warn "filefrag is not installed, so contiguity could not be checked"
+    dim "install e2fsprogs and re-run before trusting this"
+fi
+
 # ─── where the kernel has to look ────────────────────────────────────────────
 if [ "$DRY" -eq 1 ] && [ ! -f "$SWAPFILE" ]; then
     dim "would compute resume_offset once the swapfile exists"
@@ -174,13 +245,19 @@ if grep -q 'resume=' "$GRUBDEF"; then
     dim "$(grep -n 'resume=' "$GRUBDEF" | head -1)"
     dim "check it matches:  $RESUME"
 else
+    # Which quote character the line actually uses. Arch's own default is double,
+    # CachyOS ships single, and a sed that assumes either one silently matches
+    # nothing on the other -- which is exactly what happened the first time.
+    Q="$(sed -nE "s/^GRUB_CMDLINE_LINUX_DEFAULT=([\"']).*/\\1/p" "$GRUBDEF" | head -1)"
+    [ -n "$Q" ] || die "cannot tell how GRUB_CMDLINE_LINUX_DEFAULT is quoted in $GRUBDEF"
+
     run cp -a "$GRUBDEF" "$GRUBDEF.bak.$(date +%Y%m%d-%H%M%S)"
     if [ "$DRY" -eq 1 ]; then
-        dim "would append to GRUB_CMDLINE_LINUX_DEFAULT: $RESUME"
+        dim "would append to GRUB_CMDLINE_LINUX_DEFAULT ($Q-quoted): $RESUME"
     else
         # Appended inside the existing quotes rather than replacing the line, so
         # nothing already on the command line is lost.
-        sed -i "s|^\(GRUB_CMDLINE_LINUX_DEFAULT=\"[^\"]*\)\"|\1 $RESUME\"|" "$GRUBDEF" \
+        sed -i "s|^\(GRUB_CMDLINE_LINUX_DEFAULT=${Q}[^${Q}]*\)${Q}|\1 ${RESUME}${Q}|" "$GRUBDEF" \
             || die "could not edit $GRUBDEF"
         grep -q "resume=UUID=$UUID" "$GRUBDEF" \
             || die "the edit to $GRUBDEF did not take — check it by hand"

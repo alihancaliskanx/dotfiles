@@ -42,7 +42,24 @@
             ]
         },
         "idle": {
-            "lockBeforeSleep": false
+            "lockBeforeSleep": false,
+            "timeouts": [
+                {
+                    "idleAction": "lock",
+                    "timeout": 180
+                },
+                {
+                    "idleAction": "dpms off",
+                    "returnAction": "dpms on",
+                    "timeout": 300
+                },
+                {
+                    "idleAction": [
+                        "suspend"
+                    ],
+                    "timeout": 600
+                }
+            ]
         }
     },
     "launcher": {
