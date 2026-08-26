@@ -1,0 +1,83 @@
+# ────────────────────────────────────────────────────────────
+# BTOP THEME — Ryoku
+# ────────────────────────────────────────────────────────────
+# One ramp, four tiers, the way ryoku.dev states it: PAPER #000000 to
+# INK #cdc4ba, nothing between them carrying a hue of its own. The tiers
+# are not eyeballed -- each is the warm grey whose WCAG contrast on PAPER
+# hits its target, holding INK's own 1 : 0.956 : 0.907 channel ratio:
+#
+#   #7a756f   4.60:1   the floor ryoku sets
+#   #958e87   6.50:1
+#   #b0a8a0   8.95:1
+#   #cdc4ba  12.20:1   INK itself, ryoku's published value
+#
+# The graphs are the one place a single ramp is not enough -- a gradient
+# from a colour to itself is a flat bar. They run PAPER through the ramp
+# instead, so the shape carries the reading and no hue has to.
+
+# Background — PAPER
+theme[main_bg]="#000000"
+
+# Main text — INK
+theme[main_fg]="#cdc4ba"
+
+# Titles
+theme[title]="#cdc4ba"
+
+# Highlight text
+theme[hi_fg]="#cdc4ba"
+
+# Selected row
+theme[selected_bg]="#141312"
+theme[selected_fg]="#cdc4ba"
+
+# Inactive/dim text — the 4.6:1 floor
+theme[inactive_fg]="#7a756f"
+
+# Misc text
+theme[proc_misc]="#958e87"
+
+# Box outlines
+theme[cpu_box]="#262422"
+theme[mem_box]="#262422"
+theme[net_box]="#262422"
+theme[proc_box]="#262422"
+
+# Divider lines
+theme[div_line]="#262422"
+
+# Temp graph — the one gradient that keeps a hue, because "too hot" is a
+# reading you should not have to take off a bar's length alone. Held at the
+# tier-3 luminance so it never outshines INK.
+theme[temp_start]="#97b185"
+theme[temp_mid]="#b2a987"
+theme[temp_end]="#c0a39c"
+
+# CPU graph — PAPER through the ramp
+theme[cpu_start]="#7a756f"
+theme[cpu_mid]="#958e87"
+theme[cpu_end]="#cdc4ba"
+
+theme[free_start]="#262422"
+theme[free_mid]="#7a756f"
+theme[free_end]="#b0a8a0"
+
+theme[cached_start]="#262422"
+theme[cached_mid]="#7a756f"
+theme[cached_end]="#b0a8a0"
+
+theme[available_start]="#262422"
+theme[available_mid]="#7a756f"
+theme[available_end]="#b0a8a0"
+
+theme[used_start]="#262422"
+theme[used_mid]="#958e87"
+theme[used_end]="#cdc4ba"
+
+theme[download_start]="#262422"
+theme[download_mid]="#958e87"
+theme[download_end]="#cdc4ba"
+
+theme[upload_start]="#262422"
+theme[upload_mid]="#958e87"
+theme[upload_end]="#cdc4ba"

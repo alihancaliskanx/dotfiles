@@ -1,0 +1,35 @@
+[meta]
+version = 1
+name = "Ryoku"
+description = "PAPER and INK — ryoku.dev's one ramp, four tiers."
+variant = "dark"
+inherits = "vicinae-dark"
+
+[colors.core]
+background = "#000000"
+foreground = "#cdc4ba"
+secondary_background = "#0d0c0c"
+border = "#262422"
+accent = "#cdc4ba"
+
+[colors.list.item.hover]
+background = "#0d0c0c"
+foreground = "#cdc4ba"
+
+[colors.list.item.selection]
+background = "#141312"
+foreground = "#cdc4ba"
+
+# ryoku has no accent hue: colour comes from the wallpaper through matugen,
+# and a file cannot do that. These are the ramp's tier-3 luminance with a
+# hue and nothing else, so the semantic slots stay apart without any of them
+# reading as "the accent".
+[colors.accents]
+blue = "#9cabc0"
+green = "#97b185"
+magenta = "#c19ec1"
+orange = "#b2a987"
+purple = "#c19ec1"
+red = "#c0a39c"
+yellow = "#b2a987"
+cyan = "#86b1b0"

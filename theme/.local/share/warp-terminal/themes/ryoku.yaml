@@ -1,0 +1,30 @@
+name: Ryoku
+accent: "#cdc4ba"
+cursor: "#cdc4ba"
+background: "#000000"
+foreground: "#cdc4ba"
+details: darker
+
+# A terminal is where a strictly monochrome ramp stops being usable: eight
+# identical ANSI slots means no `ls` colours, no git diff, no error text.
+# So the slots keep ryoku's contract -- one luminance per tier -- and vary
+# only in hue. normal sits at the 4.6:1 floor, bright at tier 3 (8.95:1).
+terminal_colors:
+  normal:
+    black:   "#000000"
+    red:     "#976b60"
+    green:   "#637d50"
+    yellow:  "#7f7651"
+    blue:    "#617797"
+    magenta: "#9a629a"
+    cyan:    "#507e7c"
+    white:   "#b0a8a0"
+  bright:
+    black:   "#7a756f"
+    red:     "#c0a39c"
+    green:   "#97b185"
+    yellow:  "#b2a987"
+    blue:    "#9cabc0"
+    magenta: "#c19ec1"
+    cyan:    "#86b1b0"
+    white:   "#cdc4ba"

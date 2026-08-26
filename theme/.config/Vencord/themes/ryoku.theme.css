@@ -1,0 +1,40 @@
+    /**
+    * @name Ryoku
+    * @version 0.1.0
+    * @description PAPER and INK — ryoku.dev's one ramp, four tiers.
+    * @source https://ryoku.dev/
+    **/
+    @import url("https://imbypass.github.io/base16-discord/omarchy-discord.theme.css");
+
+    :root {
+        --color00: #000000;
+        --color01: #000000;
+        --color02: #0d0c0c;
+        --color03: #7a756f;
+        --color04: #958e87;
+        --color05: #b0a8a0;
+        --color06: #cdc4ba;
+        --color07: #cdc4ba;
+        --color08: #cdc4ba;
+        --color09: #b2a987;
+        --color10: #b2a987;
+        --color11: #97b185;
+        --color12: #86b1b0;
+        --color13: #262422;
+        --color14: #c19ec1;
+        --color15: #c0a39c;
+
+        --font: "SF Pro Display";
+        --font-code: var(--font);
+        --font-primary: var(--font);
+        --font-display: var(--font);
+        --font-heading: var(--font);
+
+        --font-weight-light: 500;
+        --font-weight-normal: 550;
+
+        --font-weight-normal: 600;
+        --font-weight-light: 500;
+        --font-weight-medium: 600;
+        --font-weight-semibold: 800;
+    }
