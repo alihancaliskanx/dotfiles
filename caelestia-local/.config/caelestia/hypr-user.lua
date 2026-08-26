@@ -108,24 +108,47 @@ local fn   = require("utils.functions")
 local locked = { locked = true }
 local locked_repeating = { locked = true, repeating = true }
 
+-- Every bind below carries a description, because a description is the only
+-- thing a Lua bind can say about itself. `hyprctl binds` reports a conf bind as
+-- its dispatcher and arguments — `exec kitty` — and a Lua one as `__lua 207`,
+-- the index of a function in a table, which is nothing anybody can read. The
+-- SUPER+F1 list is built out of these strings.
+--
+-- The flags are copied in rather than the text being added to them: locked and
+-- locked_repeating are shared by a dozen binds and a description belongs to one.
+local function desc(text, flags)
+    local opts = { description = text }
+    for k, v in pairs(flags or {}) do opts[k] = v end
+    return opts
+end
+
+-- The key list. The other two sessions bind it in their own configs
+-- (hypr/hyprland.conf, niri/config.kdl) and caelestia has no equivalent, so
+-- here SUPER+F1 did nothing at all — and hotkeys itself was reading
+-- ~/.config/hypr/hyprland.conf, which under the Lua provider is not the config
+-- but the stub Hyprland writes beside it. The script asks hyprctl now.
+hl.bind("SUPER + F1", hl.dsp.exec_cmd("hotkeys"), desc("This list of keys"))
+
 -- The other half of alt-tab. caelestia already binds ALT+TAB and it cycles
 -- windows on the current workspace, which is what a compositor does by itself;
 -- what these dotfiles add on top is the cross-workspace picker, and caelestia
 -- has no equivalent. SUPER+TAB is where it lived before and is free here.
 -- Found on PATH thanks to the ~/.local/bin line above.
-hl.bind("SUPER + TAB", hl.dsp.exec_cmd("window-switch"))
+hl.bind("SUPER + TAB", hl.dsp.exec_cmd("window-switch"),
+    desc("Window switcher, every workspace"))
 
 -- Terminal and browser on their old keys, in addition to caelestia's SUPER+T
 -- and SUPER+Q rather than instead of them. Read out of variables so there is
 -- still one place that decides which terminal and which browser: change it in
 -- hypr-vars.lua and both keys follow.
-hl.bind("SUPER + RETURN", hl.dsp.exec_cmd(vars.terminal))
-hl.bind("SUPER + B", hl.dsp.exec_cmd(vars.browser))
+hl.bind("SUPER + RETURN", hl.dsp.exec_cmd(vars.terminal), desc("Terminal"))
+hl.bind("SUPER + B", hl.dsp.exec_cmd(vars.browser), desc("Browser"))
 
 -- Force kill, for the window that stopped answering. Deliberately the same
 -- three-key combo it had here before and not a bare SUPER+ESCAPE: this one
 -- takes the process down without asking, so it should be awkward to hit.
-hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
+hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill(),
+    desc("Force kill the focused window"))
 
 -- One key that puts away whatever special workspace is on screen, whichever it
 -- is. The keys that open them (SUPER+S, M, D, R) are toggles and still close
@@ -133,7 +156,8 @@ hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill())
 -- one you are looking at. Hyprland has no dispatcher for it: without a name,
 -- togglespecialworkspace toggles the one called "special" rather than the one
 -- showing, so special-close reads the name off the focused monitor first.
-hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"))
+hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"),
+    desc("Close the special workspace on screen"))
 
 -- Pin the panel the pointer is over, so it stays when the pointer leaves — and
 -- press again to let go. The hover panels are otherwise unreadable the moment
@@ -143,7 +167,8 @@ hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"))
 -- a shortcut, so hover does not get to close it", which is why the patch behind
 -- it is small: nothing new had to be taught to the close paths. Only panels
 -- that have such a flag can be pinned — dashboard, osd, utilities, launcher.
-hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"))
+hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"),
+    desc("Pin the panel under the pointer"))
 
 -- A second key for the launcher, next to caelestia's bare SUPER tap rather than
 -- instead of it. Not `hl.dsp.global("caelestia:launcher")`, which is what the
@@ -155,7 +180,8 @@ hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"))
 -- The shell's IPC has the same toggle with no release in it — `drawers list`
 -- names them: bar, osd, session, launcher, dashboard — so this fires on the
 -- press and does not care about finger order.
-hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle launcher"))
+hl.bind("ALT + SPACE", hl.dsp.exec_cmd("qs -c caelestia ipc call drawers toggle launcher"),
+    desc("Launcher"))
 
 -- ─── the clipboard panel's layer ─────────────────────────────────────────────
 -- Transparency and the open animation are not the panel's to give: they are
@@ -191,9 +217,12 @@ hl.layer_rule({ match = { namespace = "clipboard" }, blur = true, ignore_alpha =
 -- on/off toggle is made of, and why the toggle key did nothing while up and
 -- down worked. The logic lives in the script instead, which also gives one
 -- place to change the step and adds colour on top.
-hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh up"), locked_repeating)
-hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh down"), locked_repeating)
-hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh toggle"), locked)
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh up"),
+    desc("Keyboard backlight up", locked_repeating))
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh down"),
+    desc("Keyboard backlight down", locked_repeating))
+hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh toggle"),
+    desc("Keyboard backlight on and off", locked))
 
 -- ─── media, as the Rainy-Night config had it ─────────────────────────────────
 -- SUPER+Space for play/pause and the numpad for volume and tracks. caelestia
@@ -211,21 +240,28 @@ local volume_up = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l " 
 local volume_down = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ " ..
     vars.volumeStep .. "%-"
 
-hl.bind("SUPER + Space", hl.dsp.global("caelestia:mediaToggle"), locked)
+hl.bind("SUPER + Space", hl.dsp.global("caelestia:mediaToggle"),
+    desc("Play and pause", locked))
 
 -- Volume on two pairs of keys. The numpad pair is what this config always had
 -- and the laptop does have one; the SHIFT pair is for reaching it without
 -- crossing the keyboard, and is why kbWindowIncreaseHeight moved.
-hl.bind("SUPER + KP_Add", hl.dsp.exec_cmd(volume_up), locked_repeating)
-hl.bind("SUPER + KP_Subtract", hl.dsp.exec_cmd(volume_down), locked_repeating)
-hl.bind("SUPER + SHIFT + Equal", hl.dsp.exec_cmd(volume_up), locked_repeating)
-hl.bind("SUPER + SHIFT + Minus", hl.dsp.exec_cmd(volume_down), locked_repeating)
+hl.bind("SUPER + KP_Add", hl.dsp.exec_cmd(volume_up),
+    desc("Volume up", locked_repeating))
+hl.bind("SUPER + KP_Subtract", hl.dsp.exec_cmd(volume_down),
+    desc("Volume down", locked_repeating))
+hl.bind("SUPER + SHIFT + Equal", hl.dsp.exec_cmd(volume_up),
+    desc("Volume up", locked_repeating))
+hl.bind("SUPER + SHIFT + Minus", hl.dsp.exec_cmd(volume_down),
+    desc("Volume down", locked_repeating))
 
 -- Tracks on the same keys plus CTRL, which is the shape the numpad pair had
 -- here before. CTRL+SUPER+Equal/Minus is caelestia's and is left alone, so
 -- next/previous answer to both.
-hl.bind("SUPER + CTRL + KP_Add", hl.dsp.global("caelestia:mediaNext"), locked)
-hl.bind("SUPER + CTRL + KP_Subtract", hl.dsp.global("caelestia:mediaPrev"), locked)
+hl.bind("SUPER + CTRL + KP_Add", hl.dsp.global("caelestia:mediaNext"),
+    desc("Next track", locked))
+hl.bind("SUPER + CTRL + KP_Subtract", hl.dsp.global("caelestia:mediaPrev"),
+    desc("Previous track", locked))
 
 -- The clipboard panel from imperative-dots, running as its own quickshell
 -- config out of ~/.config/quickshell/clipboard (this same package). caelestia's
@@ -238,12 +274,12 @@ hl.bind("SUPER + CTRL + KP_Subtract", hl.dsp.global("caelestia:mediaPrev"), lock
 -- panel was not already up. The panel closes itself on Escape and on picking an
 -- entry, so this is only for pressing SUPER+V twice.
 local clipboard_panel = "qs kill -c clipboard || qs -c clipboard"
-hl.bind("SUPER + V", hl.dsp.exec_cmd(clipboard_panel))
+hl.bind("SUPER + V", hl.dsp.exec_cmd(clipboard_panel), desc("Clipboard history"))
 
 -- Same panel on the old delete key. Deleting is the Delete key inside it now,
 -- so there is no second interface left for this one to open — but the hands
 -- know where it is, so it lands on the panel rather than on nothing.
-hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd(clipboard_panel))
+hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd(clipboard_panel), desc("Clipboard history"))
 
 -- Wipe the lot, with no picker in the way — asked for deliberately, so it is
 -- worth being clear that there is no confirmation and no undo. The count is
@@ -253,7 +289,7 @@ hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd(clipboard_panel))
 hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd(
     "n=$(cliphist list | wc -l); cliphist wipe; " ..
     "qs -c caelestia ipc call toaster success 'Clipboard cleared' \"$n entries deleted\" delete_sweep"
-))
+), desc("Wipe the clipboard history"))
 
 -- Move the window to a workspace. caelestia puts this on SUPER+ALT+number and
 -- leaves SUPER+SHIFT+number free; the hands here go to SHIFT. Built from
@@ -261,7 +297,8 @@ hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd(
 -- SUPER+ALT+number does — on the second block of ten, "3" means workspace 13,
 -- not 3.
 for i = 1, 10 do
-    hl.bind("SUPER + SHIFT + " .. (i % 10), fn.wsaction("move", "", i))
+    hl.bind("SUPER + SHIFT + " .. (i % 10), fn.wsaction("move", "", i),
+        desc("Move the window to workspace " .. i))
 end
 
 hl.on("hyprland.start", function()
@@ -292,6 +329,8 @@ hl.on("hyprland.start", function()
     -- came back empty with nothing visible to explain why. Same line as
     -- hypr/hyprland.conf.
     hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE")
+
+
 
     -- Keep the shell overlay in step with the package. caelestia starts its own
     -- shell from execs.lua before this handler runs, so on the login after a
