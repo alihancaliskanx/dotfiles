@@ -55,17 +55,20 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service`, the Qt theme env, cliamp's D-Bus name      |
 | `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, the `My Dotfiles` Plasma global theme |
+| `wallpapers` | `~/Pictures/Wallpapers/` — the images themselves, which every rice looks at and none of them owns |
 | `kdeglobals` | the palette Qt apps read outside Plasma — its own package because a rice may need to take it over |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
-Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
-wallpapers, `vscode-extensions.txt`) and the install scripts. Nothing in
+Not linked: `extras/` (manually imported VSCode/Chromium/icon themes, the rice
+linkmaps, `vscode-extensions.txt`) and the top-level scripts. Nothing in
 `extras/` is symlinked, which is exactly why the extension list lives there:
-every file inside a package lands in `$HOME` at the same relative path.
+every file inside a package lands in `$HOME` at the same relative path. The
+wallpapers moved out of it into a package of their own — what is left in
+`extras/backgrounds/` is a symlink to the one real copy.
 
 ### Profiles
 
-A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme git xdg`
+A profile is a named set of packages. `shell terminal nvim vscode cli scripts services theme wallpapers kdeglobals git xdg`
 is common to all of them; the desktop-specific ones are added on top.
 
 | Profile    | Extra packages    |
@@ -90,6 +93,8 @@ is common to all of them; the desktop-specific ones are added on top.
 ./link.sh rice                 # list the desktops, show which one is on
 ./link.sh rice imperative-dots # switch desktop
 ./link.sh rice caelestia       # ditto
+./link.sh adopt gtk            # pull the real files from $HOME into the repo
+./link.sh adopt niri ~/.config/niri/config.kdl   # move one new file into a package
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
 ./link.sh -f ...               # rename a conflicting real file to .bak.<date> and link over it
 ```
@@ -298,8 +303,10 @@ it rests on one fact: quickshell resolves the `qs.` import prefix against the
 *config root directory*, not against wherever `shell.qml` really is. A symlinked
 `shell.qml` still loads `qs.modules.…` out of the directory the symlink sits in.
 So the overlay is a mirror of symlinks with real files punched through it only
-where something is patched — 29 links, two real directories and one real file
-for the launcher change, and the other 282 files keep tracking the package.
+where something is patched. The numbers move with the patches: three of them
+today (the launcher, the dashboard's lyrics selector, the lock surface's blur)
+make it 54 symlinks, five real directories and three real files, and every
+other file in the tree keeps tracking the package.
 
 Patches, not patched copies: `caelestia-local/.config/caelestia/shell-patches/`
 holds `<relpath>.patch` files. A stored copy of an upstream file goes stale in
@@ -386,6 +393,44 @@ PATH="$HOME/.local/share/nvim/mason/bin:$PATH" ./check.sh
 
 ---
 
+## repo.sh
+
+```bash
+./repo.sh          # enable whatever is missing, then refresh
+./repo.sh -n       # show what it would do, touch nothing
+```
+
+`install.sh` says which packages to install and never said where they come from,
+which works right up until a repository is not enabled. Five of its AUR entries
+are blackarch packages, and on a machine without `[blackarch]` the failure reads
+as "no such package" rather than "you never turned that repo on". The CachyOS v4
+repositories are the same gap from the other side — they are what makes this a
+CachyOS install rather than an Arch one.
+
+The order is not decoration. pacman takes the first repository that holds a
+package, and the whole point of `cachyos-v4` is to shadow `core` and `extra` with
+x86-64-v4 builds, so the script **refuses** to append a cachyos repo to a
+`pacman.conf` that already has `[core]` and tells you where the block belongs
+instead. `blackarch` goes last, being the widest and least curated.
+
+| | |
+|---|---|
+| `cachyos-v4` `cachyos-core-v4` `cachyos-extra-v4` | x86-64-v4 builds, above core/extra so they win |
+| `cachyos` | CachyOS's own packages — the kernel, the settings packages |
+| `core` `extra` `multilib` | Arch's |
+| `blackarch` | last |
+
+It checks before it enables: the v4 repos are gated on the loader's own answer to
+whether this CPU has x86-64-v4 (enabling them without AVX-512 does not fail
+loudly — pacman installs binaries that then die with `SIGILL`), and missing
+mirrorlists and keyrings are named rather than assumed. blackarch's key is the
+one thing it will not do for you; that needs `strap.sh`, and a script in this
+repo is not going to download and execute a remote installer on your behalf.
+
+Idempotent, and it backs up `pacman.conf` before touching it.
+
+---
+
 ## Shell configuration
 
 Both are modular; there is no single huge file. The same numbering applies to both shells:
@@ -431,6 +476,7 @@ bash script under `scripts/.local/bin/`:
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
+| `hibernate-setup` | a btrfs swapfile big enough to hibernate into, and the `resume=` to find it again (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
@@ -542,7 +588,7 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   no theme package any more: the background comes from `/etc/plasmalogin.conf`
   (`[Greeter][Wallpaper][org.kde.image][General]`), the colours from
   `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
-  `sudo plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
+  `plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
   package, it has to be run once per machine.
 - **waybar** — started by `systemctl --user start waybar` from both compositor
   configs, not by an `exec-once` loop. The unit lives in the `services` package
@@ -574,14 +620,26 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `~/.config/qtengine`, a path nothing here owns, so `kdeglobals` is simply not
   read while it is on and there is nothing to take away.
 
-  In practice it *is* read, because `qtengine` is an AUR package out of
-  caelestia's own manifest — its `qt` component, with `darkly-bin` and
-  `frameworkintegration` — and the shell here comes from the AUR instead of
-  that manifest, so the plugin is not installed. Qt does not complain about a
-  platform theme it cannot find; it falls back to none at all, which is the
-  default light palette. Point it at `kde` in `~/.config/caelestia/hypr-user.lua`
-  and Qt apps read `kdeglobals` under caelestia exactly as they do under `own`.
-  Install that stack and drop the line to get the wallpaper-coloured version.
+  That holds now, and for a while it did not. `qtengine` is an AUR package out
+  of caelestia's own manifest — its `qt` component, with `darkly-bin` and
+  `frameworkintegration` — and the shell here comes from the AUR instead of that
+  manifest, so for a time the plugin simply was not installed. Qt does not
+  complain about a platform theme it cannot find; it falls back to none at all,
+  which is the default *light* palette, and the fix was to point
+  `QT_QPA_PLATFORMTHEME` at `kde` in `hypr-user.lua` so `kdeglobals` was read
+  again. All three packages are installed now and that override is gone —
+  `hypr-user.lua` says so where the line used to be.
+
+  So if Qt apps ever come up white under caelestia, that is the first thing to
+  check, because it fails silently:
+
+  ```bash
+  ls /usr/lib/qt6/plugins/platformthemes/   # want libqt6engine-plugin.so
+  paru -S qtengine darkly-bin frameworkintegration papirus-folders
+  ```
+
+  Those three are **not** in `install.sh`, so a fresh machine reaches exactly the
+  state described above until they are installed by hand.
 - **the `My Dotfiles` global theme** — inside a Plasma session there is a second
   route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
   Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
@@ -647,14 +705,50 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
 
 ## Things worth knowing
 
-**One wallpaper, three sessions.** `extras/backgrounds/starrysky.jpg` is the
-background everywhere, but only one real copy of it exists, inside the
-`StarrySky` wallpaper package — KPackage will not follow a symlink, so the file
-has to be real where Plasma reads it, and `extras/` holds the symlink. niri and
-Hyprland both run **hyprpaper** against that same path
+**The wallpapers are in the repo, and one of them twice over would be a bug.**
+`wallpapers` carries `~/Pictures/Wallpapers/` — 27 MB of photographs, which is
+why it is its own package and not part of `theme`. It is common to every profile
+because every rice reads that directory and none of them owns it: caelestia's
+picker lists it, matugen is pointed at whatever is in it, and `own` ignores it
+entirely and uses hyprpaper.
+
+`starry-sky.jpg` in that package is a **symlink**, not a ninth image. The same
+picture is the `StarrySky` KPackage in `theme`, and KPackage drops any file whose
+canonical path leaves the package directory — so that copy has to be real where
+Plasma reads it, and everything else points at it. `extras/backgrounds/starrysky.jpg`
+is the same symlink from the other side. Three references, one file on disk;
+adopting it as a real file again would put 2.4 MB of duplicate into the history.
+
+**One wallpaper reaches all three sessions.** niri and Hyprland both run
+**hyprpaper** against the `StarrySky` path
 (`desktop/.config/hypr/hyprpaper.conf`, in `desktop` because the niri profile
 does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
-the login screen from `sudo plasmalogin-theme`.
+the login screen from `plasmalogin-theme`. caelestia is the exception: it
+keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
+tracked — the image it points at is, now.
+
+**Hibernation needs somewhere to go, and zram is not it.** The only swap this
+machine had was `/dev/zram0`, which is a compressed block device living *in* RAM
+— writing RAM into it and then cutting power leaves nothing to come back to. So
+`logind` answered `CanHibernate` with `na`, caelestia's session menu offered a
+hibernate button that could not work, and its 600-second idle action
+(`suspendThenHibernate`) quietly degraded to a plain suspend. `hibernate-setup`
+is the fix: a 32 GiB swapfile in a btrfs subvolume of its own, at priority -2 so
+zram stays the swap everything normally pages to, plus the `resume=` and
+`resume_offset=` on the kernel command line without which the kernel has no idea
+where to look before any filesystem is mounted. The subvolume matters — a btrfs
+snapshot is not recursive, so a nested subvolume is invisible to the snapshots
+snapper takes of `@`, and a swapfile that gets snapshotted or moved is a swapfile
+that cannot be resumed from.
+
+**The weather has a location setting and no way to pick one.** caelestia reads
+`services.weatherLocation` out of `shell.json`, and with it empty it geolocates
+by IP — which on a machine that spends its time behind a phone's tethering proxy
+or Tor reports wherever the exit is. Its own settings page says "Choose your
+weather location on a map in a future update", so the file is the only way for
+now: `"41.0082,28.9784"` in `caelestia-local`. Coordinates rather than a city
+name on purpose — the name goes through open-meteo's geocoder and takes the
+first hit.
 
 **hyprpaper 0.8 changed its config format.** `preload = <path>` plus
 `wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo
@@ -707,10 +801,17 @@ name, because it is what selects the rainynight colour scheme for Qt apps under
 niri/Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
 rewritten by KDE and would produce constant conflicts.
 
-**`~/.config/git/config` is deliberately not in the repo.**
-`git config --global` writes the file with lock+rename, which replaces the
-symlink with a real file. Since `net-proxy git on` does exactly that, tracking it
-is pointless.
+**`~/.config/git/config` is tracked, and `net-proxy git on` writes into it.**
+This used to say the opposite, and the reasoning was sound: `git config --global`
+writes with lock+rename, which replaces a symlink with a real file, so tracking
+it looked pointless. It is tracked anyway — for the aliases, the identity and the
+gh credential helper — and the consequence is worth knowing rather than being
+surprised by. `net-proxy git on` writes through to the file in this repo, so the
+tethering proxy address ends up in `git diff` and, if you are not looking, in a
+commit. `net-proxy git off` takes it back out.
+
+Note also that `[https] proxy` is not a thing git reads; only `http.proxy` (and
+`http.<url>.proxy`) does anything. The `[https]` section is inert.
 
 **Do not use `systemctl --user reenable`.**
 Because the unit file is a symlink, the `disable` step deletes it. If you need to:

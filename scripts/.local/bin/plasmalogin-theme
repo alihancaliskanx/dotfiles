@@ -130,7 +130,7 @@ status() {
     dim "colour scheme    : $(kreadconfig6 --file "$GREETER_HOME/.config/kdeglobals" --group General --key ColorScheme)"
     dim "window bg        : $(kreadconfig6 --file "$GREETER_HOME/.config/kdeglobals" --group 'Colors:Window' --key BackgroundNormal)"
   else
-    dim "not readable (run: sudo plasmalogin-theme status)"
+    dim "not readable (run: plasmalogin-theme status)"
   fi
 }
 

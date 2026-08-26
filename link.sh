@@ -36,7 +36,15 @@ TARGET="${TARGET:-$HOME}"
 # one file in there a rice may need to take over: it is where Qt apps read
 # their palette from, so a rice that colours the desktop from the wallpaper has
 # to own it. Everything else in `theme` is rice neutral and stays put.
-COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme kdeglobals git xdg"
+#
+# `wallpapers` is separate from `theme` for a plainer reason: it is 27 MB of
+# photographs and `theme` is a handful of text files. It is also the one place
+# every rice looks and none of them owns — caelestia's picker reads
+# ~/Pictures/Wallpapers, matugen is pointed at whatever is there — so it is
+# common rather than belonging to any of them. The StarrySky image is NOT in it:
+# that one has to be real inside its KPackage directory, so it stays in `theme`
+# and the copy here is a symlink to it, the same way extras/backgrounds does.
+COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme wallpapers kdeglobals git xdg"
 
 # Profiles: package sets per desktop environment.
 declare -A PROFILES=(
