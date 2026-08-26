@@ -1,6 +1,7 @@
 # dotfiles
 
 My Arch-based (CachyOS) setup. Theme: **rainynight**.
+This branch additionally carries the old **omarchy** theme as a submodule.
 Three desktop profiles are supported — **Hyprland**, **niri**, **KDE** — and two shells: **zsh**, **fish**.
 
 Everything is symlinked into `$HOME`; the real files live in this repo, so the
@@ -428,6 +429,61 @@ one thing it will not do for you; that needs `strap.sh`, and a script in this
 repo is not going to download and execute a remote installer on your behalf.
 
 Idempotent, and it backs up `pacman.conf` before touching it.
+
+---
+
+## the omarchy theme, as a submodule
+
+Before caelestia this machine ran [Omarchy](https://omarchy.org), and its theme
+was `omarchy-rainynight-theme`. That theme is now a repository of its own —
+
+```bash
+git clone --recurse-submodules git@github.com:alihancaliskanx/dotfiles.git
+git submodule update --init          # if you cloned without --recurse-submodules
+```
+
+| | |
+|---|---|
+| where | `extras/omarchy-rainynight-theme` |
+| remote | `git@github.com:alihancaliskanx/omarchy-rainynight-theme.git` |
+| was | a fork of [`atif-1402/omarchy-rainynight-theme`](https://github.com/atif-1402/omarchy-rainynight-theme) |
+
+**It is not a fork any more.** GitHub has no way to detach one in place, so the
+fork was renamed to `omarchy-rainynight-theme-fork` and a repository of the same
+name created fresh; the merged history was pushed there. The old one is left
+alone rather than deleted. It still keeps `upstream` pointing at atif-1402, so
+`git fetch upstream && git merge upstream/main` is how it catches up — it was
+eleven commits behind when this was done.
+
+**A submodule rather than a copy**, for the same reason the rices are checkouts:
+it is a repo with its own life, and this only records which commit of it belongs
+with this branch.
+
+**Under `extras/` on purpose.** That is the one directory here that is never
+symlinked — `link.sh`'s `all_packages` skips it and `check.sh`'s orphan check
+skips it too — so a whole theme tree can sit there without any of it reaching
+`$HOME` or being mistaken for a package. Both were checked: `./link.sh status`
+does not list it, and `./check.sh` stays green.
+
+### what is actually in it
+
+Worth knowing before taking colours out of it: **it is not one palette.**
+
+| file | palette |
+|---|---|
+| `alacritty.toml`, `warp.yaml` | Catppuccin Mocha — and `warp.yaml` is named *Aether* |
+| `colors.toml` | Catppuccin too (came from upstream) |
+| `neovim.lua` | a third set again — `#0d0f1a`, `#1e2030` |
+| `hyprland.conf` | the group block is rainynight, `rgb(303463)` |
+
+None of those is the rainynight `main` actually runs, which is `#101010` with
+`#5de4c7` as the accent and `#303463` for selection. **The dotfiles palette is
+the authority**; this submodule is a source to take colour *from*, not a thing to
+sync colour *to*. Nothing in it is wired into anything here yet.
+
+Its `backgrounds/` carries the wallpapers this machine uses, which is what makes
+the theme installable on its own — `starry-sky.jpg` is deliberately absent from
+that set, being byte-identical to the `4.jpg` already there.
 
 ---
 
