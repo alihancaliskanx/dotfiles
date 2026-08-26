@@ -42,7 +42,6 @@ alias fconf='nvim ~/.config/fish/modules'          # fish module directory
 alias reloadfish='source ~/.config/fish/config.fish'
 alias zc='nvim ~/.config/zsh'                      # zsh module directory
 alias hconfig='nvim ~/.config/hypr/hyprland.conf'
-alias nconfig='nvim ~/.config/niri/config.kdl'
 alias terconf='nvim ~/.config/alacritty/alacritty.toml'
 alias gconfig='nvim ~/.config/git/config'
 alias dotfiles='cd ~/Documents/Code/dotfiles'

@@ -144,6 +144,7 @@ Theme=Papirus-Dark
 [KDE]
 AnimationDurationFactor=0.25
 LookAndFeelPackage=my-dotfiles
+ShowDeleteCommand=false
 contrast=4
 frameContrast=0.2
 
@@ -164,6 +165,10 @@ Sort hidden files last=false
 Sort reversed=false
 Speedbar Width=118
 View Style=DetailTree
+
+[PreviewSettings]
+EnableRemoteFolderThumbnail=false
+MaximumRemoteSize=0
 
 [Shortcuts]
 FullScreen=

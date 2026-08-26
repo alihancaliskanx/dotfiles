@@ -2,7 +2,7 @@
 
 My Arch-based (CachyOS) setup. Theme: **rainynight** — with **ryoku** as a
 second palette on this branch, shipped alongside and selected by nothing.
-Three desktop profiles are supported — **Hyprland**, **niri**, **KDE** — and two shells: **zsh**, **fish**.
+Two desktop profiles are supported — **Hyprland** and **KDE** — and two shells: **zsh**, **fish**.
 
 Everything is symlinked into `$HOME`; the real files live in this repo, so the
 moment you edit one it takes effect live. No external tool is needed to install
@@ -16,7 +16,7 @@ moment you edit one it takes effect live. No external tool is needed to install
 git clone git@github.com:alihancaliskanx/dotfiles.git ~/Documents/Code/dotfiles
 cd ~/Documents/Code/dotfiles
 
-./install.sh hyprland      # or: niri / kde
+./install.sh hyprland      # or: kde
 ```
 
 `install.sh` does the following, in order:
@@ -45,8 +45,7 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `shell`    | `.zshrc` + `~/.config/zsh/` modules, `.bashrc`, `.p10k.zsh`     |
 | `fish`     | `config.fish` + `~/.config/fish/modules/` — *not part of a profile* |
 | `hypr`     | `hyprland.conf`, `hypridle.conf`, `hyprlock.conf`               |
-| `niri`     | `config.kdl`                                                    |
-| `desktop`  | waybar (Hyprland + niri variants), fuzzel, mako, swayosd, satty, hyprpaper |
+| `desktop`  | waybar, fuzzel, mako, swayosd, satty, hyprpaper                 |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
 | `vscode`   | `~/.config/Code/User/settings.json` (extensions: see below)      |
@@ -75,7 +74,6 @@ is common to all of them; the desktop-specific ones are added on top.
 | Profile    | Extra packages    |
 |------------|-------------------|
 | `hyprland` | `hypr` `desktop`  |
-| `niri`     | `niri` `desktop`  |
 | `kde`      | — (common only)   |
 
 `fish` and `gtk` are deliberately in no profile; they are linked on request.
@@ -87,7 +85,7 @@ is common to all of them; the desktop-specific ones are added on top.
 ```bash
 ./link.sh                      # ask which desktop to use, then link it
 ./link.sh profile              # list the profiles
-./link.sh profile niri         # link the packages of a profile
+./link.sh profile hyprland     # link the packages of a profile
 ./link.sh link fish gtk        # link individual packages
 ./link.sh status               # which package is linked, which is not
 ./link.sh unlink nvim          # remove a single package
@@ -95,7 +93,7 @@ is common to all of them; the desktop-specific ones are added on top.
 ./link.sh rice imperative-dots # switch desktop
 ./link.sh rice caelestia       # ditto
 ./link.sh adopt gtk            # pull the real files from $HOME into the repo
-./link.sh adopt niri ~/.config/niri/config.kdl   # move one new file into a package
+./link.sh adopt cli ~/.config/btop/btop.conf     # move one new file into a package
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
 ./link.sh -f ...               # rename a conflicting real file to .bak.<date> and link over it
 ```
@@ -103,7 +101,7 @@ is common to all of them; the desktop-specific ones are added on top.
 A conflict is an **error** by default, nothing is silently overwritten.
 `unlink` only deletes symlinks pointing at this repo, it never touches real files.
 
-To change the default profile: `DOTFILES_PROFILE=niri ./link.sh`
+To change the default profile: `DOTFILES_PROFILE=kde ./link.sh`
 
 ### rices — three desktops, one repo
 
@@ -351,7 +349,7 @@ first and pulling it into the repo afterwards:
 
 ```bash
 # move a new file into a package and put a symlink in its place
-./link.sh adopt niri ~/.config/niri/config.kdl
+./link.sh adopt cli ~/.config/btop/btop.conf
 
 # for every file in the package, pull in the real version from $HOME
 ./link.sh adopt gtk
@@ -379,13 +377,12 @@ stow -t ~ shell terminal nvim cli scripts services theme hypr desktop
 ```
 
 Validates what the repo can validate: `bash -n` and shellcheck (warning level
-and up) over every script, `niri validate`, `Hyprland --verify-config`, `jq` on
+and up) over every script, `Hyprland --verify-config`, `jq` on
 the tracked JSON, `stylua --check` on the nvim config, and whether every package
 directory is actually reachable from a profile.
 
-A check whose tool is missing is **skipped, not failed** — a machine on the niri
-profile has no Hyprland, and the GitHub runner (`.github/workflows/check.yml`)
-has neither compositor. Locally the full set runs; shellcheck and stylua come
+A check whose tool is missing is **skipped, not failed** — the GitHub runner
+(`.github/workflows/check.yml`) has no compositor to ask. Locally the full set runs; shellcheck and stylua come
 from mason if they are not installed system-wide:
 
 ```bash
@@ -644,7 +641,7 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   package, it has to be run once per machine.
 - **waybar** — started by `systemctl --user start waybar` from both compositor
   configs, not by an `exec-once` loop. The unit lives in the `services` package
-  and picks the niri bar config from `$XDG_CURRENT_DESKTOP`; `Restart=always`
+  `Restart=always`
   brings it back if it dies and the output goes to `journalctl --user -u waybar`.
   `Mod+Shift+Space` still hides it with SIGUSR1, `systemctl --user reload waybar`
   re-reads the config.
@@ -652,7 +649,7 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   in `theme` (`~/.local/share/color-schemes/RainyNight.colors`) and the
   `kdeglobals` that selects it, which is a package of its own. With
   `QT_QPA_PLATFORMTHEME=kde` set by both compositors, that is what makes
-  Dolphin, ark and gwenview follow rainynight under niri/Hyprland. KDE's own
+  Dolphin, ark and gwenview follow rainynight under Hyprland. KDE's own
   settings app rewrites `kdeglobals`; if it ever replaces the symlink with a
   real file, `./link.sh status` shows the conflict.
 
@@ -721,14 +718,14 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `plasma-apply-lookandfeel -a my-dotfiles` does not touch the layout (that would
   wipe the panels). To set just the wallpaper:
   `plasma-apply-wallpaperimage ~/.local/share/wallpapers/StarrySky`. Under
-  niri/Hyprland nothing of the sort is needed — hyprpaper reads the same image
+  Hyprland nothing of the sort is needed — hyprpaper reads the same image
   from its config at startup.
 - **Plasma 6 writes theme choices to `~/.config/kdedefaults/`**, not to
   `kdeglobals`. Applying a global theme puts `ColorScheme`, `Icons/Theme` and
   `widgetStyle` there and *removes* the now-redundant keys from `kdeglobals` —
   which is why `ColorScheme=RainyNight` disappears from the tracked file. Nothing
   breaks: the whole `[Colors:*]` palette stays in `kdeglobals`, and that is what
-  Qt apps actually read under niri/Hyprland. `kdedefaults/` is not tracked, for
+  Qt apps actually read under Hyprland. `kdedefaults/` is not tracked, for
   the same reason `kwinrc` is not.
 - **Packages come in two lists.** `install.sh` carries the curated one: what a
   fresh machine *should* have, grouped by what it is for. `extras/pacman-explicit.txt`
@@ -749,9 +746,6 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   If VS Code ever replaces the symlink with a real file of its own, `./link.sh
   status` reports it as a conflict and `./link.sh adopt vscode
   ~/.config/Code/User/settings.json` pulls it back into the repo.
-- **niri** — validate the config with `niri validate`. The differences from
-  Hyprland are marked with `// DIFF:` inside `config.kdl` (column-based focus,
-  no blur, `Mod`+click built in).
 
 ---
 
@@ -771,10 +765,10 @@ Plasma reads it, and everything else points at it. `extras/backgrounds/starrysky
 is the same symlink from the other side. Three references, one file on disk;
 adopting it as a real file again would put 2.4 MB of duplicate into the history.
 
-**One wallpaper reaches all three sessions.** niri and Hyprland both run
-**hyprpaper** against the `StarrySky` path
-(`desktop/.config/hypr/hyprpaper.conf`, in `desktop` because the niri profile
-does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
+**One wallpaper reaches every session.** Hyprland runs **hyprpaper** against
+the `StarrySky` path (`desktop/.config/hypr/hyprpaper.conf`, kept in `desktop`
+rather than `hypr` because it is the bar/wallpaper stack, not the compositor),
+Plasma gets it from the `My Dotfiles` global theme, and
 the login screen from `plasmalogin-theme`. caelestia is the exception: it
 keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
 tracked — the image it points at is, now.
@@ -850,7 +844,7 @@ service; from the next login `environment.d` does it by itself.
 
 **Of KDE's own files only `kdeglobals` is tracked** (in the package of the same
 name, because it is what selects the rainynight colour scheme for Qt apps under
-niri/Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
+Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
 rewritten by KDE and would produce constant conflicts.
 
 **`~/.config/git/config` is tracked, and `net-proxy git on` writes into it.**
@@ -873,8 +867,7 @@ Because the unit file is a symlink, the `disable` step deletes it. If you need t
 Hyprland is launched by `start-hyprland`, not a login shell, so it never sources
 `.zshrc` and its PATH stops at `/usr/bin`. Anything bound to a script from the
 `scripts` package would fail to resolve and die silently — no window, no error.
-`hyprland.conf` therefore carries `env = PATH,$HOME/.local/bin:$PATH`; niri gets
-the same effect by routing the binding through `sh` so `$HOME` expands. Bind a
+`hyprland.conf` therefore carries `env = PATH,$HOME/.local/bin:$PATH`. Bind a
 new script and it will just work; move the scripts elsewhere and it will not.
 
 **The Settings portal backend is pinned per compositor.**
@@ -883,25 +876,23 @@ new script and it will just work; move the scripts elsewhere and it will not.
 installed nothing decided which one answers. The portal cached
 `org.freedesktop.appearance color-scheme` as "prefer light" at login and never
 noticed the desktop was dark, so Firefox-based apps drew white context menus.
-`hypr/` and `niri/` each ship a `<desktop>-portals.conf` pinning Settings to the
-gtk backend. They are separate files on purpose: one shared
-`~/.config/xdg-desktop-portal/portals.conf` would apply to both sessions, and
-Hyprland needs `default=hyprland;gtk` for screencasting while niri needs
-`gnome;gtk`.
+`hypr/` ships a `hyprland-portals.conf` pinning Settings to the gtk backend,
+while keeping `default=hyprland;gtk` so screencasting still goes to Hyprland's
+own backend.
 
 **KDE apps need `XDG_MENU_PREFIX` outside Plasma.**
 `plasma-workspace` only ships `/etc/xdg/menus/plasma-applications.menu`, and KDE
 apps look for `$XDG_MENU_PREFIX` + `applications.menu`. A Plasma session sets the
-variable to `plasma-`; under niri/Hyprland it was unset, so the menu was never
+variable to `plasma-`; under Hyprland it was unset, so the menu was never
 found — `kbuildsycoca6 --menutest` printed 0 entries instead of 138, and every
 KIO "Open With → Other Application…" dialog came up empty. Both compositor
 configs now set `XDG_MENU_PREFIX=plasma-`.
 
 **`XDG_CURRENT_DESKTOP` carries a `:KDE` suffix.**
 Entries with `OnlyShowIn=KDE` (System Settings, Info Center, the emoji picker)
-are hidden from every launcher when the variable is plain `niri` / `Hyprland`.
-The compositor name stays first in the list — `niri:KDE`, `Hyprland:KDE` — so
-xdg-desktop-portal still picks `niri-portals.conf` / `hyprland-portals.conf`, and
+are hidden from every launcher when the variable is plain `Hyprland`.
+The compositor name stays first in the list — `Hyprland:KDE` — so
+xdg-desktop-portal still picks `hyprland-portals.conf`, and
 `xdg-open` still falls back to the generic handler (its `detectDE` only matches
 the exact string `KDE`). Scripts that branch on the variable (`hotkeys`,
 `window-switch`) therefore match with globs, not equality.

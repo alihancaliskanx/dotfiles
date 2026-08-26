@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # bash, jq and shellcheck ship with the runner image. niri, Hyprland and
+      # bash, jq and shellcheck ship with the runner image. Hyprland and
       # stylua do not, and check.sh skips whatever it cannot find — the full set
       # runs locally, this is the part that can run anywhere.
       - name: check.sh

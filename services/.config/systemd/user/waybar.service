@@ -10,14 +10,7 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-# niri needs its own bar config, Hyprland uses the default one. The session name
-# is what tells them apart, and it is not guaranteed to reach the systemd user
-# manager under Hyprland — so Hyprland is the fallback branch, not the matched
-# one. Verified present under niri: XDG_CURRENT_DESKTOP=niri.
-ExecStart=/bin/sh -c 'case "${XDG_CURRENT_DESKTOP:-}" in \
-    *niri*) exec waybar -c %h/.config/waybar/config-niri.jsonc -s %h/.config/waybar/style.css ;; \
-    *)      exec waybar ;; \
-  esac'
+ExecStart=waybar
 # SIGUSR2 reloads the config; SIGUSR1 (what Mod+Shift+Space sends) hides the bar.
 ExecReload=/bin/kill -SIGUSR2 $MAINPID
 Restart=always

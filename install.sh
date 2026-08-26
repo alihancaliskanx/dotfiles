@@ -5,7 +5,6 @@
 # Usage:
 #   ./install.sh                 asks for the profile
 #   ./install.sh hyprland        Hyprland desktop + common packages
-#   ./install.sh niri            niri desktop + common packages
 #   ./install.sh kde             common packages only (if KDE is already installed)
 #
 # If you are behind a proxy such as PdaNet:
@@ -28,18 +27,17 @@ fi
 # ─── profile ─────────────────────────────────────────────────────────────────
 PROFILE="${1:-}"
 if [[ -z "$PROFILE" ]]; then
-  echo "Which desktop profile?  [1] hyprland  [2] niri  [3] kde"
+  echo "Which desktop profile?  [1] hyprland  [2] kde"
   read -rp "  choice (1-3): " sel
   case "$sel" in
     1) PROFILE=hyprland ;;
-    2) PROFILE=niri ;;
-    3) PROFILE=kde ;;
+    2) PROFILE=kde ;;
     *) echo "Invalid choice."; exit 1 ;;
   esac
 fi
 case "$PROFILE" in
-  hyprland|niri|kde) ;;
-  *) echo "Unknown profile: $PROFILE  (hyprland|niri|kde)"; exit 1 ;;
+  hyprland|kde) ;;
+  *) echo "Unknown profile: $PROFILE  (hyprland|kde)"; exit 1 ;;
 esac
 
 # ─── packages ────────────────────────────────────────────────────────────────
@@ -111,8 +109,7 @@ PKGS=(
   nano-syntax-highlighting zsh-autocomplete
 )
 
-# Hyprland and niri share the same bar/launcher/notification stack, and the same
-# wallpaper: hyprpaper is a plain layer-shell client, so niri runs it too.
+# The bar/launcher/notification stack, and the wallpaper daemon.
 WM_SHARED=(waybar swayosd fuzzel mako hyprlock hypridle hyprpaper xdg-desktop-portal-gtk)
 
 case "$PROFILE" in
@@ -120,11 +117,6 @@ case "$PROFILE" in
     PKGS+=("${WM_SHARED[@]}"
            hyprland hyprpicker
            xdg-desktop-portal-hyprland hyprpolkitagent)
-    ;;
-  niri)
-    PKGS+=("${WM_SHARED[@]}"
-           niri xwayland-satellite
-           xdg-desktop-portal-gnome hyprpolkitagent)
     ;;
   kde)
     # KDE is assumed to be installed already; only the common packages go in.

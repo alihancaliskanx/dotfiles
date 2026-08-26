@@ -5,7 +5,7 @@
 # Alt+Tab cycles inside the current workspace, which the compositor does on its
 # own. This is the other half: everything that is open, anywhere, in one list.
 #
-# Works under Hyprland and niri; the compositor is detected from the running
+# Works under Hyprland; the compositor is detected from the running
 # session rather than configured.
 #
 # WHAT THE LIST LOOKS LIKE, and why it takes this much code to get there. A
@@ -112,25 +112,6 @@ hypr_windows() {
             (.title // ""),
             (if .focusHistoryID == 0 then "*" else "" end),
             .address ]
-        | @tsv'
-}
-
-# niri numbers workspaces per monitor and hands windows the internal id, so the
-# workspace list has to be read as well to turn that back into what is on the
-# workspace indicator.
-niri_windows() {
-    jq -n --slurpfile ws <(niri msg -j workspaces) --slurpfile wins <(niri msg -j windows) '
-        ($ws[0] | map({key: (.id | tostring), value: .}) | from_entries) as $wsmap
-        | $wins[0][]
-        | ((.workspace_id // 0) | tostring) as $wid
-        | ($wsmap[$wid] // {}) as $w
-        | [ "0" + (("000" + (($w.idx // 0) | tostring)) | .[-4:]),
-            ($w.name // (($w.idx // 0) | tostring)),
-            ((.app_id // "") | ascii_downcase),
-            ((.app_id // "") | ascii_downcase),
-            (.title // ""),
-            (if .is_focused then "*" else "" end),
-            (.id | tostring) ]
         | @tsv'
 }
 
@@ -259,17 +240,7 @@ case "${XDG_CURRENT_DESKTOP:-}" in
         dispatch "hl.dsp.focus({ window = \"address:$sel\" })" focuswindow "address:$sel"
         ;;
 
-    *niri*)
-        command -v niri >/dev/null || die "niri not found"
-
-        render <(desktop_index) <(niri_windows | LC_ALL=C sort) > "$tmp"
-        sel=$(pick) || exit 0
-        [[ $sel =~ ^[0-9]+$ ]] || exit 0
-
-        niri msg action focus-window --id "$sel" >/dev/null
-        ;;
-
     *)
-        die "unsupported session: ${XDG_CURRENT_DESKTOP:-unset} (Hyprland or niri)"
+        die "unsupported session: ${XDG_CURRENT_DESKTOP:-unset} (Hyprland only)"
         ;;
 esac

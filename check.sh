@@ -3,7 +3,7 @@
 # check.sh — validate everything in the repo that can be validated.
 #
 # Every check whose tool is missing is skipped, not failed: a CI runner has no
-# compositor to ask, and a machine on the niri profile has no Hyprland. Run it
+# compositor to ask. Run it
 # locally for the full set, CI runs whatever it has.
 #
 #   ./check.sh
@@ -44,16 +44,6 @@ else
 fi
 
 # ─── compositors ─────────────────────────────────────────────────────────────
-if command -v niri >/dev/null; then
-    if niri validate -c niri/.config/niri/config.kdl >/dev/null 2>&1; then
-        ok "niri validate"
-    else
-        bad "niri validate"; niri validate -c niri/.config/niri/config.kdl 2>&1 | tail -5
-    fi
-else
-    skip "niri validate" niri
-fi
-
 if command -v Hyprland >/dev/null; then
     out="$(Hyprland --verify-config -c hypr/.config/hypr/hyprland.conf 2>&1)"
     case "$out" in
