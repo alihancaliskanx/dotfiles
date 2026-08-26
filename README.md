@@ -59,10 +59,12 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `kdeglobals` | the palette Qt apps read outside Plasma — its own package because a rice may need to take it over |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
-Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
-wallpapers, `vscode-extensions.txt`) and the install scripts. Nothing in
+Not linked: `extras/` (manually imported VSCode/Chromium/icon themes, the rice
+linkmaps, `vscode-extensions.txt`) and the top-level scripts. Nothing in
 `extras/` is symlinked, which is exactly why the extension list lives there:
-every file inside a package lands in `$HOME` at the same relative path.
+every file inside a package lands in `$HOME` at the same relative path. The
+wallpapers moved out of it into a package of their own — what is left in
+`extras/backgrounds/` is a symlink to the one real copy.
 
 ### Profiles
 
@@ -91,6 +93,8 @@ is common to all of them; the desktop-specific ones are added on top.
 ./link.sh rice                 # list the desktops, show which one is on
 ./link.sh rice imperative-dots # switch desktop
 ./link.sh rice caelestia       # ditto
+./link.sh adopt gtk            # pull the real files from $HOME into the repo
+./link.sh adopt niri ~/.config/niri/config.kdl   # move one new file into a package
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
 ./link.sh -f ...               # rename a conflicting real file to .bak.<date> and link over it
 ```
@@ -299,8 +303,10 @@ it rests on one fact: quickshell resolves the `qs.` import prefix against the
 *config root directory*, not against wherever `shell.qml` really is. A symlinked
 `shell.qml` still loads `qs.modules.…` out of the directory the symlink sits in.
 So the overlay is a mirror of symlinks with real files punched through it only
-where something is patched — 29 links, two real directories and one real file
-for the launcher change, and the other 282 files keep tracking the package.
+where something is patched. The numbers move with the patches: three of them
+today (the launcher, the dashboard's lyrics selector, the lock surface's blur)
+make it 54 symlinks, five real directories and three real files, and every
+other file in the tree keeps tracking the package.
 
 Patches, not patched copies: `caelestia-local/.config/caelestia/shell-patches/`
 holds `<relpath>.patch` files. A stored copy of an upstream file goes stale in
@@ -384,6 +390,44 @@ from mason if they are not installed system-wide:
 ```bash
 PATH="$HOME/.local/share/nvim/mason/bin:$PATH" ./check.sh
 ```
+
+---
+
+## repo.sh
+
+```bash
+./repo.sh          # enable whatever is missing, then refresh
+./repo.sh -n       # show what it would do, touch nothing
+```
+
+`install.sh` says which packages to install and never said where they come from,
+which works right up until a repository is not enabled. Five of its AUR entries
+are blackarch packages, and on a machine without `[blackarch]` the failure reads
+as "no such package" rather than "you never turned that repo on". The CachyOS v4
+repositories are the same gap from the other side — they are what makes this a
+CachyOS install rather than an Arch one.
+
+The order is not decoration. pacman takes the first repository that holds a
+package, and the whole point of `cachyos-v4` is to shadow `core` and `extra` with
+x86-64-v4 builds, so the script **refuses** to append a cachyos repo to a
+`pacman.conf` that already has `[core]` and tells you where the block belongs
+instead. `blackarch` goes last, being the widest and least curated.
+
+| | |
+|---|---|
+| `cachyos-v4` `cachyos-core-v4` `cachyos-extra-v4` | x86-64-v4 builds, above core/extra so they win |
+| `cachyos` | CachyOS's own packages — the kernel, the settings packages |
+| `core` `extra` `multilib` | Arch's |
+| `blackarch` | last |
+
+It checks before it enables: the v4 repos are gated on the loader's own answer to
+whether this CPU has x86-64-v4 (enabling them without AVX-512 does not fail
+loudly — pacman installs binaries that then die with `SIGILL`), and missing
+mirrorlists and keyrings are named rather than assumed. blackarch's key is the
+one thing it will not do for you; that needs `strap.sh`, and a script in this
+repo is not going to download and execute a remote installer on your behalf.
+
+Idempotent, and it backs up `pacman.conf` before touching it.
 
 ---
 
@@ -576,14 +620,26 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   `~/.config/qtengine`, a path nothing here owns, so `kdeglobals` is simply not
   read while it is on and there is nothing to take away.
 
-  In practice it *is* read, because `qtengine` is an AUR package out of
-  caelestia's own manifest — its `qt` component, with `darkly-bin` and
-  `frameworkintegration` — and the shell here comes from the AUR instead of
-  that manifest, so the plugin is not installed. Qt does not complain about a
-  platform theme it cannot find; it falls back to none at all, which is the
-  default light palette. Point it at `kde` in `~/.config/caelestia/hypr-user.lua`
-  and Qt apps read `kdeglobals` under caelestia exactly as they do under `own`.
-  Install that stack and drop the line to get the wallpaper-coloured version.
+  That holds now, and for a while it did not. `qtengine` is an AUR package out
+  of caelestia's own manifest — its `qt` component, with `darkly-bin` and
+  `frameworkintegration` — and the shell here comes from the AUR instead of that
+  manifest, so for a time the plugin simply was not installed. Qt does not
+  complain about a platform theme it cannot find; it falls back to none at all,
+  which is the default *light* palette, and the fix was to point
+  `QT_QPA_PLATFORMTHEME` at `kde` in `hypr-user.lua` so `kdeglobals` was read
+  again. All three packages are installed now and that override is gone —
+  `hypr-user.lua` says so where the line used to be.
+
+  So if Qt apps ever come up white under caelestia, that is the first thing to
+  check, because it fails silently:
+
+  ```bash
+  ls /usr/lib/qt6/plugins/platformthemes/   # want libqt6engine-plugin.so
+  paru -S qtengine darkly-bin frameworkintegration papirus-folders
+  ```
+
+  Those three are **not** in `install.sh`, so a fresh machine reaches exactly the
+  state described above until they are installed by hand.
 - **the `My Dotfiles` global theme** — inside a Plasma session there is a second
   route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
   Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
@@ -745,10 +801,17 @@ name, because it is what selects the rainynight colour scheme for Qt apps under
 niri/Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
 rewritten by KDE and would produce constant conflicts.
 
-**`~/.config/git/config` is deliberately not in the repo.**
-`git config --global` writes the file with lock+rename, which replaces the
-symlink with a real file. Since `net-proxy git on` does exactly that, tracking it
-is pointless.
+**`~/.config/git/config` is tracked, and `net-proxy git on` writes into it.**
+This used to say the opposite, and the reasoning was sound: `git config --global`
+writes with lock+rename, which replaces a symlink with a real file, so tracking
+it looked pointless. It is tracked anyway — for the aliases, the identity and the
+gh credential helper — and the consequence is worth knowing rather than being
+surprised by. `net-proxy git on` writes through to the file in this repo, so the
+tethering proxy address ends up in `git diff` and, if you are not looking, in a
+commit. `net-proxy git off` takes it back out.
+
+Note also that `[https] proxy` is not a thing git reads; only `http.proxy` (and
+`http.<url>.proxy`) does anything. The `[https]` section is inert.
 
 **Do not use `systemctl --user reenable`.**
 Because the unit file is a symlink, the `disable` step deletes it. If you need to:
