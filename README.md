@@ -544,7 +544,7 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   no theme package any more: the background comes from `/etc/plasmalogin.conf`
   (`[Greeter][Wallpaper][org.kde.image][General]`), the colours from
   `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
-  `sudo plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
+  `plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
   package, it has to be run once per machine.
 - **waybar** — started by `systemctl --user start waybar` from both compositor
   configs, not by an `exec-once` loop. The unit lives in the `services` package
@@ -667,7 +667,7 @@ adopting it as a real file again would put 2.4 MB of duplicate into the history.
 **hyprpaper** against the `StarrySky` path
 (`desktop/.config/hypr/hyprpaper.conf`, in `desktop` because the niri profile
 does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
-the login screen from `sudo plasmalogin-theme`. caelestia is the exception: it
+the login screen from `plasmalogin-theme`. caelestia is the exception: it
 keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
 tracked — the image it points at is, now.
 

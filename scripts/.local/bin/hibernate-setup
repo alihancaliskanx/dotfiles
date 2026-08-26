@@ -26,15 +26,25 @@
 # snapshot is not recursive, so a nested subvolume is invisible to the snapshots
 # snapper takes of @, and the swapfile cannot be caught in one.
 #
-#   sudo hibernate-setup          set it up (32 GiB by default)
-#   sudo hibernate-setup -n       show what it would do, touch nothing
-#   SIZE=20 sudo hibernate-setup  a different size, in GiB
+#   hibernate-setup               set it up (32 GiB by default)
+#   hibernate-setup -n            show what it would do, touch nothing
+#   SIZE=20 hibernate-setup       a different size, in GiB
+#
+# No `sudo` in front: it re-runs itself under sudo by absolute path, the way
+# plasmalogin-theme does. `sudo hibernate-setup` is in fact the one form that
+# does NOT work — sudo replaces PATH with secure_path, which has no ~/.local/bin
+# in it, so the shell never finds the script at all.
 #
 # Run once per machine. Idempotent: anything already in place is left alone, so a
 # second run is a check rather than a change. A reboot is needed at the end,
 # because the kernel command line is only read at boot.
 
 set -uo pipefail
+
+# Resolved through the symlink, because ~/.local/bin/hibernate-setup points into
+# the repo and sudo has to be handed a path it can still find.
+SELF="$(readlink -f "$0")"
+ARGV=("$@")
 
 SIZE="${SIZE:-32}"
 SUBVOL="${SUBVOL:-/swap}"
@@ -61,7 +71,12 @@ done
 
 printf '%sHibernate setup%s\n\n' "$CYN" "$RST"
 [ "$DRY" -eq 1 ] && printf '%s(dry-run — nothing will change)%s\n\n' "$DIM" "$RST"
-[ "$DRY" -eq 1 ] || [ "$(id -u)" -eq 0 ] || die "needs root: sudo hibernate-setup"
+# Elevate rather than telling you to. Through `env` rather than sudo's own
+# VAR=value, so SIZE and SUBVOL survive whatever env_reset policy is in force.
+if [ "$DRY" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null || die "needs root, and there is no sudo here"
+    exec sudo -- env "SIZE=$SIZE" "SUBVOL=$SUBVOL" "$SELF" ${ARGV[@]+"${ARGV[@]}"}
+fi
 
 # ─── refuse anything this script was not written for ─────────────────────────
 FSTYPE="$(findmnt -no FSTYPE /)"
