@@ -190,40 +190,88 @@ if ! swapon --show=NAME --noheadings 2>/dev/null | grep -qF "$SWAPFILE"; then
     run swapon "$SWAPFILE" || warn "could not swapon $SWAPFILE now; it will come up at boot"
 fi
 
-# ─── the file has to be in one piece ─────────────────────────────────────────
-# Learned the hard way: the first run of this script produced a swapfile in four
-# extents, wrote resume= anyway, and the machine hibernated fine and then failed
-# to come back — "Image signature found" (so the offset was right), image loading
-# to 80%, then "Failed to load image, recovering" and a lost session.
+# ─── how many pieces the file is in ──────────────────────────────────────────
+# Nothing to enforce here, and that is worth writing down, because the opposite
+# is folklore. A swapfile in several extents resumes perfectly well.
 #
-# A fragmented swapfile is fine for swap, because the filesystem is there to
-# follow the extents. Resume has no filesystem: it happens in the initramfs from
-# a raw offset. The documented requirement is a file in one extent, and this now
-# refuses to arm anything until that holds, rather than finding out at the next
-# reboot.
+# Only the *first* block of the file has to be findable without a filesystem,
+# and that block is what resume_offset points at. Everything after it is reached
+# through the swap map the kernel builds at swapon time, which holds absolute
+# device sectors; the image is both written and read back through that map, so
+# where the rest of the file physically lives is invisible to resume.
+#
+# Measured on this machine rather than assumed. A swapfile in four extents,
+# spread across 164G of the device, took a 5.5G image and gave every page back:
+#
+#   Adding 20971516k swap on /swap/swapfile.  Priority:-1 extents:4 across:171966464k
+#   PM: Image loading progress: 100%
+#   PM: hibernation: Read 5731456 kbytes in 2.67 seconds (2146.61 MB/s)
+#   PM: Image successfully loaded
+#
+# The resume failed anyway, one step later and for an unrelated reason — see the
+# nvidia check below. Rebuilding the swapfile would have fixed nothing.
 if [ -f "$SWAPFILE" ] && command -v filefrag >/dev/null; then
     EXTENTS="$(filefrag "$SWAPFILE" 2>/dev/null | sed -nE 's/.*: ([0-9]+) extents? found.*/\1/p')"
-    if [ -n "$EXTENTS" ] && [ "$EXTENTS" -gt 1 ]; then
-        warn "$SWAPFILE is in $EXTENTS extents, and hibernation needs one"
-        dim "swap itself works fine like this; resuming from it does not."
-        dim "the filesystem is 58%-full, so mkswapfile could not find one run."
-        dim ""
-        dim "to fix, smallest change first:"
-        dim "  swapoff $SWAPFILE && rm $SWAPFILE"
-        dim "  SIZE=17 hibernate-setup        # smaller, more likely to fit one run"
-        dim ""
-        dim "if it is still fragmented, consolidate the free space first:"
-        dim "  btrfs balance start -dusage=50 /"
-        dim ""
-        dim "GRUB was left alone. If a previous run already wrote resume= into it,"
-        dim "take it back out until this passes:  hibernate-setup --revert"
-        exit 1
-    fi
-    [ -n "$EXTENTS" ] && ok "$SWAPFILE is a single extent"
-elif [ -f "$SWAPFILE" ]; then
-    warn "filefrag is not installed, so contiguity could not be checked"
-    dim "install e2fsprogs and re-run before trusting this"
+    [ -n "$EXTENTS" ] && dim "extents     $EXTENTS  (any number resumes)"
 fi
+
+# ─── whatever the initramfs loads has to agree to be frozen ──────────────────
+# Resuming happens before the real root is mounted: the boot kernel reads the
+# image, then freezes every device it has bound so that nothing writes to memory
+# while the image is copied over the top of it. A driver that refuses to freeze
+# aborts the whole resume, after the image has already been read, and the
+# session is gone.
+#
+# The nvidia module refuses, if it was told to preserve video memory.
+# NVreg_PreserveVideoMemoryAllocations=1 is a *proprietary*-driver setting: it
+# makes the driver insist on being suspended through /proc/driver/nvidia/suspend
+# by nvidia-suspend.service and friends, and no such service exists inside an
+# initramfs. The open kernel modules do not want it — NVreg_UseKernelSuspendNotifiers=1
+# already preserves video memory for them, which is what the driver README says
+# — so having both set is simply a contradiction. gpu-screen-recorder ships the
+# first one, in /usr/lib/modprobe.d/gsr-nvidia.conf, without knowing about the
+# second.
+#
+# It only bites on the way back up. Hibernating works, because the kernel's
+# PM_HIBERNATION_PREPARE notification reaches the driver; restoring sends
+# PM_RESTORE_PREPARE instead, the driver does not take that as permission, and:
+#
+#   NVRM: GPU 0000:01:00.0: PreserveVideoMemoryAllocations module parameter is set.
+#         System Power Management attempted without driver procfs suspend interface.
+#   nvidia 0000:01:00.0: PM: pci_pm_freeze(): nv_pmops_freeze [nvidia] returns -5
+#   PM: hibernation: Failed to load image, recovering.
+#   PM: hibernation: resume failed (-5)
+#
+# Both halves have to be true to break: nvidia loaded early, and video memory
+# preservation asked for. Machines without an nvidia card never reach this.
+NV_EARLY=0
+NV_PRESERVE=0
+grep -qhE '^[[:space:]]*MODULES[+]?=\(.*nvidia' /etc/mkinitcpio.conf /etc/mkinitcpio.conf.d/*.conf 2>/dev/null \
+    && NV_EARLY=1
+# grep without -q on purpose: with -q it stops at the first match, modprobe dies
+# of SIGPIPE on the other end, and pipefail then reports the pipeline as failed
+# even though the match was found.
+modprobe --showconfig 2>/dev/null \
+    | grep -E '^options[[:space:]]+nvidia[[:space:]].*NVreg_PreserveVideoMemoryAllocations=1([[:space:]]|$)' \
+    >/dev/null && NV_PRESERVE=1
+
+if [ "$NV_EARLY" -eq 1 ] && [ "$NV_PRESERVE" -eq 1 ]; then
+    warn "the nvidia module is loaded in the initramfs and told to preserve video memory"
+    dim "hibernating will work; resuming will read the whole image and then throw it away."
+    dim ""
+    dim "take the preserve away — the open driver does not need it:"
+    dim "  printf '%s\\n' 'options nvidia NVreg_PreserveVideoMemoryAllocations=0' \\"
+    dim "    | sudo tee /etc/modprobe.d/gsr-nvidia.conf"
+    dim "  sudo mkinitcpio -P"
+    dim ""
+    dim "then check it took, before rebooting:"
+    dim "  modprobe --showconfig | grep PreserveVideoMemoryAllocations"
+    dim ""
+    dim "GRUB was left alone. If a previous run already wrote resume= into it,"
+    dim "take it back out until this passes:  hibernate-setup --revert"
+    exit 1
+fi
+[ "$NV_PRESERVE" -eq 1 ] && dim "nvidia      preserving video memory, but not loaded early — fine"
 
 # ─── where the kernel has to look ────────────────────────────────────────────
 if [ "$DRY" -eq 1 ] && [ ! -f "$SWAPFILE" ]; then
