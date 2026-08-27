@@ -1,0 +1,368 @@
+-- Read last by caelestia's hyprland.lua, so anything here wins over the whole
+-- of its config. For what belongs to this laptop rather than to the rice.
+
+-- No AQ_DRM_DEVICES here on purpose. Pinning the GPUs by /dev/dri/cardN is a
+-- trap on this laptop: the kernel numbers them in probe order, i915 and nvidia
+-- race for it, and the numbers do move — card0 is simply gone now, the pair is
+-- card1 (nvidia) and card2 (i915). A list naming a card that no longer exists
+-- costs you the whole session, because the panel is on the i915 (card2-eDP-1
+-- is the only connected output; the nvidia card has a disconnected DP-1) and a
+-- list without it leaves aquamarine nothing to light up. Unset, it enumerates
+-- every card and finds the panel wherever it landed. by-path would be stable
+-- but cannot be used: the list is colon-separated and PCI paths are full of
+-- colons.
+
+-- Hyprland is started from start-hyprland, not a login shell, so it never
+-- sources .zshrc and its PATH has no ~/.local/bin. Anything the launcher runs
+-- out of the scripts package would fail with "not found" and no visible error.
+hl.env("PATH", os.getenv("HOME") .. "/.local/bin:" .. os.getenv("PATH"))
+
+-- Upstream hard-codes a us layout.
+hl.config({ input = { kb_layout = "tr" } })
+
+-- No QT_QPA_PLATFORMTHEME override here: caelestia's env.lua sets it to
+-- qtengine and that is now installed, so Qt apps take their palette from
+-- ~/.config/qtengine/caelestia.colors and follow the wallpaper with everything
+-- else. It is worth knowing how this fails, because it fails quietly: qtengine
+-- and darkly-bin come from caelestia's own manifest, which we do not run, and
+-- Qt reports nothing when the platform theme it was told to load is missing --
+-- it falls back to none at all, which is the default *light* palette. If the
+-- Qt apps ever come up white on this desktop, that is the first thing to check:
+--   ls /usr/lib/qt6/plugins/platformthemes/   # libqt6engine-plugin.so
+--   paru -S qtengine darkly-bin frameworkintegration papirus-folders
+
+-- The internal panel, pinned. caelestia's catch-all rule already says scale 1,
+-- so this changes nothing today; it is here as the knob, and so that plugging
+-- in an external monitor cannot drag this one along with it. Do NOT leave the
+-- scale on "auto": Hyprland reads 1920x1080 on a 14" panel as wanting 1.5, and
+-- that is the huge everything you get on a config that never set it.
+hl.monitor({
+    output   = "eDP-1",
+    mode     = "preferred",
+    position = "auto",
+    scale    = 1,
+})
+
+-- Hardware cursors, forced on. Both of these default to 2, "decide for me", and
+-- on this machine the guess comes out wrong: two GPUs are present, so Hyprland
+-- takes the cautious route and draws the cursor into the frame itself. That is
+-- the expensive way to move a mouse — a software cursor damages the region it
+-- passes over, and damaged regions with blur under them get re-blurred, at
+-- 144 Hz, for as long as your hand is moving. The caution is not needed here:
+-- the panel and the renderer are both the Intel card, so the cursor buffer
+-- never has to cross to the other GPU. Check it took with
+--   hyprctl -j monitors | grep hardwareCursorsInUse
+-- and if the cursor ever goes invisible or leaves a trail, drop both back to 2.
+hl.config({
+    cursor = {
+        no_hardware_cursors = 0,
+        use_cpu_buffer      = 0,
+    },
+})
+
+-- ─── animations, sped up ─────────────────────────────────────────────────────
+-- Hyprland measures animation speed in deciseconds, so upstream's windowsMove
+-- at 6 is six tenths of a second of sliding before a window is where you told
+-- it to go. Fine on a demo, long once you are actually working — and every one
+-- of those frames is a blurred, rounded, shadowed window being recomposited.
+--
+-- Only the speeds change here. The curves are caelestia's own, registered by
+-- its animations.lua before this file runs, so the motion keeps its character
+-- and only gets out of the way sooner. Roughly 40% quicker across the board.
+--
+-- This is half the job: the shell's own animations (bar, launcher, sidebar,
+-- notifications) are Qt, not Hyprland, and live behind
+-- appearance.anim.durations.scale in shell.json.
+hl.animation({ leaf = "windowsIn",  enabled = true, speed = 3,   bezier = "emphasizedDecel" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 2,   bezier = "emphasizedAccel" })
+hl.animation({ leaf = "windowsMove",enabled = true, speed = 3.5, bezier = "standard" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 3,   bezier = "standard" })
+
+hl.animation({ leaf = "layersIn",   enabled = true, speed = 3,   bezier = "emphasizedDecel", style = "slide" })
+hl.animation({ leaf = "layersOut",  enabled = true, speed = 2.5, bezier = "emphasizedAccel", style = "slide" })
+hl.animation({ leaf = "fadeLayers", enabled = true, speed = 3,   bezier = "standard" })
+
+hl.animation({
+    leaf    = "specialWorkspace",
+    enabled = true,
+    speed   = 3,
+    bezier  = "specialWorkSwitch",
+    style   = "slidefadevert 15%",
+})
+
+hl.animation({ leaf = "fade",    enabled = true, speed = 3.5, bezier = "standard" })
+hl.animation({ leaf = "fadeDim", enabled = true, speed = 3.5, bezier = "standard" })
+hl.animation({ leaf = "border",  enabled = true, speed = 3,   bezier = "standard" })
+
+-- ─── keybinds these dotfiles keep ────────────────────────────────────────────
+-- Bindings from the Rainy-Night config that caelestia has no equivalent for, or
+-- moved somewhere the hands here do not go. Everything below lands on a combo
+-- caelestia leaves free, so nothing of its own is shadowed.
+local vars = require("variables")
+local fn   = require("utils.functions")
+
+-- Bind flags, declared here because Lua locals have to exist before the line
+-- that uses them and these are used from two sections below. locked keeps a
+-- bind working on the lock screen; repeating lets it fire while held. They are
+-- the same two flags caelestia gives its own XF86 keys.
+local locked = { locked = true }
+local locked_repeating = { locked = true, repeating = true }
+
+-- Every bind below carries a description, because a description is the only
+-- thing a Lua bind can say about itself. `hyprctl binds` reports a conf bind as
+-- its dispatcher and arguments — `exec kitty` — and a Lua one as `__lua 207`,
+-- the index of a function in a table, which is nothing anybody can read. The
+-- SUPER+F1 list is built out of these strings.
+--
+-- The flags are copied in rather than the text being added to them: locked and
+-- locked_repeating are shared by a dozen binds and a description belongs to one.
+local function desc(text, flags)
+    local opts = { description = text }
+    for k, v in pairs(flags or {}) do opts[k] = v end
+    return opts
+end
+
+-- The key list. The other two sessions bind it in their own configs
+-- (hypr/hyprland.conf, niri/config.kdl) and caelestia has no equivalent, so
+-- here SUPER+F1 did nothing at all — and hotkeys itself was reading
+-- ~/.config/hypr/hyprland.conf, which under the Lua provider is not the config
+-- but the stub Hyprland writes beside it. The script asks hyprctl now.
+hl.bind("SUPER + F1", hl.dsp.exec_cmd("hotkeys"), desc("This list of keys"))
+
+-- The other half of alt-tab. caelestia already binds ALT+TAB and it cycles
+-- windows on the current workspace, which is what a compositor does by itself;
+-- what these dotfiles add on top is the cross-workspace picker, and caelestia
+-- has no equivalent. SUPER+TAB is where it lived before and is free here.
+-- Found on PATH thanks to the ~/.local/bin line above.
+hl.bind("SUPER + TAB", hl.dsp.exec_cmd("window-switch"),
+    desc("Window switcher, every workspace"))
+
+-- Terminal and browser on their old keys, in addition to caelestia's SUPER+T
+-- and SUPER+Q rather than instead of them. Read out of variables so there is
+-- still one place that decides which terminal and which browser: change it in
+-- hypr-vars.lua and both keys follow.
+hl.bind("SUPER + RETURN", hl.dsp.exec_cmd(vars.terminal), desc("Terminal"))
+hl.bind("SUPER + B", hl.dsp.exec_cmd(vars.browser), desc("Browser"))
+
+-- Force kill, for the window that stopped answering. Deliberately the same
+-- three-key combo it had here before and not a bare SUPER+ESCAPE: this one
+-- takes the process down without asking, so it should be awkward to hit.
+hl.bind("SUPER + CTRL + ESCAPE", hl.dsp.window.kill(),
+    desc("Force kill the focused window"))
+
+-- One key that puts away whatever special workspace is on screen, whichever it
+-- is. The keys that open them (SUPER+S, M, D, R) are toggles and still close
+-- their own — this is the extra one for when you do not want to remember which
+-- one you are looking at. Hyprland has no dispatcher for it: without a name,
+-- togglespecialworkspace toggles the one called "special" rather than the one
+-- showing, so special-close reads the name off the focused monitor first.
+hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("special-close"),
+    desc("Close the special workspace on screen"))
+
+-- Pin the panel the pointer is over, so it stays when the pointer leaves — and
+-- press again to let go. The hover panels are otherwise unreadable the moment
+-- you look away from them.
+--
+-- It works by setting the flag the shell already keeps for "this was opened by
+-- a shortcut, so hover does not get to close it", which is why the patch behind
+-- it is small: nothing new had to be taught to the close paths. Only panels
+-- that have such a flag can be pinned — dashboard, osd, utilities, launcher.
+hl.bind("SUPER + A", hl.dsp.exec_cmd("qs -c caelestia ipc call pin toggle"),
+    desc("Pin the panel under the pointer"))
+
+-- The launcher, on two keys and no longer on a bare modifier. caelestia's
+-- SUPER tap is dropped in hypr-vars.lua (kbLauncher = {}) because a modifier
+-- that opens a menu by itself cannot be rested on.
+--
+-- Neither of these is `hl.dsp.global("caelestia:launcher")`, which is what the
+-- tap used: that global is handled on *release* (Shortcuts.qml), and on a
+-- modifier+key combination the release only reports cleanly if you lift the key
+-- before the modifier. Lift the modifier first and nothing happens — the whole
+-- story behind "ALT+SPACE works sometimes".
+--
+-- The shell's IPC has the same toggle with no release in it — `drawers list`
+-- names them: bar, osd, session, launcher, dashboard — so these fire on the
+-- press and do not care about finger order.
+local launcher = "qs -c caelestia ipc call drawers toggle launcher"
+hl.bind("SUPER + SPACE", hl.dsp.exec_cmd(launcher), desc("Launcher"))
+hl.bind("ALT + SPACE", hl.dsp.exec_cmd(launcher), desc("Launcher"))
+
+-- ─── the clipboard panel's layer ─────────────────────────────────────────────
+-- Transparency and the open animation are not the panel's to give: they are
+-- Hyprland layer rules, and caelestia sets its own from the shell at runtime
+-- (Colours.qml issues a layerrule over IPC whenever transparency changes). This
+-- one is static because the panel is ours and its namespace never moves.
+--
+-- The numbers are caelestia's, read out of its tokens rather than picked:
+-- transparency.base is 0.85, and ignore_alpha is base - 0.03 = 0.82, which is
+-- the same arithmetic Colours.qml does. ignore_alpha is what stops the blur
+-- bleeding through the fully opaque parts of the panel.
+--
+-- popin 80% is the animation caelestia gives fuzzel's launcher, so the panel
+-- arrives the way the launcher it was asked to resemble does.
+hl.layer_rule({ match = { namespace = "clipboard" }, blur = true, ignore_alpha = 0.82, animation = "popin 80%" })
+
+-- ─── keyboard backlight ──────────────────────────────────────────────────────
+-- The laptop has the keys — the TUXEDO Keyboard input device emits
+-- KBDILLUMTOGGLE, KBDILLUMDOWN and KBDILLUMUP — and nothing was listening, which
+-- is why only the colour could be changed. Colour and brightness are two
+-- different files on the same LED: multi_intensity holds the RGB channels and
+-- brightness holds the level, and whatever was setting the colour never touched
+-- the second one.
+--
+-- brightnessctl writes it without root (its udev rule covers the leds class), so
+-- there is no polkit dance here. -s saves the level before zeroing it and -r
+-- puts it back, which is the whole of the on/off toggle.
+--
+-- locked, so the keys still work at the lock screen — reaching for the keyboard
+-- light in the dark is exactly when the screen is locked.
+-- Hyprland's exec is not a real shell: it splits on ; and || and runs the
+-- parts, so `||` works but $(...) and `[ ... ]` do not — which is what an
+-- on/off toggle is made of, and why the toggle key did nothing while up and
+-- down worked. The logic lives in the script instead, which also gives one
+-- place to change the step and adds colour on top.
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh up"),
+    desc("Keyboard backlight up", locked_repeating))
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh down"),
+    desc("Keyboard backlight down", locked_repeating))
+hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd("TuxedoRGBKeyboard.sh toggle"),
+    desc("Keyboard backlight on and off", locked))
+
+-- ─── media, as the Rainy-Night config had it ─────────────────────────────────
+-- The numpad for volume and tracks. caelestia puts all of this on CTRL+SUPER
+-- (Space, Equal, Minus) and leaves these free, so this is addition rather than
+-- replacement — the CTRL+SUPER keys still work.
+--
+-- Play/pause used to be here on SUPER+Space; that key is the launcher now. It
+-- is not lost: caelestia's own CTRL+SUPER+Space still toggles it, and so do the
+-- XF86AudioPlay/Pause keys this laptop has.
+--
+-- The volume commands are caelestia's own, read out of its variables rather
+-- than copied, so the step and the ceiling stay decided in one place and the
+-- shell's OSD behaves the same as it does for the XF86 keys. Note the asymmetry
+-- is upstream's and deliberate: raising passes -l (the ceiling) and lowering
+-- does not, because there is no floor to clamp to. Both unmute first, since
+-- reaching for the volume while muted means you want to hear something.
+local volume_up = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l " ..
+    (vars.volumeMax / 100) .. " @DEFAULT_AUDIO_SINK@ " .. vars.volumeStep .. "%+"
+local volume_down = "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ " ..
+    vars.volumeStep .. "%-"
+
+-- Volume on two pairs of keys. The numpad pair is what this config always had
+-- and the laptop does have one; the SHIFT pair is for reaching it without
+-- crossing the keyboard, and is why kbWindowIncreaseHeight moved.
+hl.bind("SUPER + KP_Add", hl.dsp.exec_cmd(volume_up),
+    desc("Volume up", locked_repeating))
+hl.bind("SUPER + KP_Subtract", hl.dsp.exec_cmd(volume_down),
+    desc("Volume down", locked_repeating))
+hl.bind("SUPER + SHIFT + Equal", hl.dsp.exec_cmd(volume_up),
+    desc("Volume up", locked_repeating))
+hl.bind("SUPER + SHIFT + Minus", hl.dsp.exec_cmd(volume_down),
+    desc("Volume down", locked_repeating))
+
+-- Tracks on the same keys plus CTRL, which is the shape the numpad pair had
+-- here before. CTRL+SUPER+Equal/Minus is caelestia's and is left alone, so
+-- next/previous answer to both.
+hl.bind("SUPER + CTRL + KP_Add", hl.dsp.global("caelestia:mediaNext"),
+    desc("Next track", locked))
+hl.bind("SUPER + CTRL + KP_Subtract", hl.dsp.global("caelestia:mediaPrev"),
+    desc("Previous track", locked))
+
+-- The clipboard panel from imperative-dots, running as its own quickshell
+-- config out of ~/.config/quickshell/clipboard (this same package). caelestia's
+-- own SUPER+V is fuzzel with cliphist piped into it, which cannot show an image
+-- it has in its history; this one lays the entries out in a grid and renders
+-- the images.
+--
+-- A toggle out of two exit codes: `qs kill` returns 0 when it killed something
+-- and 255 when there was nothing to kill, so the second half only runs when the
+-- panel was not already up. The panel closes itself on Escape and on picking an
+-- entry, so this is only for pressing SUPER+V twice.
+local clipboard_panel = "qs kill -c clipboard || qs -c clipboard"
+hl.bind("SUPER + V", hl.dsp.exec_cmd(clipboard_panel), desc("Clipboard history"))
+
+-- Same panel on the old delete key. Deleting is the Delete key inside it now,
+-- so there is no second interface left for this one to open — but the hands
+-- know where it is, so it lands on the panel rather than on nothing.
+hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd(clipboard_panel), desc("Clipboard history"))
+
+-- Wipe the lot, with no picker in the way — asked for deliberately, so it is
+-- worth being clear that there is no confirmation and no undo. The count is
+-- read before the wipe so the toast can say what it cost you, and the toast is
+-- the shell's own (the "Config loaded" one comes out of the same IPC), which is
+-- why this is a notification rather than another window.
+hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd(
+    "n=$(cliphist list | wc -l); cliphist wipe; " ..
+    "qs -c caelestia ipc call toaster success 'Clipboard cleared' \"$n entries deleted\" delete_sweep"
+), desc("Wipe the clipboard history"))
+
+-- Move the window to a workspace. caelestia puts this on SUPER+ALT+number and
+-- leaves SUPER+SHIFT+number free; the hands here go to SHIFT. Built from
+-- caelestia's own wsaction so it obeys the same workspace-group arithmetic its
+-- SUPER+ALT+number does — on the second block of ten, "3" means workspace 13,
+-- not 3.
+for i = 1, 10 do
+    hl.bind("SUPER + SHIFT + " .. (i % 10), fn.wsaction("move", "", i),
+        desc("Move the window to workspace " .. i))
+end
+
+hl.on("hyprland.start", function()
+    -- First, and it has to be first: it hands the environment to the ksecretd
+    -- pam started at login, which is blocked in accept() until someone does.
+    -- Until then the wallet is locked and anything that wants a secret asks for
+    -- a password. If a keyless ksecretd claims the bus name before this runs,
+    -- the one holding the key loses it and the session is back where it began.
+    -- The whole story is in the script.
+    hl.exec_cmd("pam-kwallet-env")
+
+    -- caelestia's execs.lua starts polkit-gnome, which is not installed here.
+    -- hyprpolkitagent is, and is a systemd user unit like everywhere else in
+    -- these dotfiles.
+    hl.exec_cmd("systemctl --user start hyprpolkitagent")
+
+    -- Nobody else watches the .desktop directories outside a Plasma session,
+    -- so ksycoca — the cache every KService lookup reads — drifts out of date
+    -- after a package install and Dolphin's "Open With" menu comes back empty.
+    hl.exec_cmd("kded6")
+
+    -- logind sets XDG_SESSION_CLASS and the compositor inherits it, but the
+    -- systemd --user manager starts before any of that and is only ever handed
+    -- WAYLAND_DISPLAY and XDG_CURRENT_DESKTOP. Units gated on it are skipped
+    -- forever, and localsearch-3.service is gated on exactly it
+    -- (ConditionEnvironment=XDG_SESSION_CLASS=user), so Nautilus asked for the
+    -- indexer, systemd logged "unmet condition check" and its Recent and search
+    -- came back empty with nothing visible to explain why. Same line as
+    -- hypr/hyprland.conf.
+    hl.exec_cmd("systemctl --user import-environment XDG_SESSION_CLASS XDG_SESSION_TYPE")
+
+    -- The TUXEDO control centre as a tray icon rather than a window. tccd is a
+    -- system service and applies the fan and power profiles with or without
+    -- this; the GUI is what starts here, and --tray is the flag its own tray
+    -- entry uses. Ticking Autostart in that GUI writes exactly this command to
+    -- ~/.config/autostart, which nothing in this session ever reads: XDG
+    -- autostart needs xdg-desktop-autostart.target, which comes from
+    -- graphical-session.target, and that target is inactive the whole session
+    -- here. Same line as hypr/hyprland.conf.
+    --
+    -- After kded6, which owns org.kde.StatusNotifierWatcher. An icon that
+    -- registers before the watcher exists is an icon that never shows up.
+    hl.exec_cmd("tuxedo-control-center --tray")
+
+    -- Put the picture back after a suspend. Waking leaves the panel showing the
+    -- frame it slept on while everything behind it keeps running, so the lock
+    -- screen takes your password and never shows you a single dot of it. The
+    -- `own` rice got this for free from hypridle's after_sleep_cmd; that file is
+    -- in the `hypr` package, caelestia replaces it, and nothing here ran in its
+    -- place. The script waits on logind's PrepareForSleep and kicks the
+    -- renderer. Reasoning in full at the top of it.
+    hl.exec_cmd("caelestia-resume-fix")
+
+    -- Keep the shell overlay in step with the package. caelestia starts its own
+    -- shell from execs.lua before this handler runs, so on the login after a
+    -- caelestia-shell upgrade the shell is already up on an overlay built
+    -- against the previous version. --restart-if-changed does nothing at all on
+    -- an ordinary login, and on that one login rebuilds and restarts the shell.
+    -- Without it an upgrade that adds a QML file leaves the overlay without it,
+    -- and a missing import is a shell that does not come up at all.
+    hl.exec_cmd("caelestia-shell-overlay --restart-if-changed")
+end)

@@ -3,10 +3,11 @@
 My Arch-based (CachyOS) setup. Theme: **rainynight**.
 Three desktop profiles are supported — **Hyprland**, **niri**, **KDE** — and two shells: **zsh**, **fish**.
 
-The desktop is this repo's own: waybar, fuzzel, mako, satty, hyprpaper. The two
-foreign ones that used to be switchable from here — caelestia and
-imperative-dots — live on the **`shadies`** branch, together with the `link.sh`
-machinery that links a desktop out of somebody else's checkout.
+**This is the branch with the other desktops on it.** Besides the one this repo
+builds itself, it carries **caelestia** and **imperative-dots** — each linked
+straight out of its own checkout — plus the `link.sh rice` machinery that
+switches between them and the `caelestia-local` package this machine answers
+caelestia with. `main` has the repo's own desktop alone and none of that.
 
 Everything is symlinked into `$HOME`; the real files live in this repo, so the
 moment you edit one it takes effect live. No external tool is needed to install
@@ -29,9 +30,11 @@ cd ~/Documents/Code/dotfiles
 2. Installs the flatpak apps in `extras/flatpak-apps.txt` — Zen, the browser
    `mimeapps.list` names, is one of them
 3. Clones oh-my-zsh, powerlevel10k and 5 zsh plugins
-4. Sets the GTK theme and icon names that live in gsettings and `gtk-*/settings.ini`
+4. Clones the caelestia rice, because `link.sh` links a rice straight out of its
+   own checkout and cannot make one
+5. Sets the GTK theme and icon names that live in gsettings and `gtk-*/settings.ini`
    rather than in a file this repo can link
-5. Asks, and then links the configs with `./link.sh profile <profile>`
+6. Asks, and then links the configs with `./link.sh profile <profile>`
 
 If you are behind a proxy (PdaNet etc.):
 
@@ -64,12 +67,12 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service`, the Qt theme env, cliamp's D-Bus name      |
 | `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, the `My Dotfiles` Plasma global theme |
-| `wallpapers` | `~/Pictures/Wallpapers/` — the images themselves, 27 MB of them, which is why they are not part of `theme` |
-| `kdeglobals` | the palette Qt apps read outside Plasma — its own package so it can be unlinked on its own |
+| `wallpapers` | `~/Pictures/Wallpapers/` — the images themselves, which every rice looks at and none of them owns |
+| `kdeglobals` | the palette Qt apps read outside Plasma — its own package because a rice may need to take it over |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
-Not linked: `extras/` (manually imported VSCode/Chromium/icon themes,
-`vscode-extensions.txt`, the package snapshots), `programs/` (install scripts for software no
+Not linked: `extras/` (manually imported VSCode/Chromium/icon themes, the rice
+linkmaps, `vscode-extensions.txt`), `programs/` (install scripts for software no
 package manager handles — see below) and the top-level scripts. Nothing in
 `extras/` is symlinked, which is exactly why the extension list lives there:
 every file inside a package lands in `$HOME` at the same relative path. The
@@ -94,12 +97,15 @@ is common to all of them; the desktop-specific ones are added on top.
 ## link.sh
 
 ```bash
-./link.sh                      # link the default profile
+./link.sh                      # ask which desktop to use, then link it
 ./link.sh profile              # list the profiles
 ./link.sh profile niri         # link the packages of a profile
 ./link.sh link fish gtk        # link individual packages
 ./link.sh status               # which package is linked, which is not
 ./link.sh unlink nvim          # remove a single package
+./link.sh rice                 # list the desktops, show which one is on
+./link.sh rice imperative-dots # switch desktop
+./link.sh rice caelestia       # ditto
 ./link.sh adopt gtk            # pull the real files from $HOME into the repo
 ./link.sh adopt niri ~/.config/niri/config.kdl   # move one new file into a package
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
@@ -110,6 +116,255 @@ A conflict is an **error** by default, nothing is silently overwritten.
 `unlink` only deletes symlinks pointing at this repo, it never touches real files.
 
 To change the default profile: `DOTFILES_PROFILE=niri ./link.sh`
+
+### rices — three desktops, one repo
+
+*This section is why this branch exists; `main` carries none of it.*
+
+A **profile** picks the compositor; a **rice** picks the desktop on top of it.
+Run `./link.sh` with no arguments on a terminal and it asks which one:
+
+```
+Which desktop?  (on now: own)
+
+  1) own              waybar, fuzzel, mako, satty, hyprpaper
+  2) caelestia        quickshell from the AUR + its own lua Hyprland config
+  3) imperative-dots  quickshell: bar, launcher, notifications, lock, wallpaper
+```
+
+| rice | where it lives |
+|---|---|
+| `own` | this repo — the profile packages |
+| `caelestia` | `caelestia-shell` from the AUR + `~/Documents/Code/caelestia`, upstream's [dots](https://github.com/caelestia-dots/caelestia) |
+| `imperative-dots` | `~/Documents/Code/imperative-dots`, [a fork](https://github.com/alihancaliskanx/imperative-dots) of ilyamiro's config |
+
+A rice that is not this repo is **linked straight out of its own checkout** —
+nothing is vendored in here, no submodule, no copy. Upstream stays a `git pull`
+away in a repo of its own, and a fork is what makes local changes committable
+(inside a submodule they would sit on a detached HEAD that cannot be cloned
+anywhere else).
+
+Each foreign rice needs a `.linkmap` saying where its directories belong under
+`$HOME`, because those trees are laid out for their own installer, not for a
+symlinker:
+
+```
+config/sessions/hyprland     .config/hypr
+config/programs/matugen      .config/matugen
+```
+
+A fork keeps that file at its own root and commits it there. An upstream
+checkout cannot: a file added to it is untracked noise in someone else's
+`git status` and is gone the next time it is cloned. For those the map lives
+here instead, as `extras/linkmaps/<rice>.linkmap`, and `link.sh` falls back to
+it — which is where caelestia's is.
+
+Switching is always *take one out, put the other in*, never a merge — both want
+`~/.config/hypr` and whoever is linked there wins. `RICE_REPLACES` in `link.sh`
+lists the packages of this repo that a rice takes over (`hypr desktop cli` for
+both of them, plus `kdeglobals` for imperative-dots); everything rice-neutral
+(`scripts`, `git`, `services`, `xdg`, `shell`, `nvim`, `terminal`…) stays
+linked throughout. Going from one foreign rice to another takes the first one
+out too, and has to: imperative-dots writes `hyprland.conf` where caelestia
+writes `hyprland.lua`, so leaving them side by side is not even a conflict —
+Hyprland prefers lua and would keep running the one you just left. Whatever the
+outgoing rice had taken over and the incoming one does not want is linked back
+at the same time: `kdeglobals` is replaced by imperative-dots and not by
+caelestia, and without that step the switch left it linked to nothing at all —
+KDE wrote a stub into the gap and every Qt app, plus everything reading the
+portal's `color-scheme`, came up light.
+
+Symlinks are only half of it, so `RICE_RUNS` names what each rice actually runs
+— `waybar hyprpaper` against `quickshell awww-daemon` against `qs`. Switching
+stops one set, reloads the compositor config, and starts the other, because a
+bar left running after its config was unlinked keeps drawing from a file that
+is gone, and starting the other one on top gives you two bars fighting over the
+same strip. A dry run says what it would restart and touches nothing, and with
+no `WAYLAND_DISPLAY` the whole step is skipped — linking from a tty to set a
+machine up is a legitimate thing to do.
+
+Usually that means no logging out. The exception is caelestia, and it is worth
+knowing about: Hyprland 0.56 chooses between `hyprland.lua` and `hyprland.conf`
+**once, at startup**, and `hyprctl reload` only re-reads the file it already
+chose. Coming from a rice that writes `.conf`, the reload therefore re-reads a
+file that has just been unlinked, Hyprland regenerates a stub in its place, and
+the session carries on as bare Hyprland with caelestia's bar drawn on top of
+it. Nothing errors; `hyprctl getoption decoration:rounding` just quietly says
+`0`. Nothing can fix that short of restarting the compositor, so `link.sh`
+compares `hyprctl systeminfo`'s `configProvider` against the config now on disk
+and says to log out when they disagree.
+
+#### caelestia — half AUR package, half checkout
+
+Unlike the other two, caelestia is not a config tree you can symlink. Its shell
+is a quickshell config compiled against a C++ plugin and installed system wide,
+so on Arch **the package is the whole of it**:
+
+```bash
+paru -S caelestia-shell caelestia-cli
+```
+
+`install.sh` carries both in its AUR list, and `./link.sh rice caelestia`
+checks for them with `pacman -Qq` before it touches anything — a rice that
+links cleanly and then comes up to an empty screen is the worse failure.
+
+> **Watch which package satisfies `quickshell-git`.** `caelestia-shell` depends
+> on it by name, and `cachyos/noctalia-qs` — a custom Quickshell fork — carries
+> `provides = quickshell quickshell-git`, so an AUR helper will happily take it
+> as the provider and replace the real `quickshell` with it. It is not one:
+> caelestia's `shell.qml` dies on `Unrecognized pragma "DefaultEnv ..."` and no
+> shell comes up. The repo's own `quickshell` (0.3.0) does have that pragma and
+> runs caelestia fine, so the way out is `sudo pacman -Rdd noctalia-qs && sudo
+> pacman -S quickshell` — `-Rdd` because `quickshell` does not *provide*
+> `quickshell-git` and a plain `-R` refuses on caelestia-shell's behalf. That
+> leaves the dependency formally unsatisfied and functionally fine.
+
+What is left over is the Hyprland config, and *that* is the checkout at
+`~/Documents/Code/caelestia` (cloned by `install.sh`). Nothing else from those
+dots is linked — the fish, foot, btop and vscode configs there are paths this
+repo already owns and the desktop changing is no reason for the shell prompt to
+change with it. `extras/linkmaps/caelestia.linkmap` says so line by line.
+
+> **Do not run `caelestia install`.** It is the CLI's own installer and it
+> *copies* those dots over `~/.config`, which is precisely the job `link.sh` is
+> doing — only with no way back and straight over this repo's symlinks.
+
+Upstream's config hard-codes a `us` keyboard and one preferred monitor, and
+knows nothing about this laptop. Two files reach all of it: `hypr-vars.lua` is
+merged over its variables before anything runs, and `hypr-user.lua` is required
+last, so it wins outright. Both are the **`caelestia-local`** package here, and
+that is what `RICE_LOCAL` is for — a rice is somebody else's checkout, so there
+is nowhere in it to keep what this machine has to say back. It goes in with the
+rice and comes out with it, and is in no profile: a config for a shell that is
+not running is just clutter.
+
+```lua
+-- caelestia-local/.config/caelestia/hypr-vars.lua — a table, merged over theirs
+return { terminal = "alacritty", blurPasses = 1, kbCloseWindow = "SUPER + W" }
+```
+
+```lua
+-- caelestia-local/.config/caelestia/hypr-user.lua — ordinary config, read last
+hl.config({ input = { kb_layout = "tr" } })
+hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1 })
+```
+
+`shell.json` is the quickshell side of it and rides along in the same package.
+Symlinking these three is only safe because nothing generates them: the CLI and
+the shell both read them and never write back. Check that again before adding a
+fourth — see `RICE_GENERATES` just below for what happens when that is not true.
+
+The same package carries **the clipboard panel**, lifted out of imperative-dots
+and run as a quickshell config of its own from
+`~/.config/quickshell/clipboard`. caelestia's `SUPER+V` is `cliphist` piped into
+fuzzel — one line per entry, and no way to show you an image it is holding. This
+one lays the history out in a grid and renders the images.
+
+Upstream it is one page of a stack inside a single monolithic shell that also
+draws that rice's bar, notifications and lock, so there was no borrowing the
+page without borrowing the bar. What made it liftable is that
+`ClipboardManager.qml` is a plain `Item` that builds its own helpers and asks
+its parent for nothing — all it needed was a window, which is the `shell.qml`
+next to it. Four things changed in the copy: the path to `clip_fetcher.py`, the
+two calls into imperative-dots' IPC script that closed the panel (now
+`Qt.quit()`), and `MatugenColors.qml`, which read the file matugen writes and
+now reads `~/.local/state/caelestia/scheme.json` — caelestia publishes the same
+`base`/`surface0`/`mauve` names, so the panel follows `caelestia scheme set`
+with no mapping table. The file keeps its upstream name so it can still be
+diffed against where it came from.
+
+It is drawn in an 800×700 box in the middle of the screen, out of the same
+layout table and the same scale function imperative-dots sizes it with, so it
+comes out the size it is over there rather than the size that happens to suit
+this laptop. The window behind it is still the whole screen — that is what a
+click outside lands on to dismiss it — but filling the window with the panel is
+what made the first attempt enormous.
+
+`SUPER+V` toggles it out of two exit codes: `qs kill -c clipboard` returns 0
+when it killed something and 255 when there was nothing to kill, so
+`qs kill -c clipboard || qs -c clipboard` opens it when it is closed and closes
+it when it is open. caelestia's own bind is dropped in `hypr-vars.lua`
+(`kbClipboard = {}`) rather than shadowed, since the action is written into its
+`keybinds.lua` and only the key is a variable. `SUPER+ALT+V` (delete an entry)
+and `CTRL+SHIFT+ALT+V` (paste the newest) are still caelestia's.
+
+**The launcher answers to `SUPER+SPACE` and `ALT+SPACE`, and not to a bare
+modifier.** Upstream puts it on the `SUPER` tap; `kbLauncher = {}` in
+`hypr-vars.lua` drops that, because a modifier that opens a menu on its own is
+one you cannot rest a finger on — every abandoned combo and every `SUPER` held
+on the way somewhere else flashes the launcher open.
+
+Both keys go through the shell's IPC —
+`qs -c caelestia ipc call drawers toggle launcher` — rather than the
+`caelestia:launcher` global, and that is not incidental. `Shortcuts.qml` handles
+the global on *release*, which is what makes tapping a bare modifier possible at
+all, and there is a second global, `launcherInterrupt`, to cancel it when the tap
+turns out to be the start of a combo. Point `kbLauncher` at a modifier+key
+combination and that release handling comes along with it: the release only
+reports cleanly if you lift the key before the modifier, so the same keypress
+opens the launcher or does nothing depending on which finger comes up first.
+That is where "it works sometimes" came from. The IPC toggle has no release in
+it and fires on the press.
+
+`SUPER+SPACE` used to be play/pause here. That is not lost — caelestia's own
+`CTRL+SUPER+SPACE` still toggles it, and so do the `XF86AudioPlay`/`Pause` keys.
+
+#### patching the shell without forking it
+
+Some of caelestia's behaviour is not configurable and lives in QML under
+`/etc/xdg/quickshell/caelestia`, which pacman owns. The launcher was one: with
+`showOnHover` on it opens when the pointer reaches the bottom of the screen and
+then never closes on its own, because `Interactions.qml` only ever assigns it
+`true` — the dashboard, three lines below, assigns the hover test itself and so
+closes when you leave. Escape, a click outside and picking an entry all closed
+it; moving the mouse away did not.
+
+Forking the tree into `~/.config/quickshell/caelestia`, which quickshell prefers
+over `/etc/xdg`, means owning 283 files and 12 MB to re-merge on every release
+for two changed lines. **`caelestia-shell-overlay`** makes that unnecessary, and
+it rests on one fact: quickshell resolves the `qs.` import prefix against the
+*config root directory*, not against wherever `shell.qml` really is. A symlinked
+`shell.qml` still loads `qs.modules.…` out of the directory the symlink sits in.
+So the overlay is a mirror of symlinks with real files punched through it only
+where something is patched. The numbers move with the patches: three of them
+today (the launcher, the dashboard's lyrics selector, the lock surface's blur)
+make it 54 symlinks, five real directories and three real files, and every
+other file in the tree keeps tracking the package.
+
+Patches, not patched copies: `caelestia-local/.config/caelestia/shell-patches/`
+holds `<relpath>.patch` files. A stored copy of an upstream file goes stale in
+silence; a `.patch` either applies or fails, and a failure is how you learn
+upstream moved. When one fails the overlay leaves the plain symlink in place and
+exits non-zero — a shell that starts and behaves like the package beats a shell
+that does not start.
+
+That last part is the thing to remember: **the overlay must be rebuilt after
+every caelestia-shell upgrade**, because a release that adds a QML file leaves
+the overlay without it and a missing import is a shell that never comes up.
+`link.sh` builds it before starting the shell, and `hypr-user.lua` runs
+`caelestia-shell-overlay --restart-if-changed` at login — a no-op on an ordinary
+login, and on the one after an upgrade it rebuilds and restarts the shell before
+you notice.
+
+caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
+into place, so a symlink at the target is destroyed rather than written through
+and this repo is never in danger — the opposite of matugen, below. What it
+leaves behind is a real file where a package wants its symlink back, so
+`RICE_GENERATES` clears `fuzzel.ini`, the cava config, `hypr/scheme/current.lua`
+and the two `gtk.css` on the way out. `gtk` is an extra package outside every
+profile, so the way back to `own` does not relink it: if you use it, run
+`./link.sh -f link gtk` afterwards.
+
+The two `colors.css` are on that list without being caelestia's own work.
+caelestia-cli renders `gtk.css` and `thunar.css` and stops there; what recolours
+`colors.css` is kde-gtk-config's kded, set off by the `dconf write gtk-theme`
+the CLI does on the way past — both files came out at the same minute with the
+same palette. The kded writes it again from `kdeglobals` at the next login,
+which is why this repo can delete it without owning it.
+
+The menu only appears when stdin is a terminal. In a script or in CI a bare
+`./link.sh` still links the default profile, exactly as before, so nothing hangs
+on a prompt it cannot answer.
 
 ### adopt — pulling a file from $HOME into the repo
 
@@ -286,6 +541,7 @@ bash script under `scripts/.local/bin/`:
 | `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 | `hibernate-setup` | a btrfs swapfile big enough to hibernate into, the `resume=` to find it again, and `--fix-nvidia` for the module option that blocks the way back (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
+| `weather-location` | pick where caelestia's weather comes from — a city, coordinates, `status`, `clear` |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
@@ -413,25 +669,41 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   real file, `./link.sh status` shows the conflict.
 
   It is one file in a package of its own because it is the one thing in `theme`
-  that something else may want to write. `kdeglobals` is where Qt apps read
-  their palette, and it is the *only* place that moves a KF6 app: dolphin
-  ignores qt6ct and `KDE_COLOR_SCHEME_PATH` alike, so anything that recolours a
-  desktop from the wallpaper generates this file. Keeping it separable is what
-  makes that safe: a generator like matugen writes *through* a symlink, so had
-  the file stayed inside `theme` the first wallpaper change would have
-  overwritten the tracked rainynight palette in this repo rather than shadowing
-  it. Unlink `kdeglobals` before running one, and it only ever writes a real
-  file of its own.
+  a rice has to be able to take over. `kdeglobals` is where Qt apps read their
+  palette, and it is the *only* place that moves a KF6 app: dolphin ignores
+  qt6ct and `KDE_COLOR_SCHEME_PATH` alike. So imperative-dots, which colours the
+  desktop from the wallpaper, generates it — `RICE_REPLACES` unlinks the package
+  on the way in and `RICE_GENERATES` deletes what matugen wrote on the way out.
+  The split is what keeps that safe: matugen writes *through* a symlink, so had
+  the file stayed in `theme` (linked under every rice) the first wallpaper
+  change would have overwritten the tracked rainynight palette in this repo
+  rather than shadowing it.
 
-  When Qt apps come up white the platform theme is the first thing to check,
-  because it fails silently — Qt does not complain about a `QT_QPA_PLATFORMTHEME`
-  it cannot load, it falls back to none at all, which is the default light
-  palette:
+  caelestia leaves it alone and stays linked: it sets
+  `QT_QPA_PLATFORMTHEME=qtengine` and colours Qt apps out of
+  `~/.config/qtengine`, a path nothing here owns, so `kdeglobals` is simply not
+  read while it is on and there is nothing to take away.
+
+  That holds now, and for a while it did not. `qtengine` is an AUR package out
+  of caelestia's own manifest — its `qt` component, with `darkly-bin` and
+  `frameworkintegration` — and the shell here comes from the AUR instead of that
+  manifest, so for a time the plugin simply was not installed. Qt does not
+  complain about a platform theme it cannot find; it falls back to none at all,
+  which is the default *light* palette, and the fix was to point
+  `QT_QPA_PLATFORMTHEME` at `kde` in `hypr-user.lua` so `kdeglobals` was read
+  again. All three packages are installed now and that override is gone —
+  `hypr-user.lua` says so where the line used to be.
+
+  So if Qt apps ever come up white under caelestia, that is the first thing to
+  check, because it fails silently:
 
   ```bash
-  echo "$QT_QPA_PLATFORMTHEME"               # want kde
-  ls ~/.config/kdeglobals                    # want a symlink into this repo
+  ls /usr/lib/qt6/plugins/platformthemes/   # want libqt6engine-plugin.so
+  paru -S qtengine darkly-bin frameworkintegration papirus-folders
   ```
+
+  Those three are **not** in `install.sh`, so a fresh machine reaches exactly the
+  state described above until they are installed by hand.
 - **the `My Dotfiles` global theme** — inside a Plasma session there is a second
   route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
   Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
@@ -499,10 +771,10 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
 
 **The wallpapers are in the repo, and one of them twice over would be a bug.**
 `wallpapers` carries `~/Pictures/Wallpapers/` — 27 MB of photographs, which is
-why it is its own package and not part of `theme`. It is common to every
-profile because every desktop here reads that directory: hyprpaper is pointed
-at it under niri and Hyprland alike, and Plasma reads the same image out of the
-`StarrySky` KPackage.
+why it is its own package and not part of `theme`. It is common to every profile
+because every rice reads that directory and none of them owns it: caelestia's
+picker lists it, matugen is pointed at whatever is in it, and `own` ignores it
+entirely and uses hyprpaper.
 
 `starry-sky.jpg` in that package is a **symlink**, not a ninth image. The same
 picture is the `StarrySky` KPackage in `theme`, and KPackage drops any file whose
@@ -515,8 +787,9 @@ adopting it as a real file again would put 2.4 MB of duplicate into the history.
 **hyprpaper** against the `StarrySky` path
 (`desktop/.config/hypr/hyprpaper.conf`, in `desktop` because the niri profile
 does not link `hypr`), Plasma gets it from the `My Dotfiles` global theme, and
-the login screen from `plasmalogin-theme`. One image, four places that show it,
-and only the KPackage copy is a real file.
+the login screen from `plasmalogin-theme`. caelestia is the exception: it
+keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
+tracked — the image it points at is, now.
 
 **Hibernation also needs the nvidia driver to agree to be frozen.** Resuming
 reads the image and then freezes every device the boot kernel has bound; a driver
@@ -536,9 +809,9 @@ while resuming sends `PM_RESTORE_PREPARE`, which it does not.
 **Hibernation needs somewhere to go, and zram is not it.** The only swap this
 machine had was `/dev/zram0`, which is a compressed block device living *in* RAM
 — writing RAM into it and then cutting power leaves nothing to come back to. So
-`logind` answered `CanHibernate` with `na`, the session menu offered a
-hibernate button that could not work, and a `suspendThenHibernate` idle action
-quietly degraded to a plain suspend. `hibernate-setup`
+`logind` answered `CanHibernate` with `na`, caelestia's session menu offered a
+hibernate button that could not work, and its 600-second idle action
+(`suspendThenHibernate`) quietly degraded to a plain suspend. `hibernate-setup`
 is the fix: a 32 GiB swapfile in a btrfs subvolume of its own, at priority -2 so
 zram stays the swap everything normally pages to, plus the `resume=` and
 `resume_offset=` on the kernel command line without which the kernel has no idea
@@ -546,6 +819,25 @@ where to look before any filesystem is mounted. The subvolume matters — a btrf
 snapshot is not recursive, so a nested subvolume is invisible to the snapshots
 snapper takes of `@`, and a swapfile that gets snapshotted or moved is a swapfile
 that cannot be resumed from.
+
+**The weather has a location setting and caelestia has no way to pick one.**
+It reads `services.weatherLocation` out of `shell.json`, and with it empty it
+geolocates by IP — which on a machine that spends its time behind a phone's
+tethering proxy or Tor reports wherever the exit is. Its own settings page says
+"Choose your weather location on a map in a future update", so `weather-location`
+is that picker until it exists: it asks for a city, geocodes it through
+open-meteo, and lets you choose between the matches.
+
+Coordinates are what it writes, even when you type a name, because the shell
+would otherwise re-geocode the string on every reload and take the first hit —
+and there is more than one Antalya. The shell reloads on the change, so nothing
+needs restarting.
+
+Two things it is careful about. `shell.json` is a symlink into this repo, so it
+writes *through* the link rather than moving a temp file onto it, which would
+replace the symlink with a real file and quietly detach the config. And it passes
+`--indent 4` to jq, because jq's default is two and the file would otherwise be
+reformatted end to end on every use.
 
 **hyprpaper 0.8 changed its config format.** `preload = <path>` plus
 `wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo
@@ -570,8 +862,8 @@ The `@import "colors.css"` at the top of `gtk.css` went with it. Nothing was
 lost: `gtk.css` defines every colour it uses itself and referenced none of the
 `*_breeze` names that file declares, so the import only ever pulled in dead
 weight — and now that the package no longer ships the file, an import of it
-would be a parse error at the startup of every GTK application that opened
-before the kded had written the file again.
+would be a parse error at the startup of every GTK application each time
+`link.sh rice own` cleared caelestia's copy.
 
 `gtk-4.0/gtk.css` is a symlink to the `gtk-3.0` one — one file, two locations,
 so the two toolkits cannot drift apart.

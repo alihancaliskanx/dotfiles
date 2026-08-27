@@ -1,0 +1,75 @@
+--- orig.qml	2026-08-10 01:56:38.163105124 +0300
++++ new.qml	2026-08-10 01:56:38.172684436 +0300
+@@ -8,6 +8,48 @@
+ import qs.services
+ 
+ Item {
++    id: root
++
++    // Focus the window of whatever is playing. The left half of the player
++    // button had no action at all (stateLayer.disabled below), so this is a
++    // dead area of the dashboard being given the obvious job.
++    //
++    // Matching MPRIS to a window is done on the identity against the window
++    // class, both lowercased and each allowed to contain the other: Spotify
++    // reports "Spotify" and its window class is "spotify".
++    //
++    // A window parked on a special workspace cannot be reached with focuswindow
++    // — it does nothing and focus stays where it was — so that case toggles the
++    // special workspace instead, which is how it is meant to be revealed.
++    // usingLua picks the dispatcher dialect, exactly as Bar.qml does: under the
++    // lua config provider the IPC parses its argument as Lua, and the plain
++    // string form is a syntax error there.
++    function focusPlayer(): void {
++        const player = Players.active;
++        if (!player)
++            return;
++
++        const name = (Players.getIdentity(player) ?? "").toLowerCase();
++        if (!name)
++            return;
++
++        for (const toplevel of Hypr.toplevels.values) {
++            const obj = toplevel.lastIpcObject;
++            const cls = (obj?.class ?? "").toLowerCase();
++            if (!cls || (!cls.includes(name) && !name.includes(cls)))
++                continue;
++
++            const ws = obj?.workspace?.name ?? "";
++            if (ws.startsWith("special:")) {
++                const special = ws.slice(8);
++                Hypr.dispatch(Hypr.usingLua ? `hl.dsp.workspace.toggle_special("${special}")` : `togglespecialworkspace ${special}`);
++            } else {
++                Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ window = "address:0x${toplevel.address}" })` : `focuswindow address:0x${toplevel.address}`);
++            }
++            return;
++        }
++    }
++
+     ColumnLayout {
+         id: layout
+ 
+@@ -41,6 +83,8 @@
+         }
+ 
+         SplitButton {
++            id: playerBtn
++
+             Layout.alignment: Qt.AlignHCenter
+ 
+             type: SplitButton.Tonal
+@@ -56,7 +100,13 @@
+             label.Layout.maximumWidth: minLeftWidth - iconLabel.implicitWidth - textRow.spacing - textRow.anchors.horizontalCenterOffset / 2 - horizontalPadding * 2
+             label.elide: Text.ElideRight
+ 
+-            stateLayer.disabled: true
++            Connections {
++                target: playerBtn.stateLayer
++
++                function onClicked(): void {
++                    root.focusPlayer();
++                }
++            }
+             menuOnTop: true
+ 
+             Variants {

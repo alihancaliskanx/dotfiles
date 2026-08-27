@@ -1,0 +1,90 @@
+{
+    "appearance": {
+        "anim": {
+            "durations": {
+                "scale": 0.35
+            }
+        },
+        "transparency": {
+            "enabled": true
+        }
+    },
+    "background": {
+        "wallpaperEnabled": true
+    },
+    "bar": {
+        "activeWindow": {
+            "showOnHover": false
+        },
+        "clock": {
+            "background": false,
+            "showDate": false
+        },
+        "dragThreshold": 20,
+        "persistent": true,
+        "popouts": {
+            "activeWindow": false
+        },
+        "showOnHover": true,
+        "workspaces": {
+            "activeTrail": false
+        }
+    },
+    "general": {
+        "apps": {
+            "explorer": [
+                "dolphin",
+                "--new-window"
+            ],
+            "terminal": [
+                "alacritty",
+                "-e"
+            ]
+        },
+        "idle": {
+            "lockBeforeSleep": false,
+            "timeouts": [
+                {
+                    "idleAction": "lock",
+                    "timeout": 180
+                },
+                {
+                    "idleAction": "dpms off",
+                    "returnAction": "dpms on",
+                    "timeout": 300
+                },
+                {
+                    "idleAction": [
+                        "suspend"
+                    ],
+                    "timeout": 600
+                }
+            ]
+        }
+    },
+    "launcher": {
+        "enableDangerousActions": true,
+        "maxShown": 6,
+        "maxWallpapers": 20,
+        "showOnHover": true,
+        "useFuzzy": {
+            "actions": true,
+            "apps": true,
+            "schemes": true,
+            "variants": true,
+            "wallpapers": true
+        },
+        "vimKeybinds": true
+    },
+    "lock": {
+        "enableFprint": false,
+        "enableHowdy": false
+    },
+    "services": {
+        "maxVolume": 1.5,
+        "weatherLocation": "40.76499,29.92928"
+    },
+    "sidebar": {
+        "enabled": true
+    }
+}

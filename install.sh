@@ -77,8 +77,8 @@ PKGS=(
   papirus-icon-theme
   # libadwaita's stylesheet ported to GTK3, so a GTK3 window takes its colours
   # from the @define-color block in gtk-3.0/gtk.css instead of hardcoding them.
-  # Every other theme ignores that file and stays as it was, which is why the
-  # gtk package is only worth linking with this one installed.
+  # That is what lets the caelestia rice recolour GTK applications from the
+  # wallpaper; every other theme ignores the file and stays as it was.
   adw-gtk-theme
   # gui helpers
   nautilus dolphin pavucontrol nm-connection-editor network-manager-applet
@@ -152,6 +152,17 @@ AUR_PKGS=(
   # music: a terminal player that speaks MPRIS, so the media keys and waybar's
   # mpris module drive it without any glue
   cliamp-bin
+  # the caelestia rice (./link.sh rice caelestia). Its shell is not a config
+  # tree to symlink but a quickshell config compiled against a C++ plugin, so
+  # the AUR package is the whole of it; the CLI is the `caelestia` command its
+  # keybindings call and what starts the shell. Only the Hyprland half is a
+  # checkout, cloned below.
+  #
+  # caelestia-shell depends on quickshell-git, which replaces the quickshell
+  # package the imperative-dots rice runs on. It provides the same two binaries
+  # (quickshell, qs), so that rice keeps working — but this is the line that
+  # swaps it, in case a later quickshell-git ever breaks it.
+  caelestia-shell caelestia-cli
 )
 
 echo "════════════════════════════════════════════════════════════"
@@ -239,6 +250,18 @@ clone_if_missing https://github.com/MichaelAquilina/zsh-you-should-use.git     "
 clone_if_missing https://github.com/marlonrichert/zsh-autocomplete.git         "$ZSH_CUSTOM/plugins/zsh-autocomplete"
 clone_if_missing https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git "$ZSH_CUSTOM/plugins/autoswitch_virtualenv"
 
+# ─── rices ───────────────────────────────────────────────────────────────────
+# link.sh links a rice straight out of its own checkout, so the checkout has to
+# exist before `./link.sh rice caelestia` can do anything. Only caelestia is
+# cloned here: imperative-dots is a fork of the user's own, pushed to over ssh,
+# and cloning it read-only over https would put the wrong remote in place.
+#
+# This is the clone link.sh reads, not the one `caelestia install` makes for
+# itself under ~/.local/state. Do not run that command: it copies these dots
+# over ~/.config, which is this script's job and has no way back.
+echo ">> rice checkouts..."
+clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Documents/Code/caelestia"
+
 # ─── desktop settings that are not files ─────────────────────────────────────
 # The portal reads the GTK theme out of gsettings, not out of gtk-3.0/settings.ini
 # — org.freedesktop.impl.portal.Settings is pinned to the gtk backend in
@@ -247,11 +270,11 @@ clone_if_missing https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.gi
 # window comes up with GTK's bare built-in look while every other GTK app is
 # themed, which is confusing precisely because it is only the dialogs.
 #
-# adw-gtk3-dark, because it is the only GTK3 theme that reads the colours out of
-# gtk-3.0/gtk.css: it is libadwaita's stylesheet ported to GTK3, so the
-# @define-color block in that file reaches it. Every other theme hardcodes its
-# palette and ignores the file. Naming a theme that is not installed is worse
-# than naming none, so adw-gtk-theme is in the list above.
+# adw-gtk3-dark, because it is the only GTK3 theme that reads the colours the
+# caelestia rice regenerates from the wallpaper: it is libadwaita's stylesheet
+# ported to GTK3, so the @define-color block in gtk-3.0/gtk.css reaches it. Every
+# other theme hardcodes its palette and ignores that file. Naming a theme that is
+# not installed is worse than naming none, so adw-gtk-theme is in the list above.
 echo ">> desktop settings..."
 gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark' 2>/dev/null || true
 gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true

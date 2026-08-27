@@ -1,0 +1,57 @@
+--- base.qml	2026-08-26 09:29:52.499288522 +0300
++++ new.qml	2026-08-26 09:29:52.509133201 +0300
+@@ -4,6 +4,7 @@
+ import QtQuick.Effects
+ import Quickshell.Wayland
+ import Caelestia.Config
++import Caelestia.Services
+ import qs.components
+ import qs.components.images
+ import qs.services
+@@ -29,6 +30,31 @@
+         target: root.lock
+     }
+ 
++    // The lock surface starts wholly invisible: background.opacity is 0, and so
++    // are scale and opacity on both lockContent and content. Nothing but
++    // initAnim below ever makes them appear. That is fine when the lock is
++    // asked for by hand, and it is not fine when lockBeforeSleep asks for it —
++    // the surface is then created inside the PrepareForSleep transition, the
++    // animation starts, and the machine suspends before the compositor has
++    // presented a single frame. Qt advances animations off frame callbacks, so
++    // nothing moves while suspended and the animation comes back from resume
++    // still sitting at zero. What that looks like is a lock screen with a
++    // background and no password field — and it still takes keys, so the dots
++    // it would draw for them are invisible too, which is the part that makes it
++    // read as frozen rather than as broken.
++    //
++    // complete() jumps to the end state instead of restarting: after a resume
++    // the entrance flourish is not what anyone is waiting for, and on an
++    // animation that already finished it is a no-op.
++    Connections {
++        function onResumed(): void {
++            if (root.lock.locked && !root.unlocking)
++                initAnim.complete();
++        }
++
++        target: SessionManager
++    }
++
+     SequentialAnimation {
+         id: unlockAnim
+ 
+@@ -166,7 +192,13 @@
+             autoPaddingEnabled: false
+             blurEnabled: true
+             blur: 1
+-            blurMax: 64
++            // Measured rather than guessed, by rendering this same effect over a
++            // fullscreen layer surface at each value and looking at the result.
++            // At 64 the screen is colour smears with nothing recognisable in it.
++            // At 20 it is only legible text that looks blurred at all — over a
++            // wallpaper, which is what is usually behind this, 20px of blur on
++            // 1920 reads as none. 40 is soft on both.
++            blurMax: 40
+             blurMultiplier: 1
+         }
+ 
