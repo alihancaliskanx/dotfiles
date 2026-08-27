@@ -270,9 +270,12 @@ pkg_files() {
         \( -type f -o -type l \) -printf '%P\n' | sort
 }
 
+# Everything `status` walks when it is given no arguments. The exclusions are the
+# directories that are not packages: nothing in them is meant to reach $HOME as a
+# symlink, and listing them as "not linked" reads as a package someone forgot.
 all_packages() {
     find "$DOTFILES" -mindepth 1 -maxdepth 1 -type d -printf '%P\n' \
-        | grep -vE '^(\.git|extras)$' | sort
+        | grep -vE '^(\.git|\.github|extras|programs)$' | sort
 }
 
 resolve_packages() {

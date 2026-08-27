@@ -21,8 +21,14 @@ cd ~/Documents/Code/dotfiles
 `install.sh` does the following, in order:
 
 1. Installs the pacman + AUR packages for the profile
-2. Clones oh-my-zsh, powerlevel10k and 5 zsh plugins
-3. Links the configs with `./link.sh profile <profile>`
+2. Installs the flatpak apps in `extras/flatpak-apps.txt` — Zen, the browser
+   `mimeapps.list` names, is one of them
+3. Clones oh-my-zsh, powerlevel10k and 5 zsh plugins
+4. Clones the caelestia rice, because `link.sh` links a rice straight out of its
+   own checkout and cannot make one
+5. Sets the GTK theme and icon names that live in gsettings and `gtk-*/settings.ini`
+   rather than in a file this repo can link
+6. Asks, and then links the configs with `./link.sh profile <profile>`
 
 If you are behind a proxy (PdaNet etc.):
 
