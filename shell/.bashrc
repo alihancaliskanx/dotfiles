@@ -14,6 +14,6 @@ export PATH="$HOME/.local/bin:$PATH"
 # ardupilot venv — only if it exists. Without the guard this errored on every bash startup.
 [ -f "$HOME/venv-ardupilot/bin/activate" ] && source "$HOME/venv-ardupilot/bin/activate"
 
-# aurapilot autotest — only if the directory exists. (It does not exist right now.)
-[ -d "$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest" ] \
-  && export PATH="$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH"
+# aurapilot autotest — sim_vehicle.py and the rest, only if the checkout is here.
+[ -d "$HOME/Documents/Code/stars/aurapilot/Tools/autotest" ] \
+  && export PATH="$HOME/Documents/Code/stars/aurapilot/Tools/autotest:$PATH"

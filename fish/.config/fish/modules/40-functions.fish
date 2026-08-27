@@ -7,7 +7,7 @@
 # ── ardupilot development environment ────────────────────────────────────────
 function ardudev --description 'Add the ardupilot toolchain to PATH'
     fish_add_path /opt/gcc-arm-none-eabi-10-2020-q4-major/bin
-    fish_add_path $HOME/Documents/Code/ardupilot/Tools/autotest
+    fish_add_path $HOME/Documents/Code/stars/aurapilot/Tools/autotest
     echo "🛩  ardupilot toolchain added to PATH"
 end
 

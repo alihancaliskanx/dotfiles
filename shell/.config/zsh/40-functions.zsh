@@ -7,7 +7,7 @@
 # ── ardupilot development environment ────────────────────────────────────────
 ardudev() {
     export PATH="/opt/gcc-arm-none-eabi-10-2020-q4-major/bin:$PATH"
-    export PATH="$HOME/Documents/Code/ardupilot/Tools/autotest:$PATH"
+    export PATH="$HOME/Documents/Code/stars/aurapilot/Tools/autotest:$PATH"
     echo "🛩  ardupilot toolchain added to PATH"
 }
 

@@ -16,7 +16,6 @@ text/markdown=org.gnome.TextEditor.desktop;
 text/plain=org.gnome.TextEditor.desktop;
 text/x-cmake=org.gnome.TextEditor.desktop;
 x-scheme-handler/chrome=userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
-x-scheme-handler/claude=claude.desktop;
 x-scheme-handler/http=app.zen_browser.zen.desktop;firefox.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
 x-scheme-handler/https=app.zen_browser.zen.desktop;firefox.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
 
@@ -59,7 +58,6 @@ video/x-m4v=mpv.desktop;
 video/x-matroska=mpv.desktop;
 video/x-ms-wmv=mpv.desktop;
 video/x-msvideo=mpv.desktop;
-x-scheme-handler/antigravity=antigravity.desktop
 x-scheme-handler/chrome=userapp-Zen-2Z2QP3.desktop
 x-scheme-handler/claude=com.anthropic.Claude.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop

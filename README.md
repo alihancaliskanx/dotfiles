@@ -942,8 +942,12 @@ under Hyprland it produces no file and no error at all.
 **The conda/mamba blocks** run if `$HOME/miniforge3` exists, and are skipped otherwise.
 Without the guard they tried to run a non-existent binary on every shell startup.
 
-**Leftover dead references** (guarded, not deleted):
-the `~/Documents/Code/aurapilot/ardupilot/Tools/autotest` directory does not
-exist — either create it or delete the PATH line in `00-env`. `hyprlock` still
-takes a blurred snapshot of the desktop (`path = screenshot`) rather than the
-wallpaper, which is deliberate: it works on a machine with no image at all.
+**Paths that went stale and have been repointed.** The ardupilot autotest tree
+is at `~/Documents/Code/stars/aurapilot/Tools/autotest`, which is what `00-env`
+and `ardudev` now put on PATH — the old `~/Documents/Code/aurapilot/ardupilot`
+path never existed on this machine. `qgc` runs the packaged `qgroundcontrol`
+rather than a local build directory that is gone, and `mavproxy` runs the
+`mavproxy.py` that the pip install puts on PATH rather than a virtualenv that no
+longer exists. `hyprlock` still takes a blurred snapshot of the desktop
+(`path = screenshot`) rather than the wallpaper, which is deliberate and stays:
+it works on a machine with no image at all.

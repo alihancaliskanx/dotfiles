@@ -49,6 +49,10 @@ alias pacsil='sudo rm -rf /var/lib/pacman/db.lck'
 # ── applications ─────────────────────────────────────────────────────────────
 alias goo=google
 alias code_path='cd ~/Documents/Code'
-alias qgc='~/Documents/Code/qgroundcontrol/build/Release/QGroundControl > /dev/null 2>&1 &'
+# The local build this used to point at is gone; qgroundcontrol-bin puts the
+# same application on PATH as `qgroundcontrol`.
+alias qgc='qgroundcontrol > /dev/null 2>&1 &'
 alias stmcube='pc $HOME/st/stm32cubeide_1.19.0/stm32cubeide_wayland'
-alias mavproxy='~/.mavproxy_env/bin/mavproxy.py'
+# MAVProxy is a pip --user install (programs/mavproxy.sh), so its scripts are
+# already on PATH under their own names.
+alias mavproxy='mavproxy.py'

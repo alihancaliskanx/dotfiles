@@ -28,9 +28,9 @@ set -gx SSH_AUTH_SOCK $XDG_RUNTIME_DIR/ssh-agent.socket
 # The shared scripts (net-proxy, tor-net, tor-control, gclink...) live here.
 fish_add_path $HOME/.local/bin
 
-# aurapilot autotest — only if the directory exists. (It does not exist right now.)
-if test -d $HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest
-    fish_add_path $HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest
+# aurapilot autotest — sim_vehicle.py and the rest, only if the checkout is here.
+if test -d $HOME/Documents/Code/stars/aurapilot/Tools/autotest
+    fish_add_path $HOME/Documents/Code/stars/aurapilot/Tools/autotest
 end
 
 # ── gum ──────────────────────────────────────────────────────────────────────

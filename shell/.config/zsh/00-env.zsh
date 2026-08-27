@@ -27,9 +27,9 @@ export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# aurapilot autotest — only if the directory exists. (It does not exist right now; either create it or delete this.)
-[ -d "$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest" ] \
-  && export PATH="$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH"
+# aurapilot autotest — sim_vehicle.py and the rest, only if the checkout is here.
+[ -d "$HOME/Documents/Code/stars/aurapilot/Tools/autotest" ] \
+  && export PATH="$HOME/Documents/Code/stars/aurapilot/Tools/autotest:$PATH"
 
 # ── gum ──────────────────────────────────────────────────────────────────────
 # Blue, to match the desktop. gum reads these on every call, so the scripts that
