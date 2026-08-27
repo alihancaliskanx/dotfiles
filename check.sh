@@ -22,7 +22,7 @@ skip() { printf '%s- %s (%s missing)%s\n' "$DIM" "$1" "$2" "$RST"; }
 warn() { printf '%s! %s%s\n' "$YLW" "$*" "$RST"; }
 
 # ─── shell ───────────────────────────────────────────────────────────────────
-shell_files=(link.sh install.sh check.sh repo.sh scripts/.local/bin/*)
+shell_files=(link.sh install.sh check.sh repo.sh scripts/.local/bin/* programs/*.sh)
 err=0
 for f in "${shell_files[@]}"; do
     [ -f "$f" ] || continue
@@ -86,14 +86,15 @@ fi
 
 # ─── repo consistency ────────────────────────────────────────────────────────
 # A package directory that no profile mentions is linked by nobody — exactly the
-# way a new package gets forgotten after being created.
+# way a new package gets forgotten after being created. extras/ and programs/ are
+# not packages: nothing in them is meant to reach $HOME as a symlink.
 # link.sh itself is the source of truth; parsing its arrays by hand went wrong
 # in three different ways. `profile` prints every profile plus the manual ones.
 listed=" $(./link.sh profile 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | tr -s '[:space:]' ' ') "
 orphans=""
 for d in */; do
     d="${d%/}"
-    case "$d" in extras) continue ;; esac
+    case "$d" in extras|programs) continue ;; esac
     case "$listed" in *" $d "*) ;; *) orphans="$orphans $d" ;; esac
 done
 if [ -n "$orphans" ]; then

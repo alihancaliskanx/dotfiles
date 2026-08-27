@@ -60,7 +60,8 @@ Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
 Not linked: `extras/` (manually imported VSCode/Chromium/icon themes, the rice
-linkmaps, `vscode-extensions.txt`) and the top-level scripts. Nothing in
+linkmaps, `vscode-extensions.txt`), `programs/` (install scripts for software no
+package manager handles — see below) and the top-level scripts. Nothing in
 `extras/` is symlinked, which is exactly why the extension list lives there:
 every file inside a package lands in `$HOME` at the same relative path. The
 wallpapers moved out of it into a package of their own — what is left in
@@ -436,6 +437,46 @@ one thing it will not do for you; that needs `strap.sh`, and a script in this
 repo is not going to download and execute a remote installer on your behalf.
 
 Idempotent, and it backs up `pacman.conf` before touching it.
+
+---
+
+## programs/
+
+```bash
+./programs/matlab.sh -h        # every script explains itself
+./programs/arm-gcc.sh
+PROXY=192.168.49.1:8000 ./programs/plotjuggler.sh
+```
+
+Install scripts for the software on this machine that **no package manager
+handles**: behind a vendor login, pinned to a version the repos do not carry, or
+shipped only as a tarball or an AppImage. Anything pacman, the AUR or flatpak can
+install belongs in `install.sh` and `extras/pacman-explicit.txt` instead.
+
+Nothing here runs on its own. `install.sh` never calls into this folder and
+`link.sh` does not symlink it — you run one when you want that program back.
+Every script is safe to run twice, takes `-h`, and reads the same `PROXY`
+variable as `install.sh`.
+
+| Script | Installs | Why it cannot be a package |
+|---|---|---|
+| `matlab.sh` | MATLAB via MathWorks' own `mpm`, into `/opt/MATLAB` or `~/MATLAB` | no MATLAB package exists anywhere |
+| `stm32cubeide.sh` | STM32CubeIDE into `~/st` from ST's installer | the download is behind a my.st.com login |
+| `arm-gcc.sh` | `gcc-arm-none-eabi` 10-2020-q4-major into `/opt` | ArduPilot pins that release, the repo package tracks the newest |
+| `arduino-cli.sh` | `arduino-cli` into `~/.local/bin` | one static binary, taken from the upstream release |
+| `mavproxy.sh` | MAVProxy + pymavlink into `~/.local` | PyPI only, and Arch's Python needs `--break-system-packages` |
+| `plotjuggler.sh` | PlotJuggler AppImage into `~/Applications` | the AUR build breaks on every Qt/ROS bump |
+| `sonarview.sh` | SonarView AppImage into `~/Applications` | Cerulean Sonar ship an AppImage and nothing else |
+
+`matlab.sh` is the one worth reading before running. MATLAB installs fine, and
+then its activation window does not open, for two reasons that have nothing to do
+with MATLAB: gtk2 has left the Arch repos, and gnutls 3.8.10 and later break
+FlexLM's TLS handshake so it segfaults in `lc_new_job`. The script drops the
+missing gtk2 and gnutls 3.8.9 into MATLAB's *own* lib directory — its RPATH is
+`$ORIGIN`, so it loads those and no other program on the machine ever sees them.
+If the window still refuses, `./programs/matlab.sh license file.lic` puts an
+offline license in place, and FlexLM then never reaches for the login window at
+all.
 
 ---
 
