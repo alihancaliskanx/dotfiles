@@ -1,5 +1,10 @@
 -- Personal look and feel overrides for Hyprland
 
+-- Qt / KDE application theming (Dolphin, Kate, Ark, etc.)
+hl.env("QT_QPA_PLATFORMTHEME", "kde")
+hl.env("XDG_CURRENT_DESKTOP", "Hyprland:KDE")
+hl.env("XDG_MENU_PREFIX", "plasma-")
+
 hl.config({
   general = {
     gaps_in = 5,
