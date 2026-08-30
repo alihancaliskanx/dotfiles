@@ -1,11 +1,18 @@
-# alacritty — rainynight
+# alacritty — Omarchy dynamic theme + personal preferences
 #
-# This file used to contain padding and colors only, so alacritty fell back to
-# the default font while the rest of the desktop ran on JetBrainsMono Nerd Font.
-# The [font] section below fixes that mismatch.
+# Colors come from Omarchy's theme system via import — they change when you
+# switch themes. Everything else (font, cursor, padding, keybindings) is ours.
+
+general.import = [ "~/.local/state/omarchy/current/theme/alacritty.toml" ]
+
+[env]
+TERM = "xterm-256color"
+
+[terminal]
+osc52 = "CopyPaste"
 
 [font]
-size = 11.0
+size = 16.0
 
 [font.normal]
 family = "JetBrainsMono Nerd Font"
@@ -26,7 +33,6 @@ style = "Bold Italic"
 [window]
 dynamic_padding = true
 decorations = "None"
-# Matches active_opacity = 0.95 in hyprland.conf. Set to 1.0 for a solid background.
 opacity = 0.95
 
 [window.padding]
@@ -42,35 +48,12 @@ history = 10000
 [bell]
 duration = 0
 
-[colors]
-[colors.primary]
-background = "#101010"
-foreground = "#cdd6f4"
-
-[colors.normal]
-black   = "#101010"
-red     = "#cf6a4c"
-green   = "#8f9d6a"
-yellow  = "#f9c74f"
-blue    = "#303463"
-magenta = "#9a7ecc"
-cyan    = "#5de4c7"
-white   = "#cdd6f4"
-
-[colors.bright]
-black   = "#434343"
-red     = "#cf6a4c"
-green   = "#8f9d6a"
-yellow  = "#f9c74f"
-blue    = "#303463"
-magenta = "#9a7ecc"
-cyan    = "#5de4c7"
-white   = "#ffffff"
-
-[colors.cursor]
-text   = "#101010"
-cursor = "#cdd6f4"
-
-[colors.selection]
-text       = "#cdd6f4"
-background = "#303463"
+[keyboard]
+bindings = [
+{ key = "Insert", mods = "Shift", action = "Paste" },
+{ key = "Insert", mods = "Control", action = "Copy" },
+# Send Shift+Return as CSI-u so TUIs can distinguish it from Return without treating it as Alt+Return.
+{ key = "Return", mods = "Shift", chars = "\u001B[13;2u" },
+# Legacy encoding sends Alt+Shift+Return the same as Alt+Return; send CSI-u so tmux can match M-S-Enter.
+{ key = "Return", mods = "Alt|Shift", chars = "\u001B[13;4u" }
+]

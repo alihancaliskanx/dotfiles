@@ -1,5 +1,16 @@
 # 00-env — definitions. Variables/PATH only; no command execution.
 
+# ── Omarchy bootstrap ───────────────────────────────────────────────────────
+# Source Omarchy's environment setup so that OMARCHY_PATH, mise shims,
+# and ~/.local/bin are all on PATH — the same chain bash gets from
+# env-bootstrap. Without this, tools installed via mise (node, python, etc.)
+# are invisible to zsh.
+if [[ -r /usr/share/omarchy/default/bash/env-bootstrap ]]; then
+  source /usr/share/omarchy/default/bash/env-bootstrap
+fi
+
+# ── editor ───────────────────────────────────────────────────────────────────
+# Omarchy sets EDITOR to its own launcher; override for our terminal sessions.
 # vim instead of nvim in an SSH session (so plugins don't load on a remote machine).
 if [[ -n $SSH_CONNECTION ]]; then
   export EDITOR='vim'
@@ -27,9 +38,17 @@ export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# aurapilot autotest — only if the directory exists. (It does not exist right now; either create it or delete this.)
+# aurapilot autotest — only if the directory exists.
 [ -d "$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest" ] \
   && export PATH="$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH"
+
+# ── Omarchy env vars ────────────────────────────────────────────────────────
+# Mirror useful env vars from Omarchy's bash/envs so that the same tools
+# (bat, man, browser) behave the same in zsh.
+export BAT_THEME="${BAT_THEME:-ansi}"
+export MANROFFOPT="-c"
+export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+export BROWSER="${BROWSER:-omarchy-launch-browser}"
 
 # ── gum ──────────────────────────────────────────────────────────────────────
 # Blue, to match the desktop. gum reads these on every call, so the scripts that
