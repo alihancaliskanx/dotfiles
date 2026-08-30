@@ -55,6 +55,7 @@ done
 # Arch's. blackarch is last because it is the widest and the least trusted of the
 # set: anything it also carries should lose to the repository above it.
 REPOS=$(cat <<'LIST'
+omarchy	https://pkgs.omarchy.org/stable/$arch
 cachyos-v4	/etc/pacman.d/cachyos-v4-mirrorlist
 cachyos-core-v4	/etc/pacman.d/cachyos-v4-mirrorlist
 cachyos-extra-v4	/etc/pacman.d/cachyos-v4-mirrorlist
@@ -62,7 +63,6 @@ cachyos	/etc/pacman.d/cachyos-mirrorlist
 core	/etc/pacman.d/mirrorlist
 extra	/etc/pacman.d/mirrorlist
 multilib	/etc/pacman.d/mirrorlist
-omarchy	https://pkgs.omarchy.org/stable/$arch
 chaotic-aur	/etc/pacman.d/chaotic-mirrorlist
 blackarch	/etc/pacman.d/blackarch-mirrorlist
 LIST
