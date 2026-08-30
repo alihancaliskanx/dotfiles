@@ -62,6 +62,8 @@ cachyos	/etc/pacman.d/cachyos-mirrorlist
 core	/etc/pacman.d/mirrorlist
 extra	/etc/pacman.d/mirrorlist
 multilib	/etc/pacman.d/mirrorlist
+omarchy	https://pkgs.omarchy.org/stable/$arch
+chaotic-aur	/etc/pacman.d/chaotic-mirrorlist
 blackarch	/etc/pacman.d/blackarch-mirrorlist
 LIST
 )
@@ -108,7 +110,7 @@ while IFS=$'\t' read -r name list; do
             fi
             ;;
     esac
-    if [ ! -f "$list" ]; then
+    if [[ "$list" == /* ]] && [ ! -f "$list" ]; then
         printf '  %s!%s %-18s %smirrorlist missing: %s%s\n' "$YLW" "$RST" "$name" "$DIM" "$list" "$RST"
     fi
     missing="$missing $name"
@@ -128,6 +130,12 @@ for p in cachyos-keyring cachyos-mirrorlist cachyos-v4-mirrorlist; do
     need_pkg "$p" || warn "not installed: $p  (pacman -S $p)"
 done
 case " $missing " in
+    *chaotic-aur*)
+        need_pkg chaotic-keyring || warn "not installed: chaotic-keyring"
+        need_pkg chaotic-mirrorlist || warn "not installed: chaotic-mirrorlist"
+        ;;
+esac
+case " $missing " in
     *blackarch*)
         need_pkg blackarch-mirrorlist || {
             warn "blackarch's mirrorlist and key do not come from a package you already have."
@@ -146,11 +154,6 @@ fi
 [ "$(id -u)" -eq 0 ] || die "writing $CONF needs root: sudo ./repo.sh"
 
 # ─── write ───────────────────────────────────────────────────────────────────
-# Appended rather than inserted in place. pacman reads top to bottom and the
-# order matters, so anything appended after [extra] cannot shadow it — which is
-# exactly wrong for the v4 repositories. Rewriting someone's pacman.conf in the
-# middle is not something to do from a script, so this refuses instead and says
-# where the block belongs.
 backup="$CONF.bak.$(date +%Y%m%d-%H%M%S)"
 cp -a "$CONF" "$backup" || die "could not back up $CONF"
 dim "backup: $backup"
@@ -159,13 +162,16 @@ for name in $missing; do
     list=$(awk -F'\t' -v n="$name" '$1==n {print $2}' <<< "$REPOS")
     case "$name" in
         cachyos*)
-            if grep -qE '^\[(core|extra)\]' "$CONF"; then
-                warn "$name belongs ABOVE [core] and this script only appends."
-                dim "add it by hand, immediately under the '# cachyos repos' comment:"
-                dim "    [$name]"
-                dim "    Include = $list"
+            if grep -qE '^\[core\]' "$CONF"; then
+                sed -i "/^\[core\]/i [$name]\nInclude = $list\n" "$CONF"
+                ok "inserted [$name] above [core]"
                 continue
             fi
+            ;;
+        omarchy)
+            printf '\n[%s]\nSigLevel = Optional TrustAll\nServer = %s\n' "$name" "$list" >> "$CONF"
+            ok "added [$name]"
+            continue
             ;;
     esac
     printf '\n[%s]\nInclude = %s\n' "$name" "$list" >> "$CONF"
