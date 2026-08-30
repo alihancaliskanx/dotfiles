@@ -1,17 +1,3 @@
 {
-  "workbench.iconTheme": "material-icon-theme",
-  "editor.fontSize": 19,
-  "code-runner.runInTerminal": true,
-  "code-runner.clearPreviousOutput": true,
-  "code-runner.saveFileBeforeRun": true,
-  "task.saveBeforeRun": "always",
-  "editor.formatOnSave": true,
-  "editor.formatOnPaste": true,
-  "http.proxy": "http://192.168.49.1:8000",
-  "workbench.secondarySideBar.defaultVisibility": "hidden",
-  "files.simpleDialog.enable": true,
-  "cmake.environment": {
-    "PATH": "/home/sups/.vscode/extensions/stmicroelectronics.stm32cube-ide-build-cmake-1.46.0-linux-x64/resources/cube-cmake/linux/x86_64:/home/sups/.vscode/extensions/stmicroelectronics.stm32cube-ide-core-1.4.0-linux-x64/resources/binaries/linux/x86_64:${env.PATH}",
-  },
-  "debug.allowBreakpointsEverywhere": true,
+  "update.mode": "none"
 }
