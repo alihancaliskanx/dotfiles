@@ -16,13 +16,13 @@ alias ll='command ls -lah'
 alias lt='eza -lT'
 
 # ── ssh ──────────────────────────────────────────────────────────────────────
-# kitty TERM'i olarak xterm-kitty kullanıyor ve karşı tarafta bu terminfo genelde
-# yok; o yüzden clear/less/htop/nano uzakta bozuluyor. `kitten ssh` ilk bağlantıda
-# terminfo'yu karşı makinenin ~/.terminfo dizinine kopyalıyor. Sadece kitty
-# içindeyken; diğer terminallerde düz ssh kalıyor. kitten ssh sadece interaktif
-# çalıştığı için stdin terminal değilse (borulu/scriptli kullanım) düz ssh'a düşüyor.
+# kitty uses xterm-kitty as its TERM and remote machines usually lack this
+# terminfo; so clear/less/htop/nano break remotely. `kitten ssh` copies the
+# terminfo to the remote machine's ~/.terminfo on first connection. Only inside
+# kitty; other terminals fall back to plain ssh. kitten ssh only runs interactively,
+# so if stdin is not a terminal (piped/scripted use), it falls back to plain ssh.
 if set -q KITTY_WINDOW_ID; and type -q kitten
-    function ssh --description 'kitty içindeyken terminfo taşıyan kitten ssh'
+    function ssh --description 'kitten ssh that carries terminfo when inside kitty'
         if isatty stdin
             kitten ssh $argv
         else
@@ -64,3 +64,8 @@ end
 function goo --description 'Search on Google'
     xdg-open "https://www.google.com/search?q="(string escape --style=url -- "$argv")
 end
+
+# ── windows vm ───────────────────────────────────────────────────────────────
+alias win='~/.local/bin/windows-vm-smart-launch.sh'
+alias win-stop='~/.local/bin/windows-vm-stop.sh'
+alias win-status='omarchy-windows-vm status'

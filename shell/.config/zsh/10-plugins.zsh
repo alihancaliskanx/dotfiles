@@ -6,8 +6,8 @@ bindkey -v
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
-# ── Autosuggestions (Tab'sız gerçek zamanlı öneriler) ───────────────────────
-# Hem geçmişten hem de diskteki klasör/komut tamamlamalarından otomatik önerir.
+# ── Autosuggestions (Real-time suggestions without Tab) ───────────────────────
+# Automatically suggests from both history and directory/command completions on disk.
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
 

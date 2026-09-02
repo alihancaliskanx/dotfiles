@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Stop Windows VM
+
+Comment=Gracefully shut down and stop the Windows VM container
+
+Exec=uwsm app -- /home/sups/.local/bin/windows-vm-stop.sh
+Icon=system-shutdown
+Terminal=false
+Type=Application
+Categories=System;Virtualization;
+Keywords=windows;vm;stop;qemu;

@@ -28,7 +28,7 @@
 # leaving the list to be the two things you actually recognise a window by:
 #
 #     ▸ 🖳  1  Alacritty      sups@SupSws:~
-#       🦊  2  Zen Browser    Arch dotfiles için shell konfigürasyonu ekle
+#       🦊  2  Zen Browser    Add shell configuration for Arch dotfiles
 #
 # The order is workspace, then application, then title — the same list every
 # time, in the order they are on screen. Not most-recently-used: a picker whose

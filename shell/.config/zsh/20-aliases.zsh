@@ -32,10 +32,10 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 
 # ── ssh ──────────────────────────────────────────────────────────────────────
-# kitty TERM'i olarak xterm-kitty kullanıyor ve karşı tarafta bu terminfo genelde
-# yok; o yüzden clear/less/htop/nano uzakta bozuluyor. `kitten ssh` ilk bağlantıda
-# terminfo'yu karşı makinenin ~/.terminfo dizinine kopyalıyor. Sadece kitty
-# içindeyken; diğer terminallerde düz ssh kalıyor.
+# kitty uses xterm-kitty as its TERM and remote machines usually lack this
+# terminfo; so clear/less/htop/nano break remotely. `kitten ssh` copies the
+# terminfo to the remote machine's ~/.terminfo on first connection. Only inside
+# kitty; other terminals fall back to plain ssh.
 if [[ -n $KITTY_WINDOW_ID ]] && (( $+commands[kitten] )); then
   ssh() {
     if [[ -t 0 ]]; then
@@ -84,3 +84,8 @@ alias code_path='cd ~/Documents/Code'
 alias qgc='~/Documents/Code/qgroundcontrol/build/Release/QGroundControl > /dev/null 2>&1 &'
 alias stmcube='pc $HOME/st/stm32cubeide_1.19.0/stm32cubeide_wayland'
 alias mavproxy='~/.mavproxy_env/bin/mavproxy.py'
+
+# ── windows vm ───────────────────────────────────────────────────────────────
+alias win='~/.local/bin/windows-vm-smart-launch.sh'
+alias win-stop='~/.local/bin/windows-vm-stop.sh'
+alias win-status='omarchy-windows-vm status'
