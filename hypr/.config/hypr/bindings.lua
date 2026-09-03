@@ -98,8 +98,6 @@ o.bind("SUPER + TAB", "Window switcher", "window-switch")
 
 o.bind("ALT + TAB", "Focus on next window", hl.dsp.window.cycle_next())
 o.bind("ALT + SHIFT + TAB", "Focus on previous window", hl.dsp.window.cycle_next({ next = false }))
-o.bind("ALT + TAB", "Reveal active window on top", hl.dsp.window.bring_to_top())
-o.bind("ALT + SHIFT + TAB", "Reveal active window on top", hl.dsp.window.bring_to_top())
 
 o.bind("SUPER + SHIFT + TAB", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
 o.bind("SUPER + CTRL + TAB", "Former workspace", hl.dsp.focus({ workspace = "previous" }))
@@ -217,14 +215,14 @@ o.bind("XF86AudioPause", "Pause media", "playerctl play-pause", { locked = true 
 o.bind("XF86AudioNext", "Next track", "playerctl next", { locked = true })
 o.bind("XF86AudioPrev", "Previous track", "playerctl previous", { locked = true })
 
-o.bind("XF86AudioRaiseVolume", "Volume up", "swayosd-client --output-volume raise || omarchy-audio-output-volume raise", { locked = true, repeating = true })
-o.bind("XF86AudioLowerVolume", "Volume down", "swayosd-client --output-volume lower || omarchy-audio-output-volume lower", { locked = true, repeating = true })
-o.bind("XF86AudioMute", "Mute audio", "swayosd-client --output-volume mute-toggle || omarchy-audio-output-volume mute-toggle", { locked = true })
+o.bind("XF86AudioRaiseVolume", "Volume up", "swayosd-client --output-volume raise --max-volume 150 || /home/sups/.local/bin/omarchy-audio-output-volume raise", { locked = true, repeating = true })
+o.bind("XF86AudioLowerVolume", "Volume down", "swayosd-client --output-volume lower --max-volume 150 || /home/sups/.local/bin/omarchy-audio-output-volume lower", { locked = true, repeating = true })
+o.bind("XF86AudioMute", "Mute audio", "swayosd-client --output-volume mute-toggle || /home/sups/.local/bin/omarchy-audio-output-volume mute-toggle", { locked = true })
 o.bind("XF86AudioMicMute", "Mute microphone", "swayosd-client --input-volume mute-toggle || omarchy-audio-input-mute", { locked = true })
 
-o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise (+1%)", "omarchy-audio-output-volume +1", { locked = true, repeating = true })
-o.bind("ALT + XF86AudioLowerVolume", "Volume down precise (-1%)", "omarchy-audio-output-volume -1", { locked = true, repeating = true })
-o.bind("SHIFT + XF86AudioMute", "Switch audio output", "omarchy-audio-output-switch", { locked = true })
+o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise (+1%)", "/home/sups/.local/bin/omarchy-audio-output-volume +1", { locked = true, repeating = true })
+o.bind("ALT + XF86AudioLowerVolume", "Volume down precise (-1%)", "/home/sups/.local/bin/omarchy-audio-output-volume -1", { locked = true, repeating = true })
+o.bind("SHIFT + XF86AudioMute", "Switch audio output", "~/.local/bin/omarchy-audio-output-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPause", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPlay", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 
@@ -247,8 +245,8 @@ o.bind("XF86TouchpadOn", "Enable touchpad", "omarchy-toggle-touchpad on", { lock
 o.bind("XF86TouchpadOff", "Disable touchpad", "omarchy-toggle-touchpad off", { locked = true })
 
 -- Keypad media & volume
-o.bind("SUPER + KP_Add", "Volume up", "swayosd-client --output-volume raise", { repeating = true })
-o.bind("SUPER + KP_Subtract", "Volume down", "swayosd-client --output-volume lower", { repeating = true })
+o.bind("SUPER + KP_Add", "Volume up", "swayosd-client --output-volume raise --max-volume 150 || /home/sups/.local/bin/omarchy-audio-output-volume raise", { repeating = true })
+o.bind("SUPER + KP_Subtract", "Volume down", "swayosd-client --output-volume lower --max-volume 150 || /home/sups/.local/bin/omarchy-audio-output-volume lower", { repeating = true })
 o.bind("SUPER + CTRL + KP_Add", "Next track", "playerctl next")
 o.bind("SUPER + CTRL + KP_Subtract", "Previous track", "playerctl previous")
 
