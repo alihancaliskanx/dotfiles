@@ -75,3 +75,14 @@ bindkey -M emacs -r '^[a' 2>/dev/null
 
 # ── fzf (Ctrl+R, Ctrl+T, Alt+C) ──────────────────────────────────────────────
 command -v fzf >/dev/null && source <(fzf --zsh)
+
+# ── Restore zsh-autocomplete up/down arrows ──────────────────────────────────
+# oh-my-zsh overrides these, so we put them at the end.
+bindkey '^[[A' up-line-or-search
+bindkey '^[[B' down-line-or-select
+bindkey '^[OA' up-line-or-search
+bindkey '^[OB' down-line-or-select
+bindkey -M viins '^[[A' up-line-or-search
+bindkey -M viins '^[[B' down-line-or-select
+bindkey -M viins '^[OA' up-line-or-search
+bindkey -M viins '^[OB' down-line-or-select
