@@ -7,7 +7,7 @@
 o.bind("SUPER + RETURN", "Terminal (Alacritty)", "alacritty")
 o.bind("SUPER + SPACE", "Omarchy menu", "omarchy-menu toggle")
 o.bind("ALT + SPACE", "Apps menu", "omarchy-menu toggle apps")
-o.bind("SUPER + ALT + SPACE", "Apps menu", "omarchy-menu toggle apps")
+o.bind("SUPER + ALT + SPACE", "Play/Pause media", "playerctl play-pause", { locked = true })
 o.bind("SUPER + SHIFT + SPACE", "Toggle top bar", "pkill -SIGUSR1 waybar || omarchy-toggle-bar")
 
 -- Web Browsers
