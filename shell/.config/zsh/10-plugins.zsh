@@ -6,10 +6,12 @@ bindkey -v
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
-# ── Autosuggestions (Real-time suggestions without Tab) ───────────────────────
-# Automatically suggests from both history and directory/command completions on disk.
+# ── Autosuggestions (Real-time inline ghost text) ─────────────────────────────
+# Suggests from history first, then falls back to completion engine.
+# Always visible as you type — no manual trigger needed.
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
+export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
 plugins=(
     history
@@ -20,11 +22,15 @@ plugins=(
     sudo
     tmux
     copybuffer
-    zsh-syntax-highlighting
-    zsh-autosuggestions
     you-should-use
     web-search
     autoswitch_virtualenv
+    zsh-interactive-cd
+    z
+    fzf
+    zsh-autocomplete
+    zsh-autosuggestions
+    zsh-syntax-highlighting
 )
 
 # Guard: keeps the shell from blowing up entirely on a clean machine where
@@ -36,47 +42,15 @@ else
   print -u2 "! oh-my-zsh not found ($ZSH) — run dotfiles/install.sh."
 fi
 
-# ── Completion Menu & Arrow Key Navigation ──────────────────────────────────
-# Enables interactive menu selection on Tab/Down Arrow, navigated with Arrow Keys / hjkl.
-zmodload zsh/complist
-zstyle ':completion:*' menu select
-zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
-zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
-
-# Keybindings in menuselect mode (Arrow keys + hjkl + Tab/Shift-Tab)
-bindkey -M menuselect '^[[A' up-line-or-history        # Up Arrow
-bindkey -M menuselect '^[[B' down-line-or-history      # Down Arrow
-bindkey -M menuselect '^[[C' forward-char              # Right Arrow
-bindkey -M menuselect '^[[D' backward-char             # Left Arrow
-bindkey -M menuselect '^[OA' up-line-or-history        # Up Arrow (application mode)
-bindkey -M menuselect '^[OB' down-line-or-history      # Down Arrow (application mode)
-bindkey -M menuselect '^[OC' forward-char              # Right Arrow (application mode)
-bindkey -M menuselect '^[OD' backward-char             # Left Arrow (application mode)
-bindkey -M menuselect 'k'    up-line-or-history        # k
-bindkey -M menuselect 'j'    down-line-or-history      # j
-bindkey -M menuselect 'l'    forward-char              # l
-bindkey -M menuselect 'h'    backward-char             # h
-bindkey -M menuselect '^I'   menu-complete             # Tab: next match
-bindkey -M menuselect '^[[Z' reverse-menu-complete     # Shift+Tab: prev match
-
-# Arrow keys in insert mode (viins)
-bindkey -M viins '^[[A' up-line-or-history
-bindkey -M viins '^[[B' menu-select
-bindkey -M viins '^[[C' forward-char
-bindkey -M viins '^[[D' backward-char
-bindkey -M viins '^[OA' up-line-or-history
-bindkey -M viins '^[OB' menu-select
-bindkey -M viins '^[OC' forward-char
-bindkey -M viins '^[OD' backward-char
-
-# Tab & Down Arrow open menu selection
-bindkey -M viins '^I' menu-select
-bindkey '^I' menu-select
+# ── Autosuggestions: always-on in vi-mode ────────────────────────────────────
+# By default vi-mode (bindkey -v) breaks inline ghost-text acceptance.
+# These bindings ensure suggestions are always visible and can be accepted
+# with Right Arrow, Ctrl+F (forward-char, fish-style), or Ctrl+E (end of line).
+# No Alt+A toggle needed.
+bindkey -M viins '^[[C' autosuggest-accept        # Right Arrow
+bindkey -M viins '^[OC' autosuggest-accept        # Right Arrow (application mode)
+bindkey -M viins '^E'   autosuggest-accept        # Ctrl+E  (end of line)
+bindkey -M viins '^F'   autosuggest-accept        # Ctrl+F  (forward char)
 
 # ── fzf (Ctrl+R, Ctrl+T, Alt+C) ──────────────────────────────────────────────
-# Load fzf widgets, then ensure Tab remains bound to menu-select instead of fzf-completion.
-if command -v fzf >/dev/null; then
-  source <(fzf --zsh)
-  bindkey -M viins '^I' menu-select
-  bindkey '^I' menu-select
-fi
+command -v fzf >/dev/null && source <(fzf --zsh)
