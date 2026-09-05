@@ -24,4 +24,7 @@ echo ""
 "$SCRIPT_DIR/fix-key-visualizer-turkish.sh"
 echo ""
 
+"$SCRIPT_DIR/fix-debtap-grep.sh"
+echo ""
+
 echo "=== All fixes applied successfully! ==="
