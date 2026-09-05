@@ -11,7 +11,6 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Always visible as you type — no manual trigger needed.
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
-export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
 # ── zsh-autocomplete (live completion dropdown as you type) ──────────────────
 # Per the README, zsh-autocomplete MUST be sourced BEFORE compinit and other
@@ -68,6 +67,11 @@ bindkey -M viins '^[[C' autosuggest-accept        # Right Arrow
 bindkey -M viins '^[OC' autosuggest-accept        # Right Arrow (application mode)
 bindkey -M viins '^E'   autosuggest-accept        # Ctrl+E  (end of line)
 bindkey -M viins '^F'   autosuggest-accept        # Ctrl+F  (forward char)
+
+# ── Kill Alt+A ───────────────────────────────────────────────────────────────
+bindkey -r '^[a' 2>/dev/null
+bindkey -M viins -r '^[a' 2>/dev/null
+bindkey -M emacs -r '^[a' 2>/dev/null
 
 # ── fzf (Ctrl+R, Ctrl+T, Alt+C) ──────────────────────────────────────────────
 command -v fzf >/dev/null && source <(fzf --zsh)
