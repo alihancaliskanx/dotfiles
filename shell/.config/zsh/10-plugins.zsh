@@ -13,6 +13,21 @@ export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
 export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
+# ── zsh-autocomplete (live completion dropdown as you type) ──────────────────
+# Per the README, zsh-autocomplete MUST be sourced BEFORE compinit and other
+# plugins. It manages its own compinit internally.
+zstyle ':autocomplete:*' min-input 1
+zstyle ':autocomplete:*' delay 0.05
+zstyle ':autocomplete:*' list-lines 16
+zstyle ':autocomplete:*' widget-style menu-select
+if [[ -r "$ZSH/custom/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh" ]]; then
+  source "$ZSH/custom/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh"
+fi
+
+# Prevent oh-my-zsh from running compinit again (zsh-autocomplete already did).
+# We replace compinit with a no-op, source oh-my-zsh, then restore it.
+function compinit { : ; }
+
 plugins=(
     history
     git
@@ -41,22 +56,14 @@ else
   print -u2 "! oh-my-zsh not found ($ZSH) — run dotfiles/install.sh."
 fi
 
-# ── zsh-autocomplete (live completion dropdown as you type) ──────────────────
-# Must be loaded AFTER oh-my-zsh (needs compinit to have run).
-# Loaded outside the plugins array because it needs precise init ordering.
-zstyle ':autocomplete:*' min-input 1
-zstyle ':autocomplete:*' min-delay 0.05
-zstyle ':autocomplete:*' list-lines 16
-zstyle ':autocomplete:*' widget-style menu-select
-if [[ -r "$ZSH/custom/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh" ]]; then
-  source "$ZSH/custom/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh"
-fi
+# Restore real compinit in case anything needs it later.
+unfunction compinit 2>/dev/null
+autoload -Uz compinit
 
 # ── Autosuggestions: always-on in vi-mode ────────────────────────────────────
 # By default vi-mode (bindkey -v) breaks inline ghost-text acceptance.
 # These bindings ensure suggestions are always visible and can be accepted
 # with Right Arrow, Ctrl+F (forward-char, fish-style), or Ctrl+E (end of line).
-# No Alt+A toggle needed.
 bindkey -M viins '^[[C' autosuggest-accept        # Right Arrow
 bindkey -M viins '^[OC' autosuggest-accept        # Right Arrow (application mode)
 bindkey -M viins '^E'   autosuggest-accept        # Ctrl+E  (end of line)
