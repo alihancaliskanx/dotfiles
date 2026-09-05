@@ -1,0 +1,5 @@
+#!/bin/bash
+action="${1:-PlayPause}"
+for player in $(dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep org.mpris.MediaPlayer2 | awk -F'"' '{print $2}'); do
+    dbus-send --print-reply --dest=$player /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.$action > /dev/null 2>&1
+done
