@@ -13,6 +13,14 @@ export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
 export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
+# ── zsh-autocomplete (live completion dropdown) ───────────────────────────────
+# Must be set BEFORE the plugin loads. Shows completions automatically as you
+# type — no Tab press required.
+zstyle ':autocomplete:*' min-input 1          # show after 1 character typed
+zstyle ':autocomplete:*' min-delay 0.05       # near-instant (50ms debounce)
+zstyle ':autocomplete:*' list-lines 16        # show up to 16 completion lines
+zstyle ':autocomplete:*' widget-style menu-select  # arrow-navigable menu
+
 plugins=(
     history
     git
