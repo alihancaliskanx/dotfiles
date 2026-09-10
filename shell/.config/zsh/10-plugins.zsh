@@ -36,3 +36,12 @@ else
 fi
 
 command -v fzf >/dev/null && source <(fzf --zsh)
+
+# ── Shift+Enter (CSI-u) to insert newline ────────────────────────────────────
+function insert_newline {
+    LBUFFER+=$'\n'
+}
+zle -N insert_newline
+bindkey '^[[13;2u' insert_newline
+bindkey -M viins '^[[13;2u' insert_newline
+
