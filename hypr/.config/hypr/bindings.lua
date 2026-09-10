@@ -58,7 +58,7 @@ o.bind("SUPER + CTRL + SHIFT + W", "Stop Windows VM", "$HOME/.local/bin/windows-
 
 o.bind("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 o.bind("SUPER + X", "Maximize window", hl.dsp.window.fullscreen({ mode = "maximized" }))
-o.bind("SUPER + ALT + F", "Maximize window (Full width)", hl.dsp.window.fullscreen({ mode = "maximized" }))
+o.bind("SUPER + ALT + F", "Maximize window (Full width)", "~/.local/bin/omarchy-window-full-width-toggle")
 o.bind("SUPER + CTRL + F", "Tiled fullscreen", "omarchy-hyprland-window-tiled-fullscreen-toggle")
 o.bind("SUPER + T", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 o.bind("SUPER + P", "Pin window", hl.dsp.window.pin())

@@ -38,9 +38,13 @@ export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# aurapilot autotest — only if the directory exists.
-[ -d "$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest" ] \
-  && export PATH="$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH"
+# aurapilot autotest and gcc-arm toolchain
+[ -d "$HOME/Documents/Code/aura_dev_enviroment/aurapilot/Tools/autotest" ] \
+  && export PATH="$HOME/Documents/Code/aura_dev_enviroment/aurapilot/Tools/autotest:$PATH"
+
+# ARM embedded toolchain
+[ -d "/opt/gcc-arm-none-eabi-10-2020-q4-major/bin" ] \
+  && export PATH="/opt/gcc-arm-none-eabi-10-2020-q4-major/bin:$PATH"
 
 # ── Omarchy env vars ────────────────────────────────────────────────────────
 # Mirror useful env vars from Omarchy's bash/envs so that the same tools

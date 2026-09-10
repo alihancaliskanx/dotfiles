@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Get active window and monitor width
+ACTIVE=$(hyprctl activewindow -j)
+CURRENT_WIDTH=$(jq -r '.size[0]' <<< "$ACTIVE")
+MONITOR_ID=$(jq -r '.monitor' <<< "$ACTIVE")
+MONITOR_WIDTH=$(hyprctl monitors -j | jq -r --arg id "$MONITOR_ID" '.[] | select(.id == ($id | tonumber)) | .width')
+
+if [ -z "$CURRENT_WIDTH" ] || [ -z "$MONITOR_WIDTH" ]; then
+    exit 1
+fi
+
+THRESHOLD=$((MONITOR_WIDTH * 90 / 100))
+
+if [ "$CURRENT_WIDTH" -ge "$THRESHOLD" ]; then
+    # Window is full width (or near). Restore it.
+    omarchy-hyprland-window-width restore
+else
+    # Save the current width
+    omarchy-hyprland-window-width save >/dev/null 2>&1
+    
+    # Expand to full width.
+    # First try scrolling layout's fit_into_view, which properly consumes the width regardless of position!
+    hyprctl dispatch "hl.dsp.layout('fit_into_view')"
+    
+    # Fallback to huge relative resize if layout is dwindle or fit_into_view failed
+    hyprctl dispatch "hl.dsp.window.resize({ x = 9999, y = 0, relative = true })"
+    # To workaround the right-edge issue in dwindle, we can also resize massively negative? No, that shrinks.
+    # Actually, in dwindle, you can't easily expand the left edge of a right-most window using resizeactive.
+    # But fit_into_view works perfectly for scrolling layout!
+fi

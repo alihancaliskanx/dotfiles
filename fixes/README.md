@@ -32,7 +32,14 @@ This directory contains scripts that resolve hardware and software incompatibili
   - Dynamically queries the active keyboard layout via Hyprland.
   - Integrates Turkish Q and Turkish F keymaps, as well as a UTF-8 Turkish uppercase conversion table into `key-visualizer.lua`.
 
-### 5. `run-all.sh`
+### 5. `fix-tuxedo-control-center.sh`
+* **Issue:** Missing hardware control, power profiles, and keyboard backlight support for Tuxedo laptops.
+* **Solution:**
+  - Installs `tuxedo-control-center-bin` and `tuxedo-drivers-nocompatcheck-dkms` via AUR.
+  - Enables and starts the `tccd.service`.
+  - Configures Tuxedo Control Center to run automatically on startup via `~/.config/autostart`.
+
+### 6. `run-all.sh`
 * Runs all fix scripts sequentially at once.
 
 ---
@@ -48,4 +55,5 @@ This directory contains scripts that resolve hardware and software incompatibili
 ./fixes/fix-omarchy-workspaces.sh
 ./fixes/fix-windows-vm.sh
 ./fixes/fix-key-visualizer-turkish.sh
+./fixes/fix-tuxedo-control-center.sh
 ```

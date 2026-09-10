@@ -27,4 +27,7 @@ echo ""
 "$SCRIPT_DIR/fix-debtap-grep.sh"
 echo ""
 
+"$SCRIPT_DIR/fix-tuxedo-control-center.sh"
+echo ""
+
 echo "=== All fixes applied successfully! ==="
