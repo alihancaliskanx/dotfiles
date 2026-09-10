@@ -6,11 +6,11 @@ IS_FULLSCREEN=$(jq -r '.fullscreen' <<< "$ACTIVE")
 # If window is maximized (1) or true fullscreen (2), use smooth cycle_next
 if [ "$IS_FULLSCREEN" = "1" ] || [ "$IS_FULLSCREEN" = "2" ]; then
     if [ "$DIR" = "l" ] || [ "$DIR" = "u" ]; then
-        hyprctl eval "hl.dsp.window.cycle_next({ prev = true })"
+        hyprctl eval "hl.dispatch(hl.dsp.window.cycle_next({ prev = true }))"
     else
-        hyprctl eval "hl.dsp.window.cycle_next()"
+        hyprctl eval "hl.dispatch(hl.dsp.window.cycle_next())"
     fi
 else
     # Otherwise use standard directional focus
-    hyprctl eval "hl.dsp.focus({ direction = '$DIR' })"
+    hyprctl eval "hl.dispatch(hl.dsp.focus({ direction = '$DIR' }))"
 fi
