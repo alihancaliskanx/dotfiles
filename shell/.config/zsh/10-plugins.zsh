@@ -86,3 +86,11 @@ bindkey -M viins '^[[A' up-line-or-search
 bindkey -M viins '^[[B' down-line-or-select
 bindkey -M viins '^[OA' up-line-or-search
 bindkey -M viins '^[OB' down-line-or-select
+
+# ── Shift+Enter (CSI-u) to insert newline ────────────────────────────────────
+function insert_newline {
+    LBUFFER+=$'\n'
+}
+zle -N insert_newline
+bindkey '^[[13;2u' insert_newline
+bindkey -M viins '^[[13;2u' insert_newline
