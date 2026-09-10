@@ -58,7 +58,7 @@ o.bind("SUPER + CTRL + SHIFT + W", "Stop Windows VM", "$HOME/.local/bin/windows-
 
 o.bind("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 o.bind("SUPER + X", "Maximize window", hl.dsp.window.fullscreen({ mode = "maximized" }))
-o.bind("SUPER + C", "Maximize window (Focusable)", "~/.local/bin/omarchy-scrolling-maximize-toggle")
+o.bind("SUPER + C", "Maximize window (Focusable)", hl.dsp.window.fullscreen({ mode = "maximized" }))
 o.bind("SUPER + ALT + F", "Maximize window (Full width)", "~/.local/bin/omarchy-window-full-width-toggle")
 o.bind("SUPER + CTRL + F", "Tiled fullscreen", "omarchy-hyprland-window-tiled-fullscreen-toggle")
 o.bind("SUPER + T", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
@@ -136,10 +136,10 @@ o.bind("SUPER + CTRL + PRINT", "Extract text (OCR)", "omarchy-capture-text")
 o.bind("ALT + PRINT", "Screenrecording", "omarchy-capture-screenrecording --stop-recording || omarchy-menu toggle trigger.capture.screenrecord")
 
 -- ─── 8. Arrow Keys: Focus & Movement ─────────────────────────────────────────
-o.bind("SUPER + LEFT", "Focus left", hl.dsp.focus({ direction = "l" }))
-o.bind("SUPER + RIGHT", "Focus right", hl.dsp.focus({ direction = "r" }))
-o.bind("SUPER + UP", "Focus up", hl.dsp.focus({ direction = "u" }))
-o.bind("SUPER + DOWN", "Focus down", hl.dsp.focus({ direction = "d" }))
+o.bind("SUPER + LEFT", "Focus left", "~/.local/bin/omarchy-smart-focus l")
+o.bind("SUPER + RIGHT", "Focus right", "~/.local/bin/omarchy-smart-focus r")
+o.bind("SUPER + UP", "Focus up", "~/.local/bin/omarchy-smart-focus u")
+o.bind("SUPER + DOWN", "Focus down", "~/.local/bin/omarchy-smart-focus d")
 
 o.bind("SUPER + SHIFT + LEFT", "Move window left", hl.dsp.window.move({ direction = "l" }))
 o.bind("SUPER + SHIFT + RIGHT", "Move window right", hl.dsp.window.move({ direction = "r" }))
