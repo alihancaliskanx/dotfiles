@@ -42,3 +42,7 @@ end
 # ── old names for the shared scripts ─────────────────────────────────────────
 alias sha256_kontrol='sha256-check'
 alias ros_docker='ros-docker'
+
+# ── Shift+Enter (CSI-u) to insert newline ────────────────────────────────────
+bind \e\[13\;2u 'commandline -i \n'
+
