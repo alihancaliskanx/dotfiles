@@ -11,13 +11,13 @@ o.bind("SUPER + SHIFT + SPACE", "Toggle top bar", "pkill -SIGUSR1 waybar || omar
 
 -- Web Browsers
 o.bind("SUPER + B", "Web Browser (Default)", "gtk-launch $(xdg-settings get default-web-browser)")
-o.bind("SUPER + SHIFT + B", "Web Browser (Default)", { omarchy = "browser" })
+o.bind("SUPER + SHIFT + RETURN", "Web Browser (Default)", { omarchy = "browser" })
 o.bind("SUPER + SHIFT + ALT + B", "Web Browser (Private)", { omarchy = "browser --private" })
 
 -- File Managers
 o.bind("SUPER + E", "File Manager (Dolphin)", "xdg-open ~")
 o.bind("SUPER + SHIFT + F", "File Manager (Nautilus)", { omarchy = "nautilus" })
-o.bind("SUPER + ALT + SHIFT + F", "File Manager (cwd)", { omarchy = "nautilus-cwd" })
+o.bind("SUPER + SHIFT + ALT + F", "File Manager (cwd)", { omarchy = "nautilus-cwd" })
 
 -- Terminal multiplexers & tools
 o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
@@ -45,9 +45,9 @@ o.bind("SUPER + SHIFT + G", "Signal", { omarchy = "signal" })
 o.bind("SUPER + SHIFT + D", "Docker TUI", { tui = "omarchy-launch-docker-tui" })
 o.bind("SUPER + SHIFT + E", "Hey Email", { webapp = "https://app.hey.com" })
 o.bind("SUPER + SHIFT + ALT + E", "New Email", { webapp = "https://app.hey.com/messages/new?display=standalone&new_window=true" })
-o.bind("SUPER + ALT + SHIFT + C", "Hey Calendar", { webapp = "https://app.hey.com/calendar/weeks/" })
-o.bind("SUPER + ALT + SHIFT + P", "Google Photos", { webapp = "https://photos.google.com/", focus = true })
-o.bind("SUPER + ALT + SHIFT + S", "Google Maps", { webapp = "https://maps.google.com/", focus = true })
+o.bind("SUPER + SHIFT + C", "Hey Calendar", { webapp = "https://app.hey.com/calendar/weeks/" })
+o.bind("SUPER + SHIFT + P", "Google Photos", { webapp = "https://photos.google.com/", focus = true })
+o.bind("SUPER + SHIFT + S", "Google Maps", { webapp = "https://maps.google.com/", focus = true })
 
 -- ─── 3. Window Management & Session ──────────────────────────────────────────
 o.bind("SUPER + W", "Close window", hl.dsp.window.close())
@@ -67,7 +67,7 @@ o.bind("SUPER + ALT + P", "Pseudo window", hl.dsp.window.pseudo())
 o.bind("SUPER + O", "Pop window out (float & pin)", "omarchy-hyprland-window-pop")
 
 o.bind("SUPER + J", "Toggle window split", hl.dsp.layout("togglesplit"))
-o.bind("SUPER + SHIFT + C", "Center window", hl.dsp.layout("centerwindow"))
+o.bind("SUPER + SHIFT + ALT + C", "Center window", hl.dsp.layout("centerwindow"))
 o.bind("SUPER + U", "Focus urgent or last", hl.dsp.layout("focusurgentorlast"))
 o.bind("SUPER + A", "Bring active window to top", hl.dsp.window.bring_to_top())
 
@@ -77,7 +77,7 @@ o.bind("SUPER + F1", "Hotkeys cheat sheet", "hotkeys")
 o.bind("SUPER + K", "Keybindings cheat sheet", "omarchy-menu-keybindings")
 o.bind("SUPER + ALT + K", "Tmux keybindings", "omarchy-menu-tmux-keybindings")
 o.bind("SUPER + CTRL + K", "Herdr keybindings", "omarchy-menu-herdr-keybindings")
-o.bind("SUPER + SHIFT + P", "Power profile", "power-profile")
+o.bind("SUPER + SHIFT + ALT + P", "Power profile", "power-profile")
 
 local quit_cmd = "sh -c '[ \"$(printf \"No\\nYes\" | fuzzel --dmenu --prompt \"Quit Hyprland? \" --lines 2)\" = Yes ] && hyprctl dispatch exit'"
 o.bind("SUPER + SHIFT + H", "Quit Hyprland menu", quit_cmd)
@@ -105,7 +105,7 @@ o.bind("SUPER + CTRL + TAB", "Former workspace", hl.dsp.focus({ workspace = "pre
 -- ─── 5. Scratchpad ───────────────────────────────────────────────────────────
 o.bind("SUPER + S", "Toggle Scratchpad", hl.dsp.workspace.toggle_special("scratchpad"))
 o.bind("SUPER + ALT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
-o.bind("SUPER + SHIFT + RETURN", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
+o.bind("SUPER + SHIFT + ALT + RETURN", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
 
 -- ─── 6. Groups & Stacking ────────────────────────────────────────────────────
 o.bind("SUPER + Z", "Toggle group", hl.dsp.group.toggle())
@@ -116,7 +116,7 @@ o.bind("SUPER + ALT + G", "Move out of group", hl.dsp.window.move({ out_of_group
 o.bind("SUPER + ALT + Z", "Move into group", hl.dsp.window.move({ into_group = "r" }))
 
 o.bind("SUPER + ALT + TAB", "Next window in group", hl.dsp.group.next())
-o.bind("SUPER + ALT + SHIFT + TAB", "Previous window in group", hl.dsp.group.prev())
+o.bind("SUPER + SHIFT + ALT + TAB", "Previous window in group", hl.dsp.group.prev())
 o.bind("SUPER + ALT + mouse_down", "Next window in group", hl.dsp.group.next())
 o.bind("SUPER + ALT + mouse_up", "Previous window in group", hl.dsp.group.prev())
 
@@ -127,7 +127,7 @@ end
 -- ─── 7. Screenshots, Recording & OCR ─────────────────────────────────────────
 o.bind("PRINT", "Screenshot full", "sh -c 'grim - | tensaku -f -'")
 o.bind("code:107", "Screenshot full", "sh -c 'grim - | tensaku -f -'")
-o.bind("SUPER + SHIFT + S", "Screenshot select region", "sh -c 'grim -g \"$(slurp)\" - | tensaku -f -'")
+o.bind("SUPER + SHIFT + ALT + S", "Screenshot select region", "sh -c 'grim -g \"$(slurp)\" - | tensaku -f -'")
 o.bind("SUPER + PRINT", "Screenshot active window", "sh -c 'grim -g \"$(hyprctl activewindow -j | jq -r \"\\(.at[0]),\\(.at[1]) \\(.size[0])x\\(.size[1])\")\" - | tensaku -f -'")
 o.bind("SUPER + code:107", "Screenshot active window", "sh -c 'grim -g \"$(hyprctl activewindow -j | jq -r \"\\(.at[0]),\\(.at[1]) \\(.size[0])x\\(.size[1])\")\" - | tensaku -f -'")
 o.bind("SUPER + ALT + PRINT", "Color picker", "pkill hyprpicker || hyprpicker -a")
@@ -163,10 +163,10 @@ o.bind("SUPER + ALT + RIGHT", "Resize right", hl.dsp.window.resize({ x = 60, y =
 o.bind("SUPER + ALT + UP", "Resize up", hl.dsp.window.resize({ x = 0, y = -60, relative = true }), { repeating = true })
 o.bind("SUPER + ALT + DOWN", "Resize down", hl.dsp.window.resize({ x = 0, y = 60, relative = true }), { repeating = true })
 
-o.bind("SUPER + ALT + SHIFT + LEFT", "Swap window left", hl.dsp.window.swap({ direction = "l" }))
-o.bind("SUPER + ALT + SHIFT + RIGHT", "Swap window right", hl.dsp.window.swap({ direction = "r" }))
-o.bind("SUPER + ALT + SHIFT + UP", "Move window to prev workspace", hl.dsp.window.move({ workspace = "e-1" }))
-o.bind("SUPER + ALT + SHIFT + DOWN", "Move window to next workspace", hl.dsp.window.move({ workspace = "e+1" }))
+o.bind("SUPER + SHIFT + ALT + LEFT", "Swap window left", hl.dsp.window.swap({ direction = "l" }))
+o.bind("SUPER + SHIFT + ALT + RIGHT", "Swap window right", hl.dsp.window.swap({ direction = "r" }))
+o.bind("SUPER + SHIFT + ALT + UP", "Move window to prev workspace", hl.dsp.window.move({ workspace = "e-1" }))
+o.bind("SUPER + SHIFT + ALT + DOWN", "Move window to next workspace", hl.dsp.window.move({ workspace = "e+1" }))
 
 -- Arrow Keys: Move Into Group
 o.bind("SUPER + CTRL + ALT + LEFT", "Move window to group on left", hl.dsp.window.move({ into_group = "l" }))
