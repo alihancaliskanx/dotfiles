@@ -1,0 +1,9 @@
+{
+  "setup.default.agent.gemini": {"when": "false"},
+  "setup.default.agent.antigravity": {
+    "icon": "󰚩",
+    "label": "Antigravity",
+    "checked": "[[ \"$(omarchy-default-agent)\" == \"antigravity\" ]]",
+    "action": "omarchy-default-agent antigravity"
+  }
+}
