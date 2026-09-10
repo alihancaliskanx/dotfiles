@@ -1,0 +1,17 @@
+#!/bin/bash
+STATE_FILE="/tmp/omarchy_scrolling_width"
+CURRENT=$(hyprctl getoption scrolling:column_width -j | jq -r '.float')
+
+if awk -v cur="$CURRENT" 'BEGIN { exit !(cur > 0.9) }'; then
+    # It is maximized. Restore.
+    if [ -f "$STATE_FILE" ]; then
+        RESTORE_VAL=$(cat "$STATE_FILE")
+        hyprctl eval "hl.config({ scrolling = { column_width = $RESTORE_VAL } })"
+    else
+        hyprctl eval "hl.config({ scrolling = { column_width = 0.49 } })"
+    fi
+else
+    # Not maximized. Save current and set to 1.0
+    echo "$CURRENT" > "$STATE_FILE"
+    hyprctl eval "hl.config({ scrolling = { column_width = 1.0 } })"
+fi
