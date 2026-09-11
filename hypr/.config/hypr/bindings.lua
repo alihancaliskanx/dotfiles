@@ -126,10 +126,8 @@ end
 
 -- ─── 7. Screenshots, Recording & OCR ─────────────────────────────────────────
 o.bind("PRINT", "Screenshot full", "sh -c 'grim - | tensaku -f -'")
-o.bind("code:107", "Screenshot full", "sh -c 'grim - | tensaku -f -'")
 o.bind("SUPER + SHIFT + S", "Screenshot select region", "sh -c 'grim -g \"$(slurp)\" - | tensaku -f -'")
 o.bind("SUPER + PRINT", "Screenshot active window", "sh -c 'grim -g \"$(hyprctl activewindow -j | jq -r \"\\(.at[0]),\\(.at[1]) \\(.size[0])x\\(.size[1])\")\" - | tensaku -f -'")
-o.bind("SUPER + code:107", "Screenshot active window", "sh -c 'grim -g \"$(hyprctl activewindow -j | jq -r \"\\(.at[0]),\\(.at[1]) \\(.size[0])x\\(.size[1])\")\" - | tensaku -f -'")
 o.bind("SUPER + ALT + PRINT", "Color picker", "pkill hyprpicker || hyprpicker -a")
 o.bind("SUPER + SHIFT + PRINT", "Color picker", "pkill hyprpicker || hyprpicker -a")
 o.bind("SUPER + CTRL + PRINT", "Extract text (OCR)", "omarchy-capture-text")
