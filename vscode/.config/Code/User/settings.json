@@ -1,3 +1,4 @@
 {
-  "update.mode": "none"
+    "update.mode": "none",
+    "workbench.iconTheme": "material-icon-theme"
 }
