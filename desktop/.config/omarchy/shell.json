@@ -56,10 +56,10 @@
           "id": "sups.audio"
         },
         {
-          "id": "omarchy.bluetooth"
+          "id": "omarchy.power"
         },
         {
-          "id": "omarchy.power"
+          "id": "omarchy.bluetooth"
         },
         {
           "id": "omarchy.network"
