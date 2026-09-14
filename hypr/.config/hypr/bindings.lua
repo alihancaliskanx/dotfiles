@@ -21,7 +21,7 @@ o.bind("SUPER + ALT + SHIFT + F", "File Manager (cwd)", { omarchy = "nautilus-cw
 
 -- Terminal multiplexers & tools
 o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
-o.bind("SUPER + CTRL + RETURN", "Herdr", { omarchy = "terminal-herdr" })
+o.bind("SUPER + CTRL + RETURN", "Tmux Up", "omarchy-launch-terminal-tmux_up")
 o.bind("SUPER + SHIFT + N", "Editor (Neovim)", { omarchy = "editor" })
 o.bind("CTRL + ALT + SPACE", "Claude Desktop", "claude-desktop")
 
