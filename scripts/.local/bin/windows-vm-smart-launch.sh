@@ -44,7 +44,7 @@ if [[ "$CONTAINER_STATUS" != "running" ]]; then
   fi
 
   # Wait for port 3389 to become ready (up to 45 seconds)
-  for i in {1..45}; do
+  for _ in {1..45}; do
     if nc -z 127.0.0.1 3389 2>/dev/null; then
       break
     fi
