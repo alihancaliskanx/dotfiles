@@ -83,7 +83,7 @@ listed=" $(./link.sh profile 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | tr -s '[:
 orphans=""
 for d in */; do
     d="${d%/}"
-    case "$d" in extras) continue ;; esac
+    case "$d" in extras|fixes|themes) continue ;; esac
     case "$listed" in *" $d "*) ;; *) orphans="$orphans $d" ;; esac
 done
 if [ -n "$orphans" ]; then
