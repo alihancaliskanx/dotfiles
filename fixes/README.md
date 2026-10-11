@@ -71,8 +71,31 @@ This directory contains scripts that resolve hardware and software incompatibili
 ### 11. `remove-old-gemini.sh`
 * Uninstalls the `gemini` CLI that was installed through `mise` and removes its wrapper from `~/.local/bin/`.
 
-### 12. `run-all.sh`
-* Runs scripts 1 to 6 in sequence. Scripts 7 to 11 are not part of it and are run one at a time.
+### 12. `fix-qt612-color.sh`
+* **Issue:** The Omarchy shell's `Color` singleton collides with a name in Qt 6.12's QML namespace.
+* **Solution:**
+  - Renames the singleton to `ThemeColor` in `Commons/qmldir` and rewrites every `Color.` reference in the shell's QML and JS files.
+  - Clears the quickshell QML cache and restarts the shell with `omarchy-restart-shell`.
+* **Note:** uses `sudo` to patch `/usr/share/omarchy/shell`, so an Omarchy update undoes it and the script has to be run again.
+
+### 13. `fix-matlab-installer.sh`
+* **Issue:** The MATLAB installer segfaults on Arch-based systems, once while reading the CPUID vendor string (a fault at `0x6c65746e`) and once in GnuTLS.
+* **Solution:**
+  - Extracts the installer zip given as its argument to `/tmp/matlab_installer`.
+  - Compiles a small shim that maps the faulting addresses, and runs the installer with the shim and `libleancrypto.so` preloaded.
+  - Writes `~/.local/share/applications/matlab_<release>.desktop` once the installer has finished.
+* **Note:** needs `gcc` and `unzip`. The installer is interactive: enter the destination folder and the symbolic link folder the script prints (`~/MATLAB/<release>` and `~/.local/bin`, as absolute paths) so that nothing needs root.
+
+### 14. `fix-robodk-browser.sh`
+* **Issue:** The **Open** button of the RoboDK online library does nothing, because a RoboDK installed by hand registers no handler for `robodk://` links.
+* **Solution:**
+  - Copies `RoboDK.desktop` from `~/Desktop` to `~/.local/share/applications/` if it is not there yet.
+  - Appends `%U` to its `Exec` line and adds a `MimeType` line for the scheme and RoboDK's file types.
+  - Sets it as the default handler with `xdg-mime`.
+* **Note:** `xdg-mime` writes `~/.config/mimeapps.list`, which is a symlink into this repository, so the script edits a tracked file. Restart the browser afterwards.
+
+### 15. `run-all.sh`
+* Runs scripts 1 to 6 in sequence. Scripts 7 to 14 are not part of it and are run one at a time.
 
 ---
 
@@ -94,4 +117,7 @@ This directory contains scripts that resolve hardware and software incompatibili
 ./fixes/fix-davinci-resolve.sh
 ./fixes/fix-antigravity-agent.sh
 ./fixes/remove-old-gemini.sh
+./fixes/fix-qt612-color.sh
+./fixes/fix-matlab-installer.sh ~/Downloads/matlab_R2026b_Linux.zip
+./fixes/fix-robodk-browser.sh
 ```
