@@ -64,14 +64,14 @@ There is no `hyprland.conf` on this branch. Hyprland 0.56 prefers
 it was a file nothing read; `hyprctl systeminfo | grep configProvider` says
 which one a session is on.
 
-### fuzzel is gone, and one binding still names it
+### fuzzel is gone
 
 The fuzzel menus this repo used to bind — a hotkey list on `SUPER+F1`, a window
 picker on `SUPER+Q` and `SUPER+TAB` — are not on this branch: the scripts and
 the three keys were removed, and `SUPER+K` is Omarchy's own list of bindings.
-What is left is the second half of `SUPER+V`, which pipes cliphist into fuzzel
-when the shell's clipboard panel fails to open. With fuzzel not installed that
-fallback does nothing.
+No binding calls fuzzel any more. The "Quit Hyprland?" prompt it drew on
+`SUPER+SHIFT+H` and `CTRL+ALT+DELETE` is replaced by Omarchy's system menu, and
+`SUPER+V` opens the shell's clipboard panel with no fallback.
 
 ### `desktop/.config/omarchy`
 

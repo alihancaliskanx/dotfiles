@@ -7,7 +7,7 @@
 o.bind("SUPER + RETURN", "Terminal (Alacritty)", "alacritty")
 o.bind("SUPER + SPACE", "Omarchy menu", "omarchy-menu toggle")
 o.bind("ALT + SPACE", "Apps menu", "omarchy-menu toggle apps")
-o.bind("SUPER + SHIFT + SPACE", "Toggle top bar", "pkill -SIGUSR1 waybar || omarchy-toggle-bar")
+o.bind("SUPER + SHIFT + SPACE", "Toggle top bar", "omarchy-toggle-bar")
 
 -- Web Browsers
 o.bind("SUPER + B", "Web Browser (Default)", "gtk-launch $(xdg-settings get default-web-browser)")
@@ -58,7 +58,6 @@ o.bind("SUPER + CTRL + SHIFT + W", "Stop Windows VM", "$HOME/.local/bin/windows-
 
 o.bind("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 o.bind("SUPER + X", "Maximize window", hl.dsp.window.fullscreen({ mode = "maximized" }))
-o.bind("SUPER + C", "Maximize window (Focusable)", hl.dsp.window.fullscreen({ mode = "maximized" }))
 o.bind("SUPER + ALT + F", "Maximize window (Full width)", "~/.local/bin/omarchy-window-full-width-toggle")
 o.bind("SUPER + CTRL + F", "Tiled fullscreen", "omarchy-hyprland-window-tiled-fullscreen-toggle")
 o.bind("SUPER + T", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
@@ -78,9 +77,8 @@ o.bind("SUPER + ALT + K", "Tmux keybindings", "omarchy-menu-tmux-keybindings")
 o.bind("SUPER + CTRL + K", "Herdr keybindings", "omarchy-menu-herdr-keybindings")
 o.bind("SUPER + SHIFT + P", "Power profile", "power-profile")
 
-local quit_cmd = "sh -c '[ \"$(printf \"No\\nYes\" | fuzzel --dmenu --prompt \"Quit Hyprland? \" --lines 2)\" = Yes ] && hyprctl dispatch exit'"
-o.bind("SUPER + SHIFT + H", "Quit Hyprland menu", quit_cmd)
-o.bind("CTRL + ALT + DELETE", "Quit Hyprland menu", quit_cmd)
+o.bind("SUPER + SHIFT + H", "System menu", "omarchy-menu toggle system")
+o.bind("CTRL + ALT + DELETE", "System menu", "omarchy-menu toggle system")
 
 -- Window width presets
 o.bind("SUPER + ALT + Home", "Save window width", "omarchy-hyprland-window-width save")
@@ -213,8 +211,8 @@ o.bind("XF86AudioPrev", "Previous track", "~/.local/bin/omarchy-media Previous",
 
 o.bind("XF86AudioRaiseVolume", "Volume up", "~/.local/bin/omarchy-audio-output-volume raise", { locked = true, repeating = true })
 o.bind("XF86AudioLowerVolume", "Volume down", "~/.local/bin/omarchy-audio-output-volume lower", { locked = true, repeating = true })
-o.bind("XF86AudioMute", "Mute audio", "swayosd-client --output-volume mute-toggle || ~/.local/bin/omarchy-audio-output-volume mute-toggle", { locked = true })
-o.bind("XF86AudioMicMute", "Mute microphone", "swayosd-client --input-volume mute-toggle || omarchy-audio-input-mute", { locked = true })
+o.bind("XF86AudioMute", "Mute audio", "~/.local/bin/omarchy-audio-output-volume mute-toggle", { locked = true })
+o.bind("XF86AudioMicMute", "Mute microphone", "omarchy-audio-input-mute", { locked = true })
 
 o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise (+1%)", "~/.local/bin/omarchy-audio-output-volume +1", { locked = true, repeating = true })
 o.bind("ALT + XF86AudioLowerVolume", "Volume down precise (-1%)", "~/.local/bin/omarchy-audio-output-volume -1", { locked = true, repeating = true })
@@ -223,8 +221,8 @@ o.bind("SHIFT + XF86AudioPause", "Switch media source", "omarchy-audio-source-sw
 o.bind("SHIFT + XF86AudioPlay", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 
 -- Brightness Controls
-o.bind("XF86MonBrightnessUp", "Brightness up", "swayosd-client --brightness raise || omarchy-brightness-display +5%", { locked = true, repeating = true })
-o.bind("XF86MonBrightnessDown", "Brightness down", "swayosd-client --brightness lower || omarchy-brightness-display 5%-", { locked = true, repeating = true })
+o.bind("XF86MonBrightnessUp", "Brightness up", "omarchy-brightness-display +5%", { locked = true, repeating = true })
+o.bind("XF86MonBrightnessDown", "Brightness down", "omarchy-brightness-display 5%-", { locked = true, repeating = true })
 o.bind("ALT + XF86MonBrightnessUp", "Brightness up precise (+1%)", "omarchy-brightness-display +1%", { locked = true, repeating = true })
 o.bind("ALT + XF86MonBrightnessDown", "Brightness down precise (-1%)", "omarchy-brightness-display 1%-", { locked = true, repeating = true })
 o.bind("SHIFT + XF86MonBrightnessUp", "Brightness maximum", "omarchy-brightness-display 100%", { locked = true, repeating = true })
@@ -321,7 +319,7 @@ o.bind("SUPER + CTRL + 0", "Reset zoom", function()
 end)
 
 -- Clipboard shortcuts
-o.bind("SUPER + V", "Clipboard manager", "omarchy-shell shell toggle omarchy.clipboard || sh -c 'cliphist decode \"$(cliphist list | fuzzel --dmenu)\" | wl-copy'")
+o.bind("SUPER + V", "Clipboard manager", "omarchy-shell shell toggle omarchy.clipboard")
 o.bind("SUPER + CTRL + V", "Clear clipboard", "omarchy-shell shell call omarchy.clipboard confirmClearHistory '' && wl-copy -c && omarchy-shell osd show '{\"icon\":\"󰅍\",\"message\":\"Clipboard Cleared\"}'")
 
 -- Hardware Lid Switch
