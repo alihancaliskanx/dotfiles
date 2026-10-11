@@ -18,7 +18,7 @@ moment you edit one it takes effect live. No external tool is needed to install
 | system | Omarchy (`ID=omarchy`), Hyprland 0.56 on its Lua config provider |
 | bar, launcher, notifications, lock | Omarchy's shell — `quickshell -n -p /usr/share/omarchy/shell`, started by `omarchy-launch-shell` |
 | Hyprland config | `hypr/.config/hypr/hyprland.lua` and the five modules it requires |
-| not installed | waybar, hyprpaper, mako, fuzzel, swayosd — their configs in `desktop` are linked and read by nothing |
+| not here | waybar, hyprpaper, mako, fuzzel, swayosd — not installed, and this branch carries no config for them |
 
 ### the Hyprland config is a layer, not a config
 
@@ -59,11 +59,9 @@ o.bind("SUPER + W", "Close window", hl.dsp.window.close())
 The second argument is the description `SUPER+K` shows; a bind without one is a
 bind nobody can look up.
 
-`hyprland.conf` is still in the package and is **not** what runs. Hyprland 0.56
-prefers `hyprland.lua` when both exist and chooses once, at startup. The `.conf`
-is the leftover of the pre-Lua config — decoration, animations, groups, and an
-`exec-once` block for waybar, hyprpaper and mako that would collide with the
-shell if it were ever read. `hyprctl systeminfo | grep configProvider` says
+There is no `hyprland.conf` on this branch. Hyprland 0.56 prefers
+`hyprland.lua` when both exist and chooses once, at startup, so a `.conf` beside
+it was a file nothing read; `hyprctl systeminfo | grep configProvider` says
 which one a session is on.
 
 ### fuzzel is gone, and one binding still names it
@@ -89,21 +87,6 @@ conflict in `./link.sh status`, there is a real file where the symlink should
 be and the two copies have drifted; diff them first, then
 `./link.sh adopt desktop ~/.config/omarchy/shell.json` pulls the live one in
 over the repo's.
-
-### `link.sh` does not switch desktops here
-
-`link.sh` can swap one desktop for another — its `rice` command, and the menu a
-bare `./link.sh` used to open at a terminal. Doing that ends by stopping what
-the other desktops run, and one of the names on that list is `quickshell`, the
-process Omarchy's shell runs as. So under Omarchy the command is refused before
-it touches anything, and a bare `./link.sh` links the profile without asking:
-
-```
-✘ rice: this is an Omarchy session, its shell is not one of these — use ./link.sh profile hyprland
-```
-
-The check is whether `omarchy-launch-shell` is on `PATH`. If the bar is ever
-gone for another reason, that is also the command that brings it back.
 
 ### `fixes/` and `themes/`
 
@@ -173,12 +156,12 @@ Example: `desktop/.config/omarchy/shell.toml` → `~/.config/omarchy/shell.toml`
 | Package    | Contents                                                        |
 |------------|-----------------------------------------------------------------|
 | `shell`    | `.zshrc` + `~/.config/zsh/` modules, `.bashrc`, `.p10k.zsh`, `starship.toml` |
-| `hypr`     | `hyprland.lua` + its five modules, the legacy `hyprland.conf`, `hypridle.conf`, `hyprlock.conf`, the portal pins |
-| `desktop`  | `~/.config/omarchy/`, the Windows VM launchers, chromium flags — and configs for waybar, fuzzel, mako, swayosd, satty and hyprpaper, none of which is installed |
+| `hypr`     | `hyprland.lua` + its five modules, `hypridle.conf`, `hyprlock.conf`, the portal pins |
+| `desktop`  | `~/.config/omarchy/`, the Windows VM launchers, chromium flags  |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
 | `vscode`   | `~/.config/Code/User/settings.json` (extensions: see below)      |
-| `git`      | `~/.config/git/config` — aliases, identity, gh credential helper |
+| `git`      | `~/.config/git/config` — aliases, identity, gh credential helper; includes the untracked `config.local` |
 | `xdg`      | `mimeapps.list` — which application opens which file type        |
 | `cli`      | btop theme, cava, tmux, `~/.proxychains/tor.conf`               |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
@@ -219,6 +202,7 @@ is common to all of them; the desktop-specific ones are added on top.
 ./link.sh unlink nvim          # remove a single package
 ./link.sh adopt gtk            # pull the real files from $HOME into the repo
 ./link.sh adopt cli ~/.config/btop/btop.conf     # move one new file into a package
+./link.sh clean                # remove links left pointing at files the repo no longer has
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
 ./link.sh -f ...               # rename a conflicting real file to .bak.<date> and link over it
 ```
@@ -245,6 +229,22 @@ first and pulling it into the repo afterwards:
 > it is clean with `git status` first, then look at what changed with `git diff`.
 > Running a dry-run with `-n` first is a good idea.
 
+### clean — after something is deleted from the repo
+
+`unlink` walks the files a package has. A file that was deleted from the repo is
+not one of them, so its symlink in `$HOME` is left dangling and nothing ever
+visits it again. `clean` finds those — symlinks that point into this repo at a
+path that is no longer there — and removes them:
+
+```bash
+./link.sh -n clean
+./link.sh clean
+```
+
+It looks in `$HOME` one level deep and in every directory a package links into,
+`.config` and `.local` always. A dangling symlink that points anywhere else is
+not this repo's and is left alone.
+
 ### If you would rather use stow
 
 The directory layout is stow compatible:
@@ -263,15 +263,13 @@ stow -t ~ shell terminal nvim cli scripts services theme hypr desktop
 ```
 
 Validates what the repo can validate: `bash -n` and shellcheck (warning level
-and up) over every script, `Hyprland --verify-config`, `luac -p`, `jq` on
-the tracked JSON, `stylua --check` on the nvim config, and whether every package
-directory is actually reachable from a profile.
+and up) over every script, the Hyprland config, `test.sh`, `jq` on the tracked
+JSON, `stylua --check` on the nvim config, and whether every package directory
+is actually reachable from a profile.
 
-The Hyprland config is checked three ways, because the file Hyprland loads is
-not the one that is easy to check. `hyprland.conf` is verified as it always was.
-The Lua modules get `luac -p`, which is syntax and nothing more but runs
-anywhere `luac` does. And `hyprland.lua` is loaded for real, by
-`Hyprland --verify-config`, which is the only one of the three that notices a
+The Hyprland config is checked two ways. The Lua modules get `luac -p`, which
+is syntax and nothing more but runs anywhere `luac` does. And `hyprland.lua` is
+loaded for real, by `Hyprland --verify-config`, which is the one that notices a
 call to a function that does not exist.
 
 That last one needs Omarchy's tree under `$OMARCHY_PATH`, and it needs to be
@@ -290,6 +288,27 @@ from mason if they are not installed system-wide:
 ```bash
 PATH="$HOME/.local/share/nvim/mason/bin:$PATH" ./check.sh
 ```
+
+---
+
+## test.sh
+
+```bash
+./test.sh
+```
+
+`link.sh` decides everything that lands in `$HOME`, and for a long time the only
+way it was checked was by running it on the machine it was written for.
+`test.sh` copies it next to a handful of fixture packages in a temporary
+directory, points `TARGET` at an empty one, and asserts what each command leaves
+behind: that a dry run creates nothing, that a second run changes nothing, that
+a real file in the way is an error and survives it, that `-f` keeps a backup,
+that `unlink` and `clean` remove only what is this repo's, that `adopt` moves
+the file and leaves the link.
+
+Nothing outside the temporary directory is read or written, so it runs in CI as
+part of `check.sh`. The first thing it found was that a package name that does
+not exist was reported as linked.
 
 ---
 
@@ -655,14 +674,28 @@ name, because it is what selects the rainynight colour scheme for Qt apps under
 Hyprland). `kwinrc`, `plasmarc` and the rest stay out: they are constantly
 rewritten by KDE and would produce constant conflicts.
 
-**`~/.config/git/config` is tracked, and `net-proxy git on` writes into it.**
-This used to say the opposite, and the reasoning was sound: `git config --global`
-writes with lock+rename, which replaces a symlink with a real file, so tracking
-it looked pointless. It is tracked anyway — for the aliases, the identity and the
-gh credential helper — and the consequence is worth knowing rather than being
-surprised by. `net-proxy git on` writes through to the file in this repo, so the
-tethering proxy address ends up in `git diff` and, if you are not looking, in a
-commit. `net-proxy git off` takes it back out.
+**`~/.config/git/config` is tracked, and what belongs to one machine is not in it.**
+The file is a symlink into this repo, and `git config --global` writes through
+it — so anything set that way shows up in `git diff` and, if you are not
+looking, in a commit. `net-proxy git on` used to put the tethering proxy there.
+
+The tracked file now ends with
+
+```ini
+[include]
+	path = ~/.config/git/config.local
+```
+
+and `net-proxy` writes to that file instead. It is not in the repo and git does
+not mind when it is missing, so a fresh machine needs nothing. It is also the
+place for anything else that should not be shared: set it with
+
+```bash
+git config --file ~/.config/git/config.local <key> <value>
+```
+
+`--global` still means the tracked file. `net-proxy git off` clears the proxy
+from both, for the copy an older version left behind.
 
 Note also that `[https] proxy` is not a thing git reads; only `http.proxy` (and
 `http.<url>.proxy`) does anything. The `[https]` section is inert.
