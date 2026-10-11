@@ -116,8 +116,8 @@ PKGS=(
   nano-syntax-highlighting zsh-autocomplete
 )
 
-# The bar/launcher/notification stack, and the wallpaper daemon.
-WM_SHARED=(waybar swayosd fuzzel mako hyprlock hypridle hyprpaper xdg-desktop-portal-gtk)
+# What the hypr package carries a config for, besides the compositor itself.
+WM_SHARED=(hyprlock hypridle xdg-desktop-portal-gtk)
 
 case "$PROFILE" in
   hyprland)
@@ -150,7 +150,7 @@ AUR_PKGS=(
   # applications
   stremio ani-cli manga-tui legacylauncher appimagelauncher termius
   gnome-network-displays platypus gem debtap
-  # music: a terminal player that speaks MPRIS, so the media keys and waybar's
+  # music: a terminal player that speaks MPRIS, so the media keys and the bar's
   # mpris module drive it without any glue
   cliamp-bin
 )
