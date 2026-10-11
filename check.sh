@@ -22,7 +22,7 @@ skip() { printf '%s- %s (%s missing)%s\n' "$DIM" "$1" "$2" "$RST"; }
 warn() { printf '%s! %s%s\n' "$YLW" "$*" "$RST"; }
 
 # ─── shell ───────────────────────────────────────────────────────────────────
-shell_files=(link.sh install.sh check.sh repo.sh scripts/.local/bin/*)
+shell_files=(link.sh install.sh check.sh repo.sh test.sh scripts/.local/bin/*)
 err=0
 for f in "${shell_files[@]}"; do
     [ -f "$f" ] || continue
@@ -43,19 +43,8 @@ else
     skip "shellcheck" shellcheck
 fi
 
-# ─── compositors ─────────────────────────────────────────────────────────────
-if command -v Hyprland >/dev/null; then
-    out="$(Hyprland --verify-config -c hypr/.config/hypr/hyprland.conf 2>&1)"
-    case "$out" in
-        *"config ok"*) ok "Hyprland --verify-config" ;;
-        *)             bad "Hyprland --verify-config"; printf '%s\n' "$out" | tail -5 ;;
-    esac
-else
-    skip "Hyprland --verify-config" Hyprland
-fi
-
-# hyprland.lua is the config Hyprland actually loads when both are present, and
-# the .conf above says nothing about it. Syntax is checked wherever luac is.
+# ─── compositor ──────────────────────────────────────────────────────────────
+# The Hyprland config is Lua. Syntax is checked wherever luac is.
 lua_files=(hypr/.config/hypr/*.lua)
 if command -v luac >/dev/null; then
     err=0
@@ -90,6 +79,13 @@ if command -v Hyprland >/dev/null && [ -f "$omarchy_root/default/hypr/bootstrap.
     esac
 else
     skip "Hyprland --verify-config  (lua)" "Hyprland or Omarchy"
+fi
+
+# ─── link.sh ─────────────────────────────────────────────────────────────────
+if out="$(./test.sh 2>&1)"; then
+    ok "test.sh  ($(printf '%s\n' "$out" | tail -n 1 | sed 's/\x1b\[[0-9;]*m//g; s/^[^0-9]*//'))"
+else
+    bad "test.sh"; printf '%s\n' "$out" | grep '✘'
 fi
 
 # ─── json ────────────────────────────────────────────────────────────────────
