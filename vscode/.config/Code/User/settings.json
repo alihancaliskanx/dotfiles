@@ -1,4 +1,17 @@
 { "workbench.colorTheme": "Omarchy",
     "update.mode": "none",
-    "workbench.iconTheme": "material-icon-theme"
+    "workbench.iconTheme": "material-icon-theme",
+    "workbench.editorAssociations": {
+        "*.copilotmd": "vscode.markdown.preview.editor",
+        "{git,gitlens,chat-editing-snapshot-text-model,copilot,git-graph,git-graph-3}:/**/*.qrc": "default",
+        "{git,gitlens,chat-editing-snapshot-text-model,copilot,git-graph,git-graph-3}:/**/*.ui": "default",
+        "*.qrc": "qt-core.qrcEditor"
+    },
+    "qt-core.additionalQtPaths": [
+        {
+            "name": "Qt-5.15.19-linux-g++-x86_64_from_PATH",
+            "path": "/usr/bin/qmake"
+        }
+    ],
+    "git.confirmSync": false
 }
