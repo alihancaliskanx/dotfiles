@@ -14,6 +14,10 @@ source "$OMARCHY_PATH/default/bash/rc"
 # aurapilot autotest — only if the directory exists.
 [ -d "$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest" ] \
   && export PATH="$HOME/Documents/Code/aurapilot/ardupilot/Tools/autotest:$PATH"
-source /home/sups/venv-ardupilot/bin/activate
-export PATH=/opt/gcc-arm-none-eabi-10-2020-q4-major/bin:$PATH
-export PATH=/home/sups/Documents/Code/aura_dev_enviroment/aurapilot/ardupilot/Tools/autotest:$PATH
+
+# ARM embedded toolchain — only if it is installed.
+[ -d /opt/gcc-arm-none-eabi-10-2020-q4-major/bin ] \
+  && export PATH="/opt/gcc-arm-none-eabi-10-2020-q4-major/bin:$PATH"
+
+[ -d "$HOME/Documents/Code/aura_dev_enviroment/aurapilot/ardupilot/Tools/autotest" ] \
+  && export PATH="$HOME/Documents/Code/aura_dev_enviroment/aurapilot/ardupilot/Tools/autotest:$PATH"
