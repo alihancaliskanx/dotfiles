@@ -40,13 +40,21 @@ case "$PROFILE" in
   *) echo "Unknown profile: $PROFILE  (hyprland|kde)"; exit 1 ;;
 esac
 
+# On Omarchy the compositor, the bar, the launcher and the notification daemon
+# all come with the system. Installing this repo's own stack next to them gives
+# two of each, so everything that is a desktop is left out there and only the
+# rest of the list goes in.
+OS_RELEASE="${OS_RELEASE:-/etc/os-release}"
+ON_OMARCHY=0
+grep -qx 'ID=omarchy' "$OS_RELEASE" 2>/dev/null && ON_OMARCHY=1
+
 # ─── packages ────────────────────────────────────────────────────────────────
 # Everything needed in every profile, independent of the desktop.
 PKGS=(
   # terminals and editor
   kitty alacritty ghostty neovim
-  # shells and what .zshrc/config.fish directly need
-  zsh fish fzf eza git
+  # the shell and what .zshrc directly needs
+  zsh fzf eza git
   # network / proxy tools — net-proxy, tor-net, tor-control rely on these.
   # net-proxy tunnels ssh through corkscrew, or ncat (from nmap) if corkscrew
   # is not around — the fallback was silently in use on this machine.
@@ -55,7 +63,7 @@ PKGS=(
   # net-tunnel section of the README for why.)
   tor proxychains-ng gum corkscrew nftables glider
   # what the scripts package shells out to and nothing else pulls in: jq
-  # (window-switch, hotkeys, the force-kill and screenshot bindings),
+  # (the smart-focus and full-width scripts, the screenshot bindings),
   # powerprofilesctl (power-profile), notify-send (libnotify)
   jq libnotify power-profiles-daemon
   # cli
@@ -75,8 +83,7 @@ PKGS=(
   papirus-icon-theme
   # libadwaita's stylesheet ported to GTK3, so a GTK3 window takes its colours
   # from the @define-color block in gtk-3.0/gtk.css instead of hardcoding them.
-  # That is what lets the caelestia rice recolour GTK applications from the
-  # wallpaper; every other theme ignores the file and stays as it was.
+  # Every other theme ignores the file and stays as it was.
   adw-gtk-theme
   # gui helpers
   nautilus dolphin pavucontrol nm-connection-editor network-manager-applet
@@ -114,9 +121,11 @@ WM_SHARED=(waybar swayosd fuzzel mako hyprlock hypridle hyprpaper xdg-desktop-po
 
 case "$PROFILE" in
   hyprland)
-    PKGS+=("${WM_SHARED[@]}"
-           hyprland hyprpicker
-           xdg-desktop-portal-hyprland hyprpolkitagent)
+    if [[ "$ON_OMARCHY" -eq 0 ]]; then
+      PKGS+=("${WM_SHARED[@]}"
+             hyprland hyprpicker
+             xdg-desktop-portal-hyprland hyprpolkitagent)
+    fi
     ;;
   kde)
     # KDE is assumed to be installed already; only the common packages go in.
@@ -144,21 +153,11 @@ AUR_PKGS=(
   # music: a terminal player that speaks MPRIS, so the media keys and waybar's
   # mpris module drive it without any glue
   cliamp-bin
-  # the caelestia rice (./link.sh rice caelestia). Its shell is not a config
-  # tree to symlink but a quickshell config compiled against a C++ plugin, so
-  # the AUR package is the whole of it; the CLI is the `caelestia` command its
-  # keybindings call and what starts the shell. Only the Hyprland half is a
-  # checkout, cloned below.
-  #
-  # caelestia-shell depends on quickshell-git, which replaces the quickshell
-  # package the imperative-dots rice runs on. It provides the same two binaries
-  # (quickshell, qs), so that rice keeps working — but this is the line that
-  # swaps it, in case a later quickshell-git ever breaks it.
-  caelestia-shell caelestia-cli
 )
 
 echo "════════════════════════════════════════════════════════════"
 echo "  dotfiles install  —  profile: $PROFILE"
+[[ "$ON_OMARCHY" -eq 1 ]] && echo "  Omarchy: its own desktop is kept, none is installed"
 if [[ -n "$PROXY" ]]; then
   echo "  proxy: $PROXY"
 else
@@ -242,18 +241,6 @@ clone_if_missing https://github.com/MichaelAquilina/zsh-you-should-use.git     "
 clone_if_missing https://github.com/marlonrichert/zsh-autocomplete.git         "$ZSH_CUSTOM/plugins/zsh-autocomplete"
 clone_if_missing https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git "$ZSH_CUSTOM/plugins/autoswitch_virtualenv"
 
-# ─── rices ───────────────────────────────────────────────────────────────────
-# link.sh links a rice straight out of its own checkout, so the checkout has to
-# exist before `./link.sh rice caelestia` can do anything. Only caelestia is
-# cloned here: imperative-dots is a fork of the user's own, pushed to over ssh,
-# and cloning it read-only over https would put the wrong remote in place.
-#
-# This is the clone link.sh reads, not the one `caelestia install` makes for
-# itself under ~/.local/state. Do not run that command: it copies these dots
-# over ~/.config, which is this script's job and has no way back.
-echo ">> rice checkouts..."
-clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Documents/Code/caelestia"
-
 # ─── desktop settings that are not files ─────────────────────────────────────
 # The portal reads the GTK theme out of gsettings, not out of gtk-3.0/settings.ini
 # — org.freedesktop.impl.portal.Settings is pinned to the gtk backend in
@@ -262,9 +249,9 @@ clone_if_missing https://github.com/caelestia-dots/caelestia.git "$HOME/Document
 # window comes up with GTK's bare built-in look while every other GTK app is
 # themed, which is confusing precisely because it is only the dialogs.
 #
-# adw-gtk3-dark, because it is the only GTK3 theme that reads the colours the
-# caelestia rice regenerates from the wallpaper: it is libadwaita's stylesheet
-# ported to GTK3, so the @define-color block in gtk-3.0/gtk.css reaches it. Every
+# adw-gtk3-dark, because it is the only GTK3 theme that reads the colours out of
+# gtk-3.0/gtk.css: it is libadwaita's stylesheet ported to GTK3, so the
+# @define-color block in that file reaches it. Every
 # other theme hardcodes its palette and ignores that file. Naming a theme that is
 # not installed is worse than naming none, so adw-gtk-theme is in the list above.
 echo ">> desktop settings..."
@@ -318,7 +305,6 @@ cat <<EOF
   Remaining manual steps
   ──────────────────────
   • ssh-agent:      systemctl --user enable --now ssh-agent
-  • try fish:       $REPO/link.sh link fish   and   chsh -s /usr/bin/fish
   • nvim:           LazyVim plugins install themselves on first launch (:Lazy sync)
   • VS Code:        code-extensions install   (the 30 extensions in extras/)
   • the rest:       pkg-snapshot install      (everything this machine had, beyond the curated list)

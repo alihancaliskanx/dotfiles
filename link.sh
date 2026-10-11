@@ -10,13 +10,12 @@
 #   ./link.sh                      ask which desktop to use (menu), then link it
 #   ./link.sh -n                   show what it would do, touch nothing (dry-run)
 #   ./link.sh -f                   back up conflicting real files and link over them
-#   ./link.sh link gtk fish        link specific packages
+#   ./link.sh link gtk             link specific packages
 #   ./link.sh profile              list the profiles
 #   ./link.sh profile hyprland     link the packages of a profile
 #   ./link.sh rice                 list the desktops and show which one is on
 #   ./link.sh rice own             switch to the desktop of this repo
 #   ./link.sh rice imperative-dots switch to the quickshell desktop
-#   ./link.sh rice caelestia       switch to the caelestia desktop
 #   ./link.sh unlink [package...]  remove the symlinks pointing at this repo
 #   ./link.sh status [package...]  which package is linked, which is not
 #   ./link.sh adopt <package>      pull the real files from $HOME into the repo (CAUTION: overwrites repo content)
@@ -39,9 +38,9 @@ TARGET="${TARGET:-$HOME}"
 #
 # `wallpapers` is separate from `theme` for a plainer reason: it is 27 MB of
 # photographs and `theme` is a handful of text files. It is also the one place
-# every rice looks and none of them owns — caelestia's picker reads
-# ~/Pictures/Wallpapers, matugen is pointed at whatever is there — so it is
-# common rather than belonging to any of them. The StarrySky image is NOT in it:
+# every rice looks and none of them owns — matugen is pointed at whatever is
+# in ~/Pictures/Wallpapers — so it is common rather than belonging to any of
+# them. The StarrySky image is NOT in it:
 # that one has to be real inside its KPackage directory, so it stays in `theme`
 # and the copy here is a symlink to it, the same way extras/backgrounds does.
 COMMON_PACKAGES="shell terminal nvim vscode cli scripts services theme wallpapers kdeglobals git xdg"
@@ -54,7 +53,7 @@ declare -A PROFILES=(
 DEFAULT_PROFILE="${DOTFILES_PROFILE:-hyprland}"
 
 # Packages in no profile at all, to be asked for by hand (reason in the README).
-EXTRA_PACKAGES=(fish gtk)
+EXTRA_PACKAGES=(gtk)
 
 # ─── rices ───────────────────────────────────────────────────────────────────
 # A profile picks the compositor; a rice picks the desktop on top of it — which
@@ -65,70 +64,37 @@ EXTRA_PACKAGES=(fish gtk)
 # .linkmap at its root; for a repo that is not ours to write into, the same file
 # is kept here as extras/linkmaps/<rice>.linkmap. Without either there is
 # nothing to link and link.sh says so.
-#
-# caelestia is only half a checkout. Its shell — the bar, launcher, lock screen
-# — is not a config tree at all: on Arch it is the caelestia-shell AUR package,
-# a quickshell config compiled against a C++ plugin and installed system wide,
-# which is why RICE_PKGS below exists and there is nothing of it to symlink.
-# What is left over, the Hyprland config, is the caelestia-dots/caelestia
-# checkout this points at. Do not run `caelestia install`: it is the CLI's own
-# installer and copies those dots over ~/.config, which is exactly the job this
-# script is doing, only without a way back.
 declare -A RICES=(
     [imperative-dots]="$HOME/Documents/Code/imperative-dots"
-    [caelestia]="$HOME/Documents/Code/caelestia"
 )
 
 # One line per rice, shown in the menu.
 declare -A RICE_ABOUT=(
     [own]="waybar, fuzzel, mako, satty, hyprpaper"
     [imperative-dots]="quickshell: bar, launcher, notifications, lock, wallpaper"
-    [caelestia]="quickshell from the AUR + its own lua Hyprland config"
 )
 
-# Packages a rice needs and no profile installs. install.sh carries these in its
-# AUR list, but a machine it never ran on — or one where the AUR build failed —
-# would otherwise link the whole rice and then come up to an empty screen, so
-# they are checked before anything is touched.
-declare -A RICE_PKGS=(
-    [caelestia]="caelestia-shell caelestia-cli"
-)
+# Packages a rice needs and no profile installs. They are checked before
+# anything is touched: a rice that links cleanly and then comes up to an empty
+# screen is the worse failure.
+declare -A RICE_PKGS=()
 
 # Packages of this repo that a rice takes the paths of. They are unlinked before
 # it goes in and linked back on the way to "own", so the two never fight over
 # the same file. Everything else (scripts, git, services, xdg...) is rice
 # neutral and stays linked throughout.
-#
-# caelestia keeps kdeglobals, unlike the other one. It sets
-# QT_QPA_PLATFORMTHEME=qtengine and colours Qt apps through ~/.config/qtengine,
-# a path nothing here owns, so kdeglobals is simply not read while it is on and
-# there is nothing to take away. `cli` is on its list for one file: the CLI
-# rewrites ~/.config/cava/config every time the scheme changes.
 declare -A RICE_REPLACES=(
     [imperative-dots]="hypr desktop cli kdeglobals"
-    [caelestia]="hypr desktop cli"
 )
 
 # The other direction: packages of this repo that exist *for* a rice and are
-# linked alongside it. A rice is somebody else's checkout, so there is nowhere
-# in it to keep what this machine has to say back to it — the tr keyboard, the
-# panel scale, the keybinds these dotfiles keep, the blur that a GT1 iGPU can
-# afford. caelestia reads all of that out of ~/.config/caelestia, a directory
-# neither repo owned, so none of it survived a reinstall and none of it was
-# ever reviewed in a diff.
+# linked alongside it. Kept out of every profile on purpose: the files are
+# meaningless with the rice off. They go in with the rice and come out with it.
 #
-# Kept out of every profile on purpose: the files are meaningless with the rice
-# off, and linking them anyway would leave a config for a shell that is not
-# running. They go in with the rice and come out with it.
-#
-# Only safe because nothing generates these. caelestia-cli renders its
-# templates to a temp file and os.replace()s them into place, which destroys a
-# symlink rather than writing through it — see RICE_GENERATES below — but
-# hypr-vars.lua, hypr-user.lua and shell.json are all read and never written,
-# by either the CLI or the shell. Check that again before adding a fourth.
-declare -A RICE_LOCAL=(
-    [caelestia]="caelestia-local"
-)
+# Only safe for files nothing generates. A tool that renders to a temporary
+# file and renames it into place destroys a symlink rather than writing through
+# it — see RICE_GENERATES below.
+declare -A RICE_LOCAL=()
 
 # The compositor a rice needs, when it only runs on one. imperative-dots calls
 # hyprctl from 15 of its files — monitors, keyboard layout, workspaces, submaps
@@ -137,32 +103,18 @@ declare -A RICE_LOCAL=(
 # Hyprland afterwards, is the normal way to install it.
 declare -A RICE_NEEDS=(
     [imperative-dots]="Hyprland"
-    [caelestia]="Hyprland"
 )
 
 # A line printed after a rice goes in, for what is worth saying once it is on.
-# caelestia's Hyprland config is upstream's and stays upstream's: it hard codes
-# a us keyboard and a single preferred monitor, and knows nothing about this
-# laptop. hypr-user.lua is the file it reads last, so anything put there wins —
-# and it is the caelestia-local package above, so it is tracked here rather
-# than sitting loose in ~/.config.
-declare -A RICE_NOTE=(
-    [caelestia]="what this machine says back to it — keyboard, scale, keybinds, blur — is the caelestia-local package, linked alongside"
-)
+declare -A RICE_NOTE=()
 
 # What each rice actually runs. A rice is not only its symlinks: a bar left
 # running after its config was unlinked keeps drawing from a file that is no
 # longer there, and starting the other one on top gives you two bars fighting
 # over the same strip of screen. Switching stops one set and starts the other.
-#
-# Both quickshell rices are the same binary under two names: imperative-dots
-# execs `quickshell`, caelestia is started through its CLI and ends up as `qs`.
-# pgrep -x tells them apart, which is the only reason switching between the two
-# stops the right one.
 declare -A RICE_RUNS=(
     [own]="waybar hyprpaper"
     [imperative-dots]="quickshell awww-daemon"
-    [caelestia]="qs"
 )
 
 # Real files a rice's own tooling writes at paths this repo also owns.
@@ -188,34 +140,8 @@ declare -A RICE_RUNS=(
 # Only paths that are genuinely regenerated belong here. Removed on the way out,
 # and only when they really are files rather than symlinks: a symlink at one of
 # these paths belongs to a package and the loop above has already dealt with it.
-# caelestia writes its files the other way round: caelestia-cli renders every
-# template to a temporary file and os.replace()s it into place, so a symlink at
-# the target is destroyed rather than written through and this repo is never in
-# danger. What it leaves behind is a real file at a path a package wants back —
-# fuzzel.ini and the cava config above all, both of which it rewrites on every
-# `caelestia scheme set`. hypr/scheme/current.lua is the colour scheme its own
-# lua config copies out of scheme/default.lua on first load.
-#
-# The gtk files are here without gtk being in RICE_REPLACES on purpose: `gtk` is
-# an extra package, outside every profile, so the way back to "own" would not
-# relink it. Removing what caelestia left is still right — a stale caelestia
-# palette on a Rainy-Night desktop is worse than no gtk.css — but if you use
-# that package, put it back with `./link.sh -f link gtk`.
-#
-# colors.css is the one file here caelestia does not write itself: its CLI only
-# renders gtk.css and thunar.css. kde-gtk-config's kded regenerates colors.css
-# from the desktop palette, and caelestia's `dconf write gtk-theme` is enough to
-# set that off — the two end up with the same mtime and colours to the second.
-# So it is caelestia's leftover all the same, and gets cleaned up like one.
-#
-# Safe to delete only because the gtk package no longer ships colors.css nor
-# imports it: it is kde-gtk-config's file end to end, and the kded writes it
-# again from kdeglobals at the next login. Do not put that @import back without
-# taking these two paths out again — a gtk.css importing a file this switch has
-# just removed is a parse error on the startup of every GTK application.
 declare -A RICE_GENERATES=(
     [imperative-dots]=".config/swayosd/style.css .config/kdeglobals"
-    [caelestia]=".config/hypr/scheme/current.lua .config/fuzzel/fuzzel.ini .config/cava/config .config/gtk-3.0/gtk.css .config/gtk-3.0/colors.css .config/gtk-4.0/gtk.css .config/gtk-4.0/colors.css"
 )
 
 # Directories linked as a whole instead of file by file, as paths relative to
@@ -271,7 +197,7 @@ pkg_files() {
 
 all_packages() {
     find "$DOTFILES" -mindepth 1 -maxdepth 1 -type d -printf '%P\n' \
-        | grep -vE '^(\.git|extras)$' | sort
+        | grep -vE '^(\.git|\.github|extras|fixes|themes|temp)$' | sort
 }
 
 resolve_packages() {
@@ -291,9 +217,9 @@ resolve_packages() {
 # Hyprland 0.56 reads hyprland.lua in preference to hyprland.conf and generates
 # a stub for whichever it was looking for, under a header of its own wording
 # ("-- AUTOGENERATED HYPRLAND CONFIG"). That one matters more than the .conf
-# stub ever did: lua wins, so a stub left at ~/.config/hypr/hyprland.lua after
-# caelestia is taken out shadows this repo's hyprland.conf completely and the
-# desktop comes up as bare Hyprland with no explanation.
+# stub ever did: lua wins, so a stub left at ~/.config/hypr/hyprland.lua
+# shadows a hyprland.conf beside it completely and the desktop comes up as bare
+# Hyprland with no explanation.
 is_generated_stub() {
     [ -f "$1" ] && head -n 5 "$1" 2>/dev/null \
         | grep -qiE "config is a STUB|autogenerated (hyprland )?config"
@@ -445,8 +371,8 @@ adopt_pkg() {
 }
 
 # Form 2: adopt <package> <home-path>...
-#   Moves a file that is not yet in the repo into the package. For writing the
-#   fish config in $HOME first and then pulling it into the repo.
+#   Moves a file that is not yet in the repo into the package. For writing a
+#   config in $HOME first and then pulling it into the repo.
 adopt_paths() {
     local pkg="$1"; shift
     local p abs rel src
@@ -608,14 +534,6 @@ proc_start() {
     case "$1" in
         waybar)      systemctl --user start waybar >/dev/null 2>&1 ;;
         quickshell)  setsid quickshell -p "$HOME/.config/hypr/scripts/quickshell/Shell.qml" >/dev/null 2>&1 & ;;
-        # `caelestia shell -d` is `qs -c caelestia -n -d`, and -c only resolves
-        # against the search path the AUR package installs into. Running the
-        # binary bare, the way the default branch does, finds no config at all.
-        # The overlay first, and synchronously: it is what puts the patched
-        # shell in ~/.config/quickshell/caelestia, and starting the shell
-        # before it exists would load the packaged one for this session.
-        qs)          caelestia-shell-overlay --quiet 2>/dev/null
-                     caelestia shell -d >/dev/null 2>&1 ;;
         *)           setsid "$1" >/dev/null 2>&1 & ;;
     esac
 }
@@ -623,10 +541,6 @@ proc_start() {
 proc_stop() {
     case "$1" in
         waybar) systemctl --user stop waybar >/dev/null 2>&1 ;;
-        # qs kill addresses the instance by config name. `caelestia shell -k`
-        # does not always take, and a start on top of a shell that did not die
-        # leaves two of them fighting over the same strip of screen.
-        qs)     qs kill -c caelestia >/dev/null 2>&1 || pkill -x qs 2>/dev/null ;;
         *)      pkill -x "$1" 2>/dev/null ;;
     esac
 }
@@ -637,8 +551,8 @@ proc_stop() {
 # Except when the two rices disagree on the config *language*. Hyprland 0.56
 # chooses between hyprland.lua and hyprland.conf once, at startup, and
 # `hyprctl reload` only ever re-reads the file it already chose — so switching
-# from imperative-dots to caelestia reloads the .conf that is no longer there,
-# Hyprland regenerates a stub in its place, and the session carries on as bare
+# from a rice that writes .conf to one that writes .lua reloads the .conf that
+# is no longer there, Hyprland regenerates a stub in its place, and the session carries on as bare
 # Hyprland with the new rice's bar drawn on top of it. Nothing errors and
 # nothing looks obviously broken; `hyprctl getoption decoration:rounding` just
 # quietly says 0.
@@ -704,10 +618,19 @@ rice_check_pkgs() {
     return 1
 }
 
+# Omarchy draws the desktop with a shell of its own, and that shell is a
+# quickshell process — the name RICE_RUNS lists for imperative-dots. A switch
+# would stop it as "the other rice" and then go looking for a waybar that is
+# not installed, which leaves a session with nothing on the screen. None of the
+# rices below is a desktop Omarchy can be swapped for, so there the command is
+# refused and a bare ./link.sh links the profile without asking.
+on_omarchy() { command -v omarchy-launch-shell >/dev/null 2>&1; }
+
 # Switching is always "take the other one out, then put this one in", never a
 # merge: both rices want ~/.config/hypr and whoever is linked there wins.
 rice_apply() {
     local rice="$1" p r
+    on_omarchy && die "rice: this is an Omarchy session, its shell is not one of these — use ./link.sh profile $DEFAULT_PROFILE"
     case "$rice" in
         own)
             for r in "${!RICES[@]}"; do rice_unlink "$r"; done
@@ -729,10 +652,10 @@ rice_apply() {
             # does it. While there was one of them this loop was unreachable —
             # you could only arrive here from "own" — and going straight from
             # one foreign rice to another left the first one's symlinks lying
-            # in ~/.config/hypr. Not even as a conflict: imperative-dots writes
-            # hyprland.conf and caelestia writes hyprland.lua, so the two sit
-            # side by side under different names and Hyprland, which prefers
-            # lua, quietly keeps running the rice you just switched away from.
+            # in ~/.config/hypr. Not even as a conflict when one writes
+            # hyprland.conf and the other hyprland.lua: the two sit side by
+            # side under different names and Hyprland, which prefers lua,
+            # quietly keeps running the rice you just switched away from.
             for r in "${!RICES[@]}"; do
                 [ "$r" = "$rice" ] || rice_unlink "$r"
             done
@@ -740,8 +663,8 @@ rice_apply() {
             # removes, and nothing here put anything back, so going from a rice
             # that replaces a package straight to one that does not left that
             # package unlinked with nothing said about it. kdeglobals is where
-            # it showed: imperative-dots replaces it, caelestia does not, and
-            # after the switch there was no kdeglobals at all. KDE wrote a stub
+            # it showed: imperative-dots replaces it, the rice that came after
+            # did not, and there was no kdeglobals at all. KDE wrote a stub
             # of its own into the gap, Qt fell back to the default light
             # palette, and everything that reads the portal's color-scheme --
             # which kde-gtk-config derives from that same file -- went light
@@ -839,7 +762,8 @@ list_profiles() {
     # their rice and come out with it. Printed anyway because check.sh reads
     # this listing to find packages nobody links, and "nobody" would otherwise
     # include every one of these.
-    printf '  %sowned by a rice:%s %s\n' "$DIM" "$RST" "${RICE_LOCAL[*]}"
+    [ "${#RICE_LOCAL[@]}" -eq 0 ] \
+        || printf '  %sowned by a rice:%s %s\n' "$DIM" "$RST" "${RICE_LOCAL[*]}"
     printf '  %susage: ./link.sh profile <name>%s\n' "$DIM" "$RST"
 }
 
@@ -862,7 +786,7 @@ done
 # Nothing asked for, and a terminal to ask on: show the menu. Anywhere else — a
 # script, CI, a pipe — keep doing what a bare ./link.sh has always done, so
 # nothing that calls this starts hanging on a prompt it cannot answer.
-if [ -z "$CMD" ] && [ "${#ARGS[@]}" -eq 0 ] && [ -t 0 ]; then
+if [ -z "$CMD" ] && [ "${#ARGS[@]}" -eq 0 ] && [ -t 0 ] && ! on_omarchy; then
     CMD="menu"
 fi
 CMD="${CMD:-link}"

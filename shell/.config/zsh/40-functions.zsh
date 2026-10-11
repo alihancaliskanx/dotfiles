@@ -1,8 +1,8 @@
 # 40-functions — custom functions.
 #
 # Rule: anything that does not change the current shell's environment (env, cwd)
-# is written as a script under scripts/.local/bin, not here — that way fish calls
-# the same code. What stays here are the ones that change env/cwd.
+# is written as a script under scripts/.local/bin, not here — that way any shell,
+# and a keybinding, calls the same code. What stays here are the ones that change env/cwd.
 
 # ── ardupilot development environment ────────────────────────────────────────
 ardudev() {

@@ -73,7 +73,6 @@ o.bind("SUPER + A", "Bring active window to top", hl.dsp.window.bring_to_top())
 
 o.bind("SUPER + CTRL + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
 o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
-o.bind("SUPER + F1", "Hotkeys cheat sheet", "hotkeys")
 o.bind("SUPER + K", "Keybindings cheat sheet", "omarchy-menu-keybindings")
 o.bind("SUPER + ALT + K", "Tmux keybindings", "omarchy-menu-tmux-keybindings")
 o.bind("SUPER + CTRL + K", "Herdr keybindings", "omarchy-menu-herdr-keybindings")
@@ -93,8 +92,6 @@ o.bind("SUPER + SHIFT + BACKSPACE", "Toggle window gaps", "omarchy-hyprland-wind
 o.bind("SUPER + CTRL + BACKSPACE", "Toggle single-window square aspect", "omarchy-hyprland-window-single-square-aspect-toggle")
 
 -- ─── 4. Window Switching & Navigation ────────────────────────────────────────
-o.bind("SUPER + Q", "Window switcher", "window-switch")
-o.bind("SUPER + TAB", "Window switcher", "window-switch")
 
 o.bind("ALT + TAB", "Focus on next window", hl.dsp.window.cycle_next())
 o.bind("ALT + SHIFT + TAB", "Focus on previous window", hl.dsp.window.cycle_next({ next = false }))
@@ -208,19 +205,19 @@ o.bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true 
 o.bind("SUPER + mouse:273", "Resize window", hl.dsp.window.resize(), { mouse = true })
 
 -- ─── 11. Media, Hardware & Volume Controls ───────────────────────────────────
-o.bind("XF86AudioPlay", "Play media", "/home/sups/.local/bin/omarchy-media PlayPause", { locked = true })
-o.bind("SUPER + ALT + SPACE", "Play/Pause media", "/home/sups/.local/bin/omarchy-media PlayPause", { locked = true })
-o.bind("XF86AudioPause", "Pause media", "/home/sups/.local/bin/omarchy-media PlayPause", { locked = true })
-o.bind("XF86AudioNext", "Next track", "/home/sups/.local/bin/omarchy-media Next", { locked = true })
-o.bind("XF86AudioPrev", "Previous track", "/home/sups/.local/bin/omarchy-media Previous", { locked = true })
+o.bind("XF86AudioPlay", "Play media", "~/.local/bin/omarchy-media PlayPause", { locked = true })
+o.bind("SUPER + ALT + SPACE", "Play/Pause media", "~/.local/bin/omarchy-media PlayPause", { locked = true })
+o.bind("XF86AudioPause", "Pause media", "~/.local/bin/omarchy-media PlayPause", { locked = true })
+o.bind("XF86AudioNext", "Next track", "~/.local/bin/omarchy-media Next", { locked = true })
+o.bind("XF86AudioPrev", "Previous track", "~/.local/bin/omarchy-media Previous", { locked = true })
 
-o.bind("XF86AudioRaiseVolume", "Volume up", "/home/sups/.local/bin/omarchy-audio-output-volume raise", { locked = true, repeating = true })
-o.bind("XF86AudioLowerVolume", "Volume down", "/home/sups/.local/bin/omarchy-audio-output-volume lower", { locked = true, repeating = true })
-o.bind("XF86AudioMute", "Mute audio", "swayosd-client --output-volume mute-toggle || /home/sups/.local/bin/omarchy-audio-output-volume mute-toggle", { locked = true })
+o.bind("XF86AudioRaiseVolume", "Volume up", "~/.local/bin/omarchy-audio-output-volume raise", { locked = true, repeating = true })
+o.bind("XF86AudioLowerVolume", "Volume down", "~/.local/bin/omarchy-audio-output-volume lower", { locked = true, repeating = true })
+o.bind("XF86AudioMute", "Mute audio", "swayosd-client --output-volume mute-toggle || ~/.local/bin/omarchy-audio-output-volume mute-toggle", { locked = true })
 o.bind("XF86AudioMicMute", "Mute microphone", "swayosd-client --input-volume mute-toggle || omarchy-audio-input-mute", { locked = true })
 
-o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise (+1%)", "/home/sups/.local/bin/omarchy-audio-output-volume +1", { locked = true, repeating = true })
-o.bind("ALT + XF86AudioLowerVolume", "Volume down precise (-1%)", "/home/sups/.local/bin/omarchy-audio-output-volume -1", { locked = true, repeating = true })
+o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise (+1%)", "~/.local/bin/omarchy-audio-output-volume +1", { locked = true, repeating = true })
+o.bind("ALT + XF86AudioLowerVolume", "Volume down precise (-1%)", "~/.local/bin/omarchy-audio-output-volume -1", { locked = true, repeating = true })
 o.bind("SHIFT + XF86AudioMute", "Switch audio output", "~/.local/bin/omarchy-audio-output-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPause", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPlay", "Switch media source", "omarchy-audio-source-switch", { locked = true })
@@ -244,14 +241,14 @@ o.bind("XF86TouchpadOn", "Enable touchpad", "omarchy-toggle-touchpad on", { lock
 o.bind("XF86TouchpadOff", "Disable touchpad", "omarchy-toggle-touchpad off", { locked = true })
 
 -- Keypad media & volume
-o.bind("SUPER + plus", "Volume up", "/home/sups/.local/bin/omarchy-audio-output-volume raise", { repeating = true })
-o.bind("SUPER + minus", "Volume down", "/home/sups/.local/bin/omarchy-audio-output-volume lower", { repeating = true })
-o.bind("SUPER + KP_Add", "Volume up", "/home/sups/.local/bin/omarchy-audio-output-volume raise", { repeating = true })
-o.bind("SUPER + KP_Subtract", "Volume down", "/home/sups/.local/bin/omarchy-audio-output-volume lower", { repeating = true })
-o.bind("SUPER + ALT + KP_Add", "Next track", "/home/sups/.local/bin/omarchy-media Next")
-o.bind("SUPER + ALT + KP_Subtract", "Previous track", "/home/sups/.local/bin/omarchy-media Previous")
-o.bind("SUPER + CTRL + KP_Add", "Next track", "/home/sups/.local/bin/omarchy-media Next")
-o.bind("SUPER + CTRL + KP_Subtract", "Previous track", "/home/sups/.local/bin/omarchy-media Previous")
+o.bind("SUPER + plus", "Volume up", "~/.local/bin/omarchy-audio-output-volume raise", { repeating = true })
+o.bind("SUPER + minus", "Volume down", "~/.local/bin/omarchy-audio-output-volume lower", { repeating = true })
+o.bind("SUPER + KP_Add", "Volume up", "~/.local/bin/omarchy-audio-output-volume raise", { repeating = true })
+o.bind("SUPER + KP_Subtract", "Volume down", "~/.local/bin/omarchy-audio-output-volume lower", { repeating = true })
+o.bind("SUPER + ALT + KP_Add", "Next track", "~/.local/bin/omarchy-media Next")
+o.bind("SUPER + ALT + KP_Subtract", "Previous track", "~/.local/bin/omarchy-media Previous")
+o.bind("SUPER + CTRL + KP_Add", "Next track", "~/.local/bin/omarchy-media Next")
+o.bind("SUPER + CTRL + KP_Subtract", "Previous track", "~/.local/bin/omarchy-media Previous")
 
 -- ─── 12. Omarchy Utilities, Menus & Panels ───────────────────────────────────
 o.bind("SUPER + ESCAPE", "System menu", "omarchy-menu toggle system")

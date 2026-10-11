@@ -3,7 +3,7 @@
 # stray copy, or `./link.sh adopt` reaching one file too far — and that must not
 # leave the machine.
 
-# The dashboard profile picture. caelestia's "Select a profile picture" writes
+# The profile picture. A desktop shell's "select a profile picture" writes
 # whatever you pick to ~/.face, and the package layout here mirrors $HOME, so a
 # careless adopt would put a photograph of a face into a public repository.
 .face
