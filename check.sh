@@ -54,12 +54,51 @@ else
     skip "Hyprland --verify-config" Hyprland
 fi
 
+# hyprland.lua is the config Hyprland actually loads when both are present, and
+# the .conf above says nothing about it. Syntax is checked wherever luac is.
+lua_files=(hypr/.config/hypr/*.lua)
+if command -v luac >/dev/null; then
+    err=0
+    for f in "${lua_files[@]}"; do
+        [ -f "$f" ] || continue
+        luac -p "$f" 2>/dev/null || { bad "lua syntax: $f"; err=1; }
+    done
+    [ "$err" -eq 0 ] && ok "luac -p  (${#lua_files[@]} lua files)"
+else
+    skip "luac -p" luac
+fi
+
+# Loading it needs Omarchy's tree: hyprland.lua starts by running its bootstrap,
+# which resolves require("hypr.*") against $HOME/.config. A throwaway HOME whose
+# .config/hypr is this repo's makes that the tracked files rather than whatever
+# happens to be linked. The XDG variables are dropped with it: Omarchy lists its
+# state directory through XDG_STATE_HOME and requires what it finds through
+# HOME, and with the two pointing at different homes it finds files it cannot
+# then load.
+omarchy_root="${OMARCHY_PATH:-/usr/share/omarchy}"
+if command -v Hyprland >/dev/null && [ -f "$omarchy_root/default/hypr/bootstrap.lua" ]; then
+    tmp_home="$(mktemp -d)"
+    mkdir -p "$tmp_home/.config"
+    ln -s "$REPO/hypr/.config/hypr" "$tmp_home/.config/hypr"
+    out="$(env -u XDG_STATE_HOME -u XDG_CONFIG_HOME HOME="$tmp_home" \
+        Hyprland --verify-config -c "$tmp_home/.config/hypr/hyprland.lua" 2>&1)"
+    rm -f "$tmp_home/.config/hypr"
+    rmdir "$tmp_home/.config" "$tmp_home"
+    case "$out" in
+        *"config ok"*) ok "Hyprland --verify-config  (lua)" ;;
+        *)             bad "Hyprland --verify-config  (lua)"; printf '%s\n' "$out" | tail -5 ;;
+    esac
+else
+    skip "Hyprland --verify-config  (lua)" "Hyprland or Omarchy"
+fi
+
 # ─── json ────────────────────────────────────────────────────────────────────
 # vscode/ and extras/ are left out on purpose: they are JSON with comments and
 # trailing commas (VS Code's own dialect), which jq rejects by design.
 if command -v jq >/dev/null; then
     err=0; n=0
     while IFS= read -r f; do
+        [ -f "$f" ] || continue
         n=$((n + 1))
         jq -e . "$f" >/dev/null 2>&1 || { bad "invalid json: $f"; err=1; }
     done < <(git ls-files '*.json' | grep -vE '^(vscode|extras)/')
@@ -83,7 +122,7 @@ listed=" $(./link.sh profile 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | tr -s '[:
 orphans=""
 for d in */; do
     d="${d%/}"
-    case "$d" in extras|fixes|themes) continue ;; esac
+    case "$d" in extras|fixes|themes|temp) continue ;; esac
     case "$listed" in *" $d "*) ;; *) orphans="$orphans $d" ;; esac
 done
 if [ -n "$orphans" ]; then
