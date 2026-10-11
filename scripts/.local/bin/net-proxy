@@ -37,18 +37,30 @@ warn() { printf '  \e[33m!\e[0m %s\n' "$*"; }
 die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
 
 # ─── git ─────────────────────────────────────────────────────────────────────
+# ~/.config/git/config is a symlink into the dotfiles repository, and
+# `git config --global` writes through it: the proxy of whatever network the
+# laptop is on ended up in `git diff` and, unnoticed, in a commit. The tracked
+# file includes this one instead, and it is not tracked.
+GIT_LOCAL="${XDG_CONFIG_HOME:-$HOME/.config}/git/config.local"
+
 git_on() {
-    git config --global http.proxy  "$PROXY_URL"
-    git config --global https.proxy "$PROXY_URL"
+    mkdir -p "${GIT_LOCAL%/*}"
+    git config --file "$GIT_LOCAL" http.proxy  "$PROXY_URL"
+    git config --file "$GIT_LOCAL" https.proxy "$PROXY_URL"
     ok "git proxy ON  → $PROXY_ADDR"
 }
 git_off() {
+    if [ -f "$GIT_LOCAL" ]; then
+        git config --file "$GIT_LOCAL" --unset http.proxy  2>/dev/null
+        git config --file "$GIT_LOCAL" --unset https.proxy 2>/dev/null
+    fi
+    # What a version of this script that wrote to the tracked file left there.
     git config --global --unset http.proxy  2>/dev/null
     git config --global --unset https.proxy 2>/dev/null
     off "git proxy off"
 }
 git_status() {
-    local p; p=$(git config --global --get http.proxy 2>/dev/null)
+    local p; p=$(git config --global --includes --get http.proxy 2>/dev/null)
     [ -n "$p" ] && ok "git    → $p" || off "git    → none"
 }
 
