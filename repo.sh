@@ -125,6 +125,9 @@ fi
 
 # ─── the keyrings ────────────────────────────────────────────────────────────
 printf '\n'
+case " $missing " in
+    *" omarchy "*) need_pkg omarchy-keyring || warn "not installed: omarchy-keyring" ;;
+esac
 for p in cachyos-keyring cachyos-mirrorlist cachyos-v4-mirrorlist; do
     case " $missing " in *cachyos*) ;; *) continue ;; esac
     need_pkg "$p" || warn "not installed: $p  (pacman -S $p)"
@@ -158,24 +161,43 @@ backup="$CONF.bak.$(date +%Y%m%d-%H%M%S)"
 cp -a "$CONF" "$backup" || die "could not back up $CONF"
 dim "backup: $backup"
 
+# Of the repositories listed after $1, the one that comes first in pacman.conf.
+# A missing repository goes in immediately above it, so it ends up ahead of
+# everything it is meant to shadow: appended, it would sit underneath all of
+# them. The earliest in the file rather than the next in the list, because a
+# pacman.conf somebody has already edited need not be in this order — and then
+# "above the next one" can still be below one that should lose. Only when
+# nothing after it is present does it go on the end.
+next_present() {
+    local seen=0 name line best="" best_line=0
+    while IFS=$'\t' read -r name _; do
+        [ -n "$name" ] || continue
+        if [ "$seen" -eq 1 ]; then
+            line=$(grep -nE "^\[$name\]" "$CONF" | head -n 1 | cut -d: -f1)
+            if [ -n "$line" ] && { [ -z "$best" ] || [ "$line" -lt "$best_line" ]; }; then
+                best="$name"
+                best_line="$line"
+            fi
+        fi
+        [ "$name" = "$1" ] && seen=1
+    done <<< "$REPOS"
+    [ -n "$best" ] && printf '%s' "$best"
+}
+
 for name in $missing; do
     list=$(awk -F'\t' -v n="$name" '$1==n {print $2}' <<< "$REPOS")
-    case "$name" in
-        cachyos*)
-            if grep -qE '^\[core\]' "$CONF"; then
-                sed -i "/^\[core\]/i [$name]\nInclude = $list\n" "$CONF"
-                ok "inserted [$name] above [core]"
-                continue
-            fi
-            ;;
-        omarchy)
-            printf '\n[%s]\nSigLevel = Optional TrustAll\nServer = %s\n' "$name" "$list" >> "$CONF"
-            ok "added [$name]"
-            continue
-            ;;
+    # A path is a mirrorlist to Include; anything else is the server itself.
+    case "$list" in
+        /*) key=Include ;;
+        *)  key=Server ;;
     esac
-    printf '\n[%s]\nInclude = %s\n' "$name" "$list" >> "$CONF"
-    ok "added [$name]"
+    if anchor=$(next_present "$name"); then
+        sed -i "/^\[$anchor\]/i [$name]\n$key = $list\n" "$CONF"
+        ok "inserted [$name] above [$anchor]"
+    else
+        printf '\n[%s]\n%s = %s\n' "$name" "$key" "$list" >> "$CONF"
+        ok "added [$name]"
+    fi
 done
 
 printf '\n'
