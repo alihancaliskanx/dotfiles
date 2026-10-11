@@ -50,7 +50,7 @@ This directory contains scripts that resolve hardware and software incompatibili
   - Copies `omarchy-audio-output-volume` to `~/.local/bin/` with the limit raised to 150.
   - Rewrites the volume bindings in `~/.config/hypr/bindings.lua` to call that copy by path, because Omarchy's own `bin` directory is ahead of `~/.local/bin` on the compositor's `PATH`.
   - Clones the `omarchy.audio` shell plugin and raises the slider maximum to 1.5.
-* **Note:** the bindings file is a symlink into this repository, so the script edits a tracked file. It writes the path as `/home/$USER/...`; the tracked bindings spell it `~/.local/bin/...`, so check `git diff` after running it.
+* **Note:** the bindings file is a symlink into this repository, so the script edits a tracked file. It writes the path as `~/.local/bin/...`, the way the tracked bindings spell it, so running it on an up-to-date checkout leaves `git diff` empty.
 
 ### 8. `fix-tmux_up.sh`
 * **Issue:** No single key brings up the usual set of tmux sessions.

@@ -22,8 +22,9 @@ if [ -f "$BINDINGS_FILE" ]; then
     sed -i 's|~/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g' "$BINDINGS_FILE"
     sed -i 's/--max-volume 150 //g' "$BINDINGS_FILE"
 
-    # Apply the absolute path
-    sed -i "s|omarchy-audio-output-volume|/home/$USER/.local/bin/omarchy-audio-output-volume|g" "$BINDINGS_FILE"
+    # Call the copy by path: Omarchy's bin directory is ahead of ~/.local/bin
+    # on the compositor's PATH
+    sed -i 's|omarchy-audio-output-volume|~/.local/bin/omarchy-audio-output-volume|g' "$BINDINGS_FILE"
     
     # Apply max-volume to swayosd-client if present
     sed -i 's/swayosd-client --output-volume raise/swayosd-client --output-volume raise --max-volume 150/g' "$BINDINGS_FILE"
