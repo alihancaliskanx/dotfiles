@@ -19,6 +19,9 @@
           "id": "omarchy.weather"
         },
         {
+          "id": "omarchy.media"
+        },
+        {
           "id": "omarchy.system-update"
         },
         {
@@ -47,9 +50,6 @@
           "id": "omarchy.agents"
         },
         {
-          "id": "io.github.shivamnarkar47.omarchy-hotspot"
-        },
-        {
           "id": "apurva.notifications"
         },
         {
@@ -65,6 +65,9 @@
           "id": "omarchy.network"
         },
         {
+          "id": "io.github.shivamnarkar47.omarchy-hotspot"
+        },
+        {
           "id": "omarchy.monitor"
         }
       ]
@@ -76,18 +79,12 @@
     "lock": 300,
     "screensaver": 150
   },
-  "plugins": [
-    {
-      "id": "sups.wifiqr"
-    }
-  ],
+  "plugins": [],
   "version": 1,
   "disabledPlugins": [
-    "omarchy.wifiqr",
     "omarchy.notifications"
   ],
   "cloneSourceRestores": [
-    "sups.wifiqr",
     "apurva.notifications"
   ]
 }
