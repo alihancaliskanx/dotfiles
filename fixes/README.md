@@ -39,8 +39,40 @@ This directory contains scripts that resolve hardware and software incompatibili
   - Enables and starts the `tccd.service`.
   - Configures Tuxedo Control Center to run automatically on startup via `~/.config/autostart`.
 
-### 6. `run-all.sh`
-* Runs all fix scripts sequentially at once.
+### 6. `fix-debtap-grep.sh`
+* **Issue:** `debtap` uses a regex that grep 3.8+ rejects, so it concludes its package database is empty.
+* **Solution:**
+  - Patches the regex in `/usr/bin/debtap` in place. Uses `sudo`, and has to be run again after `debtap` is upgraded.
+
+### 7. `fix-volume-150.sh`
+* **Issue:** Omarchy caps the output volume at 100%, both on the volume keys and on the panel slider.
+* **Solution:**
+  - Copies `omarchy-audio-output-volume` to `~/.local/bin/` with the limit raised to 150.
+  - Rewrites the volume bindings in `~/.config/hypr/bindings.lua` to call that copy by path, because Omarchy's own `bin` directory is ahead of `~/.local/bin` on the compositor's `PATH`.
+  - Clones the `omarchy.audio` shell plugin and raises the slider maximum to 1.5.
+* **Note:** the bindings file is a symlink into this repository, so the script edits a tracked file. It writes the path as `/home/$USER/...`; the tracked bindings spell it `~/.local/bin/...`, so check `git diff` after running it.
+
+### 8. `fix-tmux_up.sh`
+* **Issue:** No single key brings up the usual set of tmux sessions.
+* **Solution:**
+  - Writes `~/.local/bin/tmux_up.sh`, which creates the `HOME`, `AURA`, `CODE` and `HACK` sessions if they are missing and attaches to `HOME`.
+  - Writes the `omarchy-launch-terminal-tmux_up` wrapper that `SUPER + CTRL + RETURN` is bound to.
+
+### 9. `fix-davinci-resolve.sh`
+* **Issue:** DaVinci Resolve fails with *"Unable to Initialize GPU"* on a hybrid-GPU laptop when the display is driven by the iGPU.
+* **Solution:**
+  - Copies `DaVinciResolve.desktop` to `~/.local/share/applications/` and rewrites its `Exec` line to run on the NVIDIA GPU through XWayland.
+
+### 10. `fix-antigravity-agent.sh`
+* **Issue:** Antigravity is not among the agents Omarchy's menu offers as the default.
+* **Solution:**
+  - Adds the entry to `~/.config/omarchy/extensions/omarchy-menu.jsonc` and installs an `omarchy-default-agent` wrapper in `~/.local/bin/` that knows about it.
+
+### 11. `remove-old-gemini.sh`
+* Uninstalls the `gemini` CLI that was installed through `mise` and removes its wrapper from `~/.local/bin/`.
+
+### 12. `run-all.sh`
+* Runs scripts 1 to 6 in sequence. Scripts 7 to 11 are not part of it and are run one at a time.
 
 ---
 
@@ -56,4 +88,10 @@ This directory contains scripts that resolve hardware and software incompatibili
 ./fixes/fix-windows-vm.sh
 ./fixes/fix-key-visualizer-turkish.sh
 ./fixes/fix-tuxedo-control-center.sh
+./fixes/fix-debtap-grep.sh
+./fixes/fix-volume-150.sh
+./fixes/fix-tmux_up.sh
+./fixes/fix-davinci-resolve.sh
+./fixes/fix-antigravity-agent.sh
+./fixes/remove-old-gemini.sh
 ```

@@ -1,8 +1,9 @@
 # dotfiles
 
-My Arch-based (CachyOS) setup. Theme: **rainynight**.
-This branch additionally carries the old **omarchy** theme as a submodule.
-Two desktop profiles are supported — **Hyprland** and **KDE** — and two shells: **zsh**, **fish**.
+My [Omarchy](https://omarchy.org) setup. Theme: **rainynight**.
+This is the `omarchy` branch: the machine runs Omarchy 4, and these files are
+what it says on top of Omarchy's defaults rather than a desktop of their own.
+Two desktop profiles are supported — **Hyprland** and **KDE**. The shell is **zsh**.
 
 Everything is symlinked into `$HOME`; the real files live in this repo, so the
 moment you edit one it takes effect live. No external tool is needed to install
@@ -10,20 +11,149 @@ moment you edit one it takes effect live. No external tool is needed to install
 
 ---
 
+## What this branch runs
+
+| | |
+|---|---|
+| system | Omarchy (`ID=omarchy`), Hyprland 0.56 on its Lua config provider |
+| bar, launcher, notifications, lock | Omarchy's shell — `quickshell -n -p /usr/share/omarchy/shell`, started by `omarchy-launch-shell` |
+| Hyprland config | `hypr/.config/hypr/hyprland.lua` and the five modules it requires |
+| not installed | waybar, hyprpaper, mako, fuzzel, swayosd — their configs in `desktop` are linked and read by nothing |
+
+### the Hyprland config is a layer, not a config
+
+`hyprland.lua` does four things in order, and the order is the design:
+
+```lua
+dofile((os.getenv("OMARCHY_PATH") or "/usr/share/omarchy") .. "/default/hypr/bootstrap.lua")
+_G.omarchy_default_bindings = false
+require("default.hypr.omarchy")
+require("hypr.monitors"); require("hypr.input"); require("hypr.bindings")
+require("hypr.looknfeel"); require("hypr.autostart")
+```
+
+The bootstrap puts `~/.local/state`, `~/.config` and `$OMARCHY_PATH` on Lua's
+module path, which is what makes `require("hypr.bindings")` find
+`~/.config/hypr/bindings.lua` and `require("default.hypr.omarchy")` find
+Omarchy's own tree. `default.hypr.omarchy` then loads Omarchy's autostart,
+environment, look and feel, input and window rules — and its bindings, unless
+`omarchy_default_bindings` was set to `false` first. It is, so **every key on
+this machine is in `bindings.lua`** and an Omarchy update cannot move one.
+The cost is the other side of the same coin: a binding Omarchy adds later does
+not arrive by itself.
+
+The modules here run after Omarchy's, so they win: `input.lua` is the `tr`
+keyboard and the touchpad, `looknfeel.lua` the gaps, the Qt environment and the
+window rules, `monitors.lua` the scale, `autostart.lua` what this machine starts
+besides the shell (the wallet handoff, kded, hypridle, cliphist, the Tuxedo
+tray).
+
+Bindings are written with Omarchy's helper, not `hl.bind` directly:
+
+```lua
+o.bind("SUPER + RETURN", "Terminal (Alacritty)", "alacritty")
+o.bind("SUPER + SHIFT + B", "Web Browser (Default)", { omarchy = "browser" })
+o.bind("SUPER + W", "Close window", hl.dsp.window.close())
+```
+
+The second argument is the description `SUPER+K` shows; a bind without one is a
+bind nobody can look up.
+
+`hyprland.conf` is still in the package and is **not** what runs. Hyprland 0.56
+prefers `hyprland.lua` when both exist and chooses once, at startup. The `.conf`
+is the leftover of the pre-Lua config — decoration, animations, groups, and an
+`exec-once` block for waybar, hyprpaper and mako that would collide with the
+shell if it were ever read. `hyprctl systeminfo | grep configProvider` says
+which one a session is on.
+
+### fuzzel is gone, and one binding still names it
+
+The fuzzel menus this repo used to bind — a hotkey list on `SUPER+F1`, a window
+picker on `SUPER+Q` and `SUPER+TAB` — are not on this branch: the scripts and
+the three keys were removed, and `SUPER+K` is Omarchy's own list of bindings.
+What is left is the second half of `SUPER+V`, which pipes cliphist into fuzzel
+when the shell's clipboard panel fails to open. With fuzzel not installed that
+fallback does nothing.
+
+### `desktop/.config/omarchy`
+
+Omarchy's user directory: `shell.toml` and `shell.json` for the shell,
+`extensions/omarchy-menu.jsonc` for entries added to its menu, `hooks/` for the
+scripts it runs on update, boot and theme change (the `.sample` files are
+Omarchy's own examples, inert until renamed), and `branding/`. Its `.gitignore`
+keeps `themes/` and `plugins/` out — both are installed by Omarchy and are not
+this repo's to version.
+
+`shell.json` is written by the shell's settings pages. When it shows up as a
+conflict in `./link.sh status`, there is a real file where the symlink should
+be and the two copies have drifted; diff them first, then
+`./link.sh adopt desktop ~/.config/omarchy/shell.json` pulls the live one in
+over the repo's.
+
+### `link.sh` does not switch desktops here
+
+`link.sh` can swap one desktop for another — its `rice` command, and the menu a
+bare `./link.sh` used to open at a terminal. Doing that ends by stopping what
+the other desktops run, and one of the names on that list is `quickshell`, the
+process Omarchy's shell runs as. So under Omarchy the command is refused before
+it touches anything, and a bare `./link.sh` links the profile without asking:
+
+```
+✘ rice: this is an Omarchy session, its shell is not one of these — use ./link.sh profile hyprland
+```
+
+The check is whether `omarchy-launch-shell` is on `PATH`. If the bar is ever
+gone for another reason, that is also the command that brings it back.
+
+### `fixes/` and `themes/`
+
+Neither is a package. `fixes/` is a set of scripts run by hand, once per
+machine, each for one thing Omarchy or this laptop's hardware gets wrong —
+Chromium on NVIDIA, the workspace buttons stopping at five, the key visualizer
+assuming a US layout, the Windows VM dying when its window closes. They write
+into `$HOME` and some of them patch files Omarchy owns, so an Omarchy update can
+undo one and it has to be run again. `fixes/README.md` has the list;
+`fixes/run-all.sh` runs six of them, and the rest (`fix-tmux_up.sh`,
+`fix-volume-150.sh`, `fix-davinci-resolve.sh`, `fix-antigravity-agent.sh`,
+`remove-old-gemini.sh`) are run one at a time. `fix-debtap-grep.sh` and
+`fix-tuxedo-control-center.sh` use sudo.
+
+`themes/install-rainynight.sh` hands the theme submodule's repository to
+`omarchy theme install`; `omarchy theme set omarchy-rainynight-theme` applies it.
+
+---
+
 ## Install on a clean machine
 
+On this branch the machine is installed by Omarchy's own installer first; what
+this repo adds is the links.
+
 ```bash
-git clone git@github.com:alihancaliskanx/dotfiles.git ~/Documents/Code/dotfiles
+git clone --recurse-submodules git@github.com:alihancaliskanx/dotfiles.git ~/Documents/Code/dotfiles
 cd ~/Documents/Code/dotfiles
 
+./link.sh profile hyprland
+```
+
+That is enough for the configs. `install.sh` is for everything else the machine
+is expected to have:
+
+```bash
 ./install.sh hyprland      # or: kde
 ```
 
 `install.sh` does the following, in order:
 
 1. Installs the pacman + AUR packages for the profile
-2. Clones oh-my-zsh, powerlevel10k and 5 zsh plugins
-3. Links the configs with `./link.sh profile <profile>`
+2. Installs the flatpak apps in `extras/flatpak-apps.txt`
+3. Clones oh-my-zsh, powerlevel10k and 5 zsh plugins
+4. Links the configs with `./link.sh profile <profile>`
+
+It reads `ID=` from `/etc/os-release`, and on Omarchy it installs **no desktop**:
+Hyprland, the bar, the launcher and the notification daemon already came with
+the system, and a second set beside them is two of everything. What goes in is
+the rest of the list — terminals, editors, the network tools the scripts shell
+out to, fonts, applications.
 
 If you are behind a proxy (PdaNet etc.):
 
@@ -38,33 +168,31 @@ If you only want to link the configs and not install packages, `./link.sh` is en
 ## Packages
 
 Each top-level directory is a "package"; the tree inside it is mirrored exactly into `$HOME`.
-Example: `desktop/.config/waybar/style.css` → `~/.config/waybar/style.css`.
+Example: `desktop/.config/omarchy/shell.toml` → `~/.config/omarchy/shell.toml`.
 
 | Package    | Contents                                                        |
 |------------|-----------------------------------------------------------------|
-| `shell`    | `.zshrc` + `~/.config/zsh/` modules, `.bashrc`, `.p10k.zsh`     |
-| `fish`     | `config.fish` + `~/.config/fish/modules/` — *not part of a profile* |
-| `hypr`     | `hyprland.conf`, `hypridle.conf`, `hyprlock.conf`               |
-| `desktop`  | waybar, fuzzel, mako, swayosd, satty, hyprpaper                 |
+| `shell`    | `.zshrc` + `~/.config/zsh/` modules, `.bashrc`, `.p10k.zsh`, `starship.toml` |
+| `hypr`     | `hyprland.lua` + its five modules, the legacy `hyprland.conf`, `hypridle.conf`, `hyprlock.conf`, the portal pins |
+| `desktop`  | `~/.config/omarchy/`, the Windows VM launchers, chromium flags — and configs for waybar, fuzzel, mako, swayosd, satty and hyprpaper, none of which is installed |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
 | `vscode`   | `~/.config/Code/User/settings.json` (extensions: see below)      |
 | `git`      | `~/.config/git/config` — aliases, identity, gh credential helper |
 | `xdg`      | `mimeapps.list` — which application opens which file type        |
-| `cli`      | btop theme, cava, `~/.proxychains/tor.conf`                     |
+| `cli`      | btop theme, cava, tmux, `~/.proxychains/tor.conf`               |
 | `scripts`  | the shared tools under `~/.local/bin/` (see below)              |
 | `services` | `ssh-agent.service`, the Qt theme env, cliamp's D-Bus name      |
-| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, the `My Dotfiles` Plasma global theme |
-| `wallpapers` | `~/Pictures/Wallpapers/` — the images themselves, which every rice looks at and none of them owns |
-| `kdeglobals` | the palette Qt apps read outside Plasma — its own package because a rice may need to take it over |
+| `theme`    | aether, Vencord, vicinae, warp-terminal rainynight themes, the `RainyNight` Qt colour scheme |
+| `wallpapers` | `~/Pictures/Wallpapers/` — the images themselves              |
+| `kdeglobals` | the palette Qt apps read — Dolphin, Ark, Gwenview              |
 | `gtk`      | GTK3/GTK4 css — *not part of a profile*, see the warning below  |
 
-Not linked: `extras/` (manually imported VSCode/Chromium/icon themes, the rice
-linkmaps, `vscode-extensions.txt`) and the top-level scripts. Nothing in
-`extras/` is symlinked, which is exactly why the extension list lives there:
-every file inside a package lands in `$HOME` at the same relative path. The
-wallpapers moved out of it into a package of their own — what is left in
-`extras/backgrounds/` is a symlink to the one real copy.
+Not linked: `extras/` (manually imported VSCode/Chromium/icon themes, the
+package snapshots, `vscode-extensions.txt`, the theme submodule), `fixes/`,
+`themes/` and the top-level scripts. Nothing in `extras/` is symlinked, which is
+exactly why the extension list lives there: every file inside a package lands in
+`$HOME` at the same relative path.
 
 ### Profiles
 
@@ -76,22 +204,19 @@ is common to all of them; the desktop-specific ones are added on top.
 | `hyprland` | `hypr` `desktop`  |
 | `kde`      | — (common only)   |
 
-`fish` and `gtk` are deliberately in no profile; they are linked on request.
+`gtk` is deliberately in no profile; it is linked on request.
 
 ---
 
 ## link.sh
 
 ```bash
-./link.sh                      # ask which desktop to use, then link it
+./link.sh                      # link the default profile
 ./link.sh profile              # list the profiles
 ./link.sh profile hyprland     # link the packages of a profile
-./link.sh link fish gtk        # link individual packages
+./link.sh link gtk             # link individual packages
 ./link.sh status               # which package is linked, which is not
 ./link.sh unlink nvim          # remove a single package
-./link.sh rice                 # list the desktops, show which one is on
-./link.sh rice imperative-dots # switch desktop
-./link.sh rice caelestia       # ditto
 ./link.sh adopt gtk            # pull the real files from $HOME into the repo
 ./link.sh adopt cli ~/.config/btop/btop.conf     # move one new file into a package
 ./link.sh -n ...               # dry-run: show what it would do, touch nothing
@@ -102,245 +227,6 @@ A conflict is an **error** by default, nothing is silently overwritten.
 `unlink` only deletes symlinks pointing at this repo, it never touches real files.
 
 To change the default profile: `DOTFILES_PROFILE=kde ./link.sh`
-
-### rices — three desktops, one repo
-
-A **profile** picks the compositor; a **rice** picks the desktop on top of it.
-Run `./link.sh` with no arguments on a terminal and it asks which one:
-
-```
-Which desktop?  (on now: own)
-
-  1) own              waybar, fuzzel, mako, satty, hyprpaper
-  2) caelestia        quickshell from the AUR + its own lua Hyprland config
-  3) imperative-dots  quickshell: bar, launcher, notifications, lock, wallpaper
-```
-
-| rice | where it lives |
-|---|---|
-| `own` | this repo — the profile packages |
-| `caelestia` | `caelestia-shell` from the AUR + `~/Documents/Code/caelestia`, upstream's [dots](https://github.com/caelestia-dots/caelestia) |
-| `imperative-dots` | `~/Documents/Code/imperative-dots`, [a fork](https://github.com/alihancaliskanx/imperative-dots) of ilyamiro's config |
-
-A rice that is not this repo is **linked straight out of its own checkout** —
-nothing is vendored in here, no submodule, no copy. Upstream stays a `git pull`
-away in a repo of its own, and a fork is what makes local changes committable
-(inside a submodule they would sit on a detached HEAD that cannot be cloned
-anywhere else).
-
-Each foreign rice needs a `.linkmap` saying where its directories belong under
-`$HOME`, because those trees are laid out for their own installer, not for a
-symlinker:
-
-```
-config/sessions/hyprland     .config/hypr
-config/programs/matugen      .config/matugen
-```
-
-A fork keeps that file at its own root and commits it there. An upstream
-checkout cannot: a file added to it is untracked noise in someone else's
-`git status` and is gone the next time it is cloned. For those the map lives
-here instead, as `extras/linkmaps/<rice>.linkmap`, and `link.sh` falls back to
-it — which is where caelestia's is.
-
-Switching is always *take one out, put the other in*, never a merge — both want
-`~/.config/hypr` and whoever is linked there wins. `RICE_REPLACES` in `link.sh`
-lists the packages of this repo that a rice takes over (`hypr desktop cli` for
-both of them, plus `kdeglobals` for imperative-dots); everything rice-neutral
-(`scripts`, `git`, `services`, `xdg`, `shell`, `nvim`, `terminal`…) stays
-linked throughout. Going from one foreign rice to another takes the first one
-out too, and has to: imperative-dots writes `hyprland.conf` where caelestia
-writes `hyprland.lua`, so leaving them side by side is not even a conflict —
-Hyprland prefers lua and would keep running the one you just left. Whatever the
-outgoing rice had taken over and the incoming one does not want is linked back
-at the same time: `kdeglobals` is replaced by imperative-dots and not by
-caelestia, and without that step the switch left it linked to nothing at all —
-KDE wrote a stub into the gap and every Qt app, plus everything reading the
-portal's `color-scheme`, came up light.
-
-Symlinks are only half of it, so `RICE_RUNS` names what each rice actually runs
-— `waybar hyprpaper` against `quickshell awww-daemon` against `qs`. Switching
-stops one set, reloads the compositor config, and starts the other, because a
-bar left running after its config was unlinked keeps drawing from a file that
-is gone, and starting the other one on top gives you two bars fighting over the
-same strip. A dry run says what it would restart and touches nothing, and with
-no `WAYLAND_DISPLAY` the whole step is skipped — linking from a tty to set a
-machine up is a legitimate thing to do.
-
-Usually that means no logging out. The exception is caelestia, and it is worth
-knowing about: Hyprland 0.56 chooses between `hyprland.lua` and `hyprland.conf`
-**once, at startup**, and `hyprctl reload` only re-reads the file it already
-chose. Coming from a rice that writes `.conf`, the reload therefore re-reads a
-file that has just been unlinked, Hyprland regenerates a stub in its place, and
-the session carries on as bare Hyprland with caelestia's bar drawn on top of
-it. Nothing errors; `hyprctl getoption decoration:rounding` just quietly says
-`0`. Nothing can fix that short of restarting the compositor, so `link.sh`
-compares `hyprctl systeminfo`'s `configProvider` against the config now on disk
-and says to log out when they disagree.
-
-#### caelestia — half AUR package, half checkout
-
-Unlike the other two, caelestia is not a config tree you can symlink. Its shell
-is a quickshell config compiled against a C++ plugin and installed system wide,
-so on Arch **the package is the whole of it**:
-
-```bash
-paru -S caelestia-shell caelestia-cli
-```
-
-`install.sh` carries both in its AUR list, and `./link.sh rice caelestia`
-checks for them with `pacman -Qq` before it touches anything — a rice that
-links cleanly and then comes up to an empty screen is the worse failure.
-
-> **Watch which package satisfies `quickshell-git`.** `caelestia-shell` depends
-> on it by name, and `cachyos/noctalia-qs` — a custom Quickshell fork — carries
-> `provides = quickshell quickshell-git`, so an AUR helper will happily take it
-> as the provider and replace the real `quickshell` with it. It is not one:
-> caelestia's `shell.qml` dies on `Unrecognized pragma "DefaultEnv ..."` and no
-> shell comes up. The repo's own `quickshell` (0.3.0) does have that pragma and
-> runs caelestia fine, so the way out is `sudo pacman -Rdd noctalia-qs && sudo
-> pacman -S quickshell` — `-Rdd` because `quickshell` does not *provide*
-> `quickshell-git` and a plain `-R` refuses on caelestia-shell's behalf. That
-> leaves the dependency formally unsatisfied and functionally fine.
-
-What is left over is the Hyprland config, and *that* is the checkout at
-`~/Documents/Code/caelestia` (cloned by `install.sh`). Nothing else from those
-dots is linked — the fish, foot, btop and vscode configs there are paths this
-repo already owns and the desktop changing is no reason for the shell prompt to
-change with it. `extras/linkmaps/caelestia.linkmap` says so line by line.
-
-> **Do not run `caelestia install`.** It is the CLI's own installer and it
-> *copies* those dots over `~/.config`, which is precisely the job `link.sh` is
-> doing — only with no way back and straight over this repo's symlinks.
-
-Upstream's config hard-codes a `us` keyboard and one preferred monitor, and
-knows nothing about this laptop. Two files reach all of it: `hypr-vars.lua` is
-merged over its variables before anything runs, and `hypr-user.lua` is required
-last, so it wins outright. Both are the **`caelestia-local`** package here, and
-that is what `RICE_LOCAL` is for — a rice is somebody else's checkout, so there
-is nowhere in it to keep what this machine has to say back. It goes in with the
-rice and comes out with it, and is in no profile: a config for a shell that is
-not running is just clutter.
-
-```lua
--- caelestia-local/.config/caelestia/hypr-vars.lua — a table, merged over theirs
-return { terminal = "alacritty", blurPasses = 1, kbCloseWindow = "SUPER + W" }
-```
-
-```lua
--- caelestia-local/.config/caelestia/hypr-user.lua — ordinary config, read last
-hl.config({ input = { kb_layout = "tr" } })
-hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1 })
-```
-
-`shell.json` is the quickshell side of it and rides along in the same package.
-Symlinking these three is only safe because nothing generates them: the CLI and
-the shell both read them and never write back. Check that again before adding a
-fourth — see `RICE_GENERATES` just below for what happens when that is not true.
-
-The same package carries **the clipboard panel**, lifted out of imperative-dots
-and run as a quickshell config of its own from
-`~/.config/quickshell/clipboard`. caelestia's `SUPER+V` is `cliphist` piped into
-fuzzel — one line per entry, and no way to show you an image it is holding. This
-one lays the history out in a grid and renders the images.
-
-Upstream it is one page of a stack inside a single monolithic shell that also
-draws that rice's bar, notifications and lock, so there was no borrowing the
-page without borrowing the bar. What made it liftable is that
-`ClipboardManager.qml` is a plain `Item` that builds its own helpers and asks
-its parent for nothing — all it needed was a window, which is the `shell.qml`
-next to it. Four things changed in the copy: the path to `clip_fetcher.py`, the
-two calls into imperative-dots' IPC script that closed the panel (now
-`Qt.quit()`), and `MatugenColors.qml`, which read the file matugen writes and
-now reads `~/.local/state/caelestia/scheme.json` — caelestia publishes the same
-`base`/`surface0`/`mauve` names, so the panel follows `caelestia scheme set`
-with no mapping table. The file keeps its upstream name so it can still be
-diffed against where it came from.
-
-It is drawn in an 800×700 box in the middle of the screen, out of the same
-layout table and the same scale function imperative-dots sizes it with, so it
-comes out the size it is over there rather than the size that happens to suit
-this laptop. The window behind it is still the whole screen — that is what a
-click outside lands on to dismiss it — but filling the window with the panel is
-what made the first attempt enormous.
-
-`SUPER+V` toggles it out of two exit codes: `qs kill -c clipboard` returns 0
-when it killed something and 255 when there was nothing to kill, so
-`qs kill -c clipboard || qs -c clipboard` opens it when it is closed and closes
-it when it is open. caelestia's own bind is dropped in `hypr-vars.lua`
-(`kbClipboard = {}`) rather than shadowed, since the action is written into its
-`keybinds.lua` and only the key is a variable. `SUPER+ALT+V` (delete an entry)
-and `CTRL+SHIFT+ALT+V` (paste the newest) are still caelestia's.
-
-**The launcher answers to two keys**, caelestia's bare `SUPER` tap and
-`ALT+SPACE`, and they get there by different roads for a reason. The tap is the
-`caelestia:launcher` global, which `Shortcuts.qml` handles on *release* — that
-is what makes tapping a bare modifier possible at all, and there is a second
-global, `launcherInterrupt`, to cancel it when the tap turns out to be the start
-of a combo. Point `kbLauncher` at `ALT + SPACE` and that release handling comes
-along with it, which is where "it works sometimes" comes from: on a
-modifier+key combination the release only reports cleanly if you lift the key
-before the modifier, so the same keypress opens the launcher or does nothing
-depending on which finger comes up first. `ALT+SPACE` goes through the shell's
-IPC instead — `qs -c caelestia ipc call drawers toggle launcher`, the same
-toggle with no release in it, fired on the press.
-
-#### patching the shell without forking it
-
-Some of caelestia's behaviour is not configurable and lives in QML under
-`/etc/xdg/quickshell/caelestia`, which pacman owns. The launcher was one: with
-`showOnHover` on it opens when the pointer reaches the bottom of the screen and
-then never closes on its own, because `Interactions.qml` only ever assigns it
-`true` — the dashboard, three lines below, assigns the hover test itself and so
-closes when you leave. Escape, a click outside and picking an entry all closed
-it; moving the mouse away did not.
-
-Forking the tree into `~/.config/quickshell/caelestia`, which quickshell prefers
-over `/etc/xdg`, means owning 283 files and 12 MB to re-merge on every release
-for two changed lines. **`caelestia-shell-overlay`** makes that unnecessary, and
-it rests on one fact: quickshell resolves the `qs.` import prefix against the
-*config root directory*, not against wherever `shell.qml` really is. A symlinked
-`shell.qml` still loads `qs.modules.…` out of the directory the symlink sits in.
-So the overlay is a mirror of symlinks with real files punched through it only
-where something is patched. The numbers move with the patches: three of them
-today (the launcher, the dashboard's lyrics selector, the lock surface's blur)
-make it 54 symlinks, five real directories and three real files, and every
-other file in the tree keeps tracking the package.
-
-Patches, not patched copies: `caelestia-local/.config/caelestia/shell-patches/`
-holds `<relpath>.patch` files. A stored copy of an upstream file goes stale in
-silence; a `.patch` either applies or fails, and a failure is how you learn
-upstream moved. When one fails the overlay leaves the plain symlink in place and
-exits non-zero — a shell that starts and behaves like the package beats a shell
-that does not start.
-
-That last part is the thing to remember: **the overlay must be rebuilt after
-every caelestia-shell upgrade**, because a release that adds a QML file leaves
-the overlay without it and a missing import is a shell that never comes up.
-`link.sh` builds it before starting the shell, and `hypr-user.lua` runs
-`caelestia-shell-overlay --restart-if-changed` at login — a no-op on an ordinary
-login, and on the one after an upgrade it rebuilds and restarts the shell before
-you notice.
-
-caelestia-cli renders its colour scheme into a temp file and `os.replace()`s it
-into place, so a symlink at the target is destroyed rather than written through
-and this repo is never in danger — the opposite of matugen, below. What it
-leaves behind is a real file where a package wants its symlink back, so
-`RICE_GENERATES` clears `fuzzel.ini`, the cava config, `hypr/scheme/current.lua`
-and the two `gtk.css` on the way out. `gtk` is an extra package outside every
-profile, so the way back to `own` does not relink it: if you use it, run
-`./link.sh -f link gtk` afterwards.
-
-The two `colors.css` are on that list without being caelestia's own work.
-caelestia-cli renders `gtk.css` and `thunar.css` and stops there; what recolours
-`colors.css` is kde-gtk-config's kded, set off by the `dconf write gtk-theme`
-the CLI does on the way past — both files came out at the same minute with the
-same palette. The kded writes it again from `kdeglobals` at the next login,
-which is why this repo can delete it without owning it.
-
-The menu only appears when stdin is a terminal. In a script or in CI a bare
-`./link.sh` still links the default profile, exactly as before, so nothing hangs
-on a prompt it cannot answer.
 
 ### adopt — pulling a file from $HOME into the repo
 
@@ -377,12 +263,28 @@ stow -t ~ shell terminal nvim cli scripts services theme hypr desktop
 ```
 
 Validates what the repo can validate: `bash -n` and shellcheck (warning level
-and up) over every script, `Hyprland --verify-config`, `jq` on
+and up) over every script, `Hyprland --verify-config`, `luac -p`, `jq` on
 the tracked JSON, `stylua --check` on the nvim config, and whether every package
 directory is actually reachable from a profile.
 
+The Hyprland config is checked three ways, because the file Hyprland loads is
+not the one that is easy to check. `hyprland.conf` is verified as it always was.
+The Lua modules get `luac -p`, which is syntax and nothing more but runs
+anywhere `luac` does. And `hyprland.lua` is loaded for real, by
+`Hyprland --verify-config`, which is the only one of the three that notices a
+call to a function that does not exist.
+
+That last one needs Omarchy's tree under `$OMARCHY_PATH`, and it needs to be
+told which files to read: the bootstrap resolves `require("hypr.bindings")`
+against `$HOME/.config`, which is whatever happens to be linked. So the check
+runs under a throwaway `HOME` whose `.config/hypr` is this repo's directory —
+and with `XDG_STATE_HOME` and `XDG_CONFIG_HOME` unset, because Omarchy lists its
+state directory through one and requires what it found through the other, and
+with the two pointing at different homes it finds modules it cannot load.
+
 A check whose tool is missing is **skipped, not failed** — the GitHub runner
-(`.github/workflows/check.yml`) has no compositor to ask. Locally the full set runs; shellcheck and stylua come
+(`.github/workflows/check.yml`, on pushes to `main` and `omarchy`) has no
+compositor and no Omarchy to ask. Locally the full set runs; shellcheck and stylua come
 from mason if they are not installed system-wide:
 
 ```bash
@@ -402,21 +304,32 @@ PATH="$HOME/.local/share/nvim/mason/bin:$PATH" ./check.sh
 which works right up until a repository is not enabled. Five of its AUR entries
 are blackarch packages, and on a machine without `[blackarch]` the failure reads
 as "no such package" rather than "you never turned that repo on". The CachyOS v4
-repositories are the same gap from the other side — they are what makes this a
-CachyOS install rather than an Arch one.
+repositories are the same gap from the other side — this machine takes its
+x86-64-v4 builds from them, and nothing else here says so.
 
 The order is not decoration. pacman takes the first repository that holds a
 package, and the whole point of `cachyos-v4` is to shadow `core` and `extra` with
-x86-64-v4 builds, so the script **refuses** to append a cachyos repo to a
-`pacman.conf` that already has `[core]` and tells you where the block belongs
-instead. `blackarch` goes last, being the widest and least curated.
+x86-64-v4 builds. So a missing repository is not appended, where it would shadow
+nothing: it is **inserted above whichever of the repositories listed after it
+comes first in the file**. Earliest in the file rather than next in the list,
+because a `pacman.conf` somebody has already edited need not be in this order —
+this machine's has `[core]` above the cachyos repos — and "above the next one"
+can then still be below one that should lose. Only a repository with nothing
+after it present is appended. `blackarch` goes last, being the widest and least
+curated.
 
 | | |
 |---|---|
+| `omarchy` | first; `pkgs.omarchy.org/stable`, signed — needs `omarchy-keyring` |
 | `cachyos-v4` `cachyos-core-v4` `cachyos-extra-v4` | x86-64-v4 builds, above core/extra so they win |
 | `cachyos` | CachyOS's own packages — the kernel, the settings packages |
 | `core` `extra` `multilib` | Arch's |
+| `chaotic-aur` | prebuilt AUR packages; needs `chaotic-keyring` and `chaotic-mirrorlist` |
 | `blackarch` | last |
+
+A repository already in `pacman.conf` is never moved, so the script does not
+repair an order that is already wrong — on this machine `[omarchy]` is the last
+section and stays there.
 
 It checks before it enables: the v4 repos are gated on the loader's own answer to
 whether this CPU has x86-64-v4 (enabling them without AVX-512 does not fail
@@ -431,8 +344,8 @@ Idempotent, and it backs up `pacman.conf` before touching it.
 
 ## the omarchy theme, as a submodule
 
-Before caelestia this machine ran [Omarchy](https://omarchy.org), and its theme
-was `omarchy-rainynight-theme`. That theme is now a repository of its own —
+This machine runs [Omarchy](https://omarchy.org), and its theme is
+`omarchy-rainynight-theme`. That theme is a repository of its own —
 
 ```bash
 git clone --recurse-submodules git@github.com:alihancaliskanx/dotfiles.git
@@ -452,8 +365,7 @@ alone rather than deleted. It still keeps `upstream` pointing at atif-1402, so
 `git fetch upstream && git merge upstream/main` is how it catches up — it was
 eleven commits behind when this was done.
 
-**A submodule rather than a copy**, for the same reason the rices are checkouts:
-it is a repo with its own life, and this only records which commit of it belongs
+**A submodule rather than a copy**: it is a repo with its own life, and this only records which commit of it belongs
 with this branch.
 
 **Under `extras/` on purpose.** That is the one directory here that is never
@@ -482,35 +394,43 @@ Its `backgrounds/` carries the wallpapers this machine uses, which is what makes
 the theme installable on its own — `starry-sky.jpg` is deliberately absent from
 that set, being byte-identical to the `4.jpg` already there.
 
+The submodule is a record, not the install path. Omarchy reads themes from its
+own directory, so what puts this one on the machine is
+`themes/install-rainynight.sh`, which gives the same repository to
+`omarchy theme install` over https. A checkout without the submodule
+initialised (`git submodule status` prints a leading `-`) loses nothing that
+runs.
+
 ---
 
 ## Shell configuration
 
-Both are modular; there is no single huge file. The same numbering applies to both shells:
+zsh is modular; there is no single huge file:
 
 | Module            | What's in it                                      |
 |-------------------|---------------------------------------------------|
 | `00-env`          | definitions: PATH, EDITOR, `PROXY_ADDR`, env      |
-| `10-plugins`      | oh-my-zsh, powerlevel10k, fzf *(zsh only)*        |
+| `05-omarchy`      | mise, zoxide, `open` — what Omarchy's bash rc sets up, for zsh |
+| `10-plugins`      | oh-my-zsh, powerlevel10k, fzf                     |
 | `20-aliases`      | aliases                                           |
 | `30-proxy`        | proxy + Tor: env functions and shortcuts          |
 | `40-functions`    | other custom functions                            |
 | `50-local`        | machine specific: conda/mamba, nvm, distrobox     |
 
-- **zsh** → `~/.config/zsh/*.zsh`; `.zshrc` is just a loader that sources them in order.
-- **fish** → `~/.config/fish/modules/*.fish`; `config.fish` is the loader.
+The modules live in `~/.config/zsh/*.zsh`; `.zshrc` is just a loader that sources them in order.
 
 To add a new module all you need is to drop `<order>-<name>` into the directory, nothing else.
 
-> **Why aren't the fish modules under `conf.d/`?** fish loads `conf.d/*.fish`
-> files **before** `config.fish`. Since CachyOS's default config defines the
-> `ls`/`ll`/`lt` aliases at the `config.fish` stage, ours would have been
-> overridden if the modules lived in `conf.d/`. By sourcing them explicitly from
-> `modules/` we give the modules the last word.
+**bash** is Omarchy's, not this repo's: `.bashrc` sources
+`/usr/share/omarchy/default/bash/env-bootstrap` and then
+`$OMARCHY_PATH/default/bash/rc`, and adds a few lines after. `starship.toml` is
+the prompt that rc starts; zsh skips starship and keeps powerlevel10k, and
+`05-omarchy` exists so that zsh still gets the mise and zoxide setup bash gets
+from that rc for free.
 
 ### Shared scripts
 
-So that a function does not have to be written twice for zsh and fish,
+So that a function is not tied to one shell,
 everything that does **not** modify the current shell's environment is a single
 bash script under `scripts/.local/bin/`:
 
@@ -524,14 +444,15 @@ bash script under `scripts/.local/bin/`:
 | `gclink`       | clone an AUR package and install it with `makepkg -si`          |
 | `ros-docker`   | enter / create the ROS Noetic container                         |
 | `sha256-check` | verify a file's sha256                                          |
-| `window-switch`| pick any window on any workspace through fuzzel (Super+Tab)     |
 | `power-profile`| cycle power-saver → balanced → performance (Super+Shift+P)      |
+| `omarchy-media` | play/pause, next, previous sent to every MPRIS player on the bus (the media keys) |
+| `omarchy-smart-focus` | directional focus that cycles windows instead when the active one is maximized (Super+arrows) |
+| `omarchy-window-full-width-toggle` | widen the active window to the monitor and back (Super+Alt+F) |
+| `windows-vm-smart-launch.sh` `windows-vm-stop.sh` | focus the Windows VM if it is open, start it if not; stop it on purpose (Super+Ctrl+Shift+W) |
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
-| `plasmalogin-theme` | rainynight colours + background for the login screen (root) |
 | `hibernate-setup` | a btrfs swapfile big enough to hibernate into, and the `resume=` to find it again (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
-| `weather-location` | pick where caelestia's weather comes from — a city, coordinates, `status`, `clear` |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
@@ -634,114 +555,24 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   stuck, `:Lazy sync`. Versions are pinned by `lazy-lock.json`, don't forget to
   commit it after updating.
 - **powerlevel10k** — to change the prompt: `p10k configure` (it rewrites `~/.p10k.zsh`).
-- **switching to fish** — `./link.sh link fish` then `chsh -s /usr/bin/fish`.
 - **tor-control** — does not work without `gum` (`sudo pacman -S gum`).
 - **ssh-agent** — `systemctl --user enable --now ssh-agent`.
-- **login screen** — CachyOS/Plasma 6.7 no longer uses SDDM but
-  `plasma-login-manager` (the greeter runs as the `plasmalogin` user). There is
-  no theme package any more: the background comes from `/etc/plasmalogin.conf`
-  (`[Greeter][Wallpaper][org.kde.image][General]`), the colours from
-  `/var/lib/plasmalogin/.config/kdeglobals`. Both are written by
-  `plasmalogin-theme`; the state lives outside `$HOME`, so it is not a
-  package, it has to be run once per machine.
-- **waybar** — started by `systemctl --user start waybar` from both compositor
-  configs, not by an `exec-once` loop. The unit lives in the `services` package
-  `Restart=always`
-  brings it back if it dies and the output goes to `journalctl --user -u waybar`.
-  `Mod+Shift+Space` still hides it with SIGUSR1, `systemctl --user reload waybar`
-  re-reads the config.
-- **KDE colours outside Plasma** — two halves in two packages: the scheme itself
-  in `theme` (`~/.local/share/color-schemes/RainyNight.colors`) and the
-  `kdeglobals` that selects it, which is a package of its own. With
-  `QT_QPA_PLATFORMTHEME=kde` set by both compositors, that is what makes
-  Dolphin, ark and gwenview follow rainynight under Hyprland. KDE's own
-  settings app rewrites `kdeglobals`; if it ever replaces the symlink with a
-  real file, `./link.sh status` shows the conflict.
-
-  It is one file in a package of its own because it is the one thing in `theme`
-  a rice has to be able to take over. `kdeglobals` is where Qt apps read their
-  palette, and it is the *only* place that moves a KF6 app: dolphin ignores
-  qt6ct and `KDE_COLOR_SCHEME_PATH` alike. So imperative-dots, which colours the
-  desktop from the wallpaper, generates it — `RICE_REPLACES` unlinks the package
-  on the way in and `RICE_GENERATES` deletes what matugen wrote on the way out.
-  The split is what keeps that safe: matugen writes *through* a symlink, so had
-  the file stayed in `theme` (linked under every rice) the first wallpaper
-  change would have overwritten the tracked rainynight palette in this repo
-  rather than shadowing it.
-
-  caelestia leaves it alone and stays linked: it sets
-  `QT_QPA_PLATFORMTHEME=qtengine` and colours Qt apps out of
-  `~/.config/qtengine`, a path nothing here owns, so `kdeglobals` is simply not
-  read while it is on and there is nothing to take away.
-
-  That holds now, and for a while it did not. `qtengine` is an AUR package out
-  of caelestia's own manifest — its `qt` component, with `darkly-bin` and
-  `frameworkintegration` — and the shell here comes from the AUR instead of that
-  manifest, so for a time the plugin simply was not installed. Qt does not
-  complain about a platform theme it cannot find; it falls back to none at all,
-  which is the default *light* palette, and the fix was to point
-  `QT_QPA_PLATFORMTHEME` at `kde` in `hypr-user.lua` so `kdeglobals` was read
-  again. All three packages are installed now and that override is gone —
-  `hypr-user.lua` says so where the line used to be.
-
-  So if Qt apps ever come up white under caelestia, that is the first thing to
-  check, because it fails silently:
-
-  ```bash
-  ls /usr/lib/qt6/plugins/platformthemes/   # want libqt6engine-plugin.so
-  paru -S qtengine darkly-bin frameworkintegration papirus-folders
-  ```
-
-  Those three are **not** in `install.sh`, so a fresh machine reaches exactly the
-  state described above until they are installed by hand.
-- **the `My Dotfiles` global theme** — inside a Plasma session there is a second
-  route to the same look: `plasma-apply-lookandfeel -a my-dotfiles`, or System
-  Settings › Colors & Themes › Global Theme. It lives in the `theme` package at
-  `~/.local/share/plasma/look-and-feel/my-dotfiles` and names the palette rather
-  than shipping a copy of it, so there is still only one `RainyNight.colors`.
-  Everything else it sets is stock Breeze (widgets, decoration, icons, cursors)
-  on purpose: a fresh Plasma install has all of it, so the theme applies on a
-  machine that has nothing but this repo. It deliberately ships **no**
-  `contents/layouts/`, because a layout file would wipe the panels every time the
-  theme is applied. Applying it is also how a Plasma session that has reset
-  itself to Breeze gets back to rainynight.
-- **a KPackage may not contain a symlink** — and this one bites silently.
-  KPackage (Plasma's package loader: global themes, wallpapers, plasmoids) drops
-  every file whose *canonical* path leaves the package directory. `link.sh`
-  symlinks file by file, so each file inside a linked package resolves back into
-  the repo, i.e. outside the package — the global theme was selected, its
-  `defaults` was never read, and Plasma fell back to stock **light** Breeze with
-  no error anywhere. `LINK_AS_DIR` in `link.sh` is the fix: those directories are
-  linked with one symlink for the package root, which puts every file back
-  inside it. The rule that follows: nothing under
-  `.local/share/plasma/look-and-feel/` or `.local/share/wallpapers/` may itself
-  be a symlink. That is why `extras/backgrounds/starrysky.jpg` is the symlink and
-  the real jpg lives in the wallpaper package — the file has to be real where
-  KPackage reads it, and everything else points at that one copy.
-- **the global theme's wallpaper needs `--resetLayout`** — `[Wallpaper] Image=`
-  in `contents/defaults` is only applied together with the desktop layout, and
-  `plasma-apply-lookandfeel -a my-dotfiles` does not touch the layout (that would
-  wipe the panels). To set just the wallpaper:
-  `plasma-apply-wallpaperimage ~/.local/share/wallpapers/StarrySky`. Under
-  Hyprland nothing of the sort is needed — hyprpaper reads the same image
-  from its config at startup.
-- **Plasma 6 writes theme choices to `~/.config/kdedefaults/`**, not to
-  `kdeglobals`. Applying a global theme puts `ColorScheme`, `Icons/Theme` and
-  `widgetStyle` there and *removes* the now-redundant keys from `kdeglobals` —
-  which is why `ColorScheme=RainyNight` disappears from the tracked file. Nothing
-  breaks: the whole `[Colors:*]` palette stays in `kdeglobals`, and that is what
-  Qt apps actually read under Hyprland. `kdedefaults/` is not tracked, for
-  the same reason `kwinrc` is not.
 - **Packages come in two lists.** `install.sh` carries the curated one: what a
   fresh machine *should* have, grouped by what it is for. `extras/pacman-explicit.txt`
   and `extras/flatpak-apps.txt` carry the other one — everything this machine
   actually has, written by `pkg-snapshot save` and put back by
   `pkg-snapshot install`. The first answers "set up a machine like mine", the
   second "bring my machine back". `pkg-snapshot` with no argument diffs them.
-- **The browser is a flatpak.** Zen — what `Mod+B` opens and what
-  `mimeapps.list` points at — is `app.zen_browser.zen` from flathub, not a
-  pacman package. `install.sh` adds the flathub remote and installs the apps in
-  `extras/flatpak-apps.txt`; without that step a fresh machine has no browser.
+- **The browser** — Zen, from the `zen-browser-bin` package. `SUPER+B` opens
+  whatever `xdg-settings get default-web-browser` answers, which is
+  `zen.desktop`, and `mimeapps.list` in the `xdg` package is what makes that the
+  answer.
+- **Qt apps** — Omarchy sets `QT_QPA_PLATFORMTHEME=gtk3`; `looknfeel.lua`
+  changes it to `kde`, so Dolphin, Ark and Gwenview take their palette from
+  `~/.config/kdeglobals`, which is the `kdeglobals` package and names the
+  `RainyNight` scheme in `theme`. KDE's own settings app rewrites that file; if
+  it ever replaces the symlink with a real one, `./link.sh status` shows the
+  conflict.
 - **VS Code** — only `settings.json` is linked. The extensions themselves are
   downloaded builds under `~/.vscode/extensions`, so what is versioned is the
   list of their ids in `extras/vscode-extensions.txt`:
@@ -758,32 +589,21 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
 
 **The wallpapers are in the repo, and one of them twice over would be a bug.**
 `wallpapers` carries `~/Pictures/Wallpapers/` — 27 MB of photographs, which is
-why it is its own package and not part of `theme`. It is common to every profile
-because every rice reads that directory and none of them owns it: caelestia's
-picker lists it, matugen is pointed at whatever is in it, and `own` ignores it
-entirely and uses hyprpaper.
+why it is its own package and not part of `theme`.
 
-`starry-sky.jpg` in that package is a **symlink**, not a ninth image. The same
-picture is the `StarrySky` KPackage in `theme`, and KPackage drops any file whose
-canonical path leaves the package directory — so that copy has to be real where
-Plasma reads it, and everything else points at it. `extras/backgrounds/starrysky.jpg`
-is the same symlink from the other side. Three references, one file on disk;
-adopting it as a real file again would put 2.4 MB of duplicate into the history.
-
-**One wallpaper reaches every session.** Hyprland runs **hyprpaper** against
-the `StarrySky` path (`desktop/.config/hypr/hyprpaper.conf`, kept in `desktop`
-rather than `hypr` because it is the bar/wallpaper stack, not the compositor),
-Plasma gets it from the `My Dotfiles` global theme, and
-the login screen from `plasmalogin-theme`. caelestia is the exception: it
-keeps its own choice in `~/.local/state/caelestia/`, which is state and is not
-tracked — the image it points at is, now.
+`starry-sky.jpg` in that package is a **symlink**, not a ninth image. The real
+file is `theme/.local/share/wallpapers/StarrySky/contents/images/1920x1080.jpg`,
+and `extras/backgrounds/starrysky.jpg` is the same symlink from the other side.
+Three references, one file on disk; adopting it as a real file again would put
+2.4 MB of duplicate into the history. `link.sh` links that `StarrySky` directory
+as one symlink rather than file by file (`LINK_AS_DIR`), and nothing inside it
+may be a symlink itself.
 
 **Hibernation needs somewhere to go, and zram is not it.** The only swap this
 machine had was `/dev/zram0`, which is a compressed block device living *in* RAM
 — writing RAM into it and then cutting power leaves nothing to come back to. So
-`logind` answered `CanHibernate` with `na`, caelestia's session menu offered a
-hibernate button that could not work, and its 600-second idle action
-(`suspendThenHibernate`) quietly degraded to a plain suspend. `hibernate-setup`
+`logind` answered `CanHibernate` with `na`, and a suspend-then-hibernate idle
+action quietly degraded to a plain suspend. `hibernate-setup`
 is the fix: a 32 GiB swapfile in a btrfs subvolume of its own, at priority -2 so
 zram stays the swap everything normally pages to, plus the `resume=` and
 `resume_offset=` on the kernel command line without which the kernel has no idea
@@ -791,32 +611,6 @@ where to look before any filesystem is mounted. The subvolume matters — a btrf
 snapshot is not recursive, so a nested subvolume is invisible to the snapshots
 snapper takes of `@`, and a swapfile that gets snapshotted or moved is a swapfile
 that cannot be resumed from.
-
-**The weather has a location setting and caelestia has no way to pick one.**
-It reads `services.weatherLocation` out of `shell.json`, and with it empty it
-geolocates by IP — which on a machine that spends its time behind a phone's
-tethering proxy or Tor reports wherever the exit is. Its own settings page says
-"Choose your weather location on a map in a future update", so `weather-location`
-is that picker until it exists: it asks for a city, geocodes it through
-open-meteo, and lets you choose between the matches.
-
-Coordinates are what it writes, even when you type a name, because the shell
-would otherwise re-geocode the string on every reload and take the first hit —
-and there is more than one Antalya. The shell reloads on the change, so nothing
-needs restarting.
-
-Two things it is careful about. `shell.json` is a symlink into this repo, so it
-writes *through* the link rather than moving a temp file onto it, which would
-replace the symlink with a real file and quietly detach the config. And it passes
-`--indent 4` to jq, because jq's default is two and the file would otherwise be
-reformatted end to end on every use.
-
-**hyprpaper 0.8 changed its config format.** `preload = <path>` plus
-`wallpaper = <monitor>,<path>` — what every guide and every older dotfiles repo
-still shows — is gone, replaced by a `wallpaper { monitor = ; path = ; fit_mode
-= }` block. The old keys do not fail loudly: hyprpaper starts, sets nothing, and
-logs `Monitor eDP-1 has no target: no wp will be created`. `~` in `path` is
-expanded by hyprpaper itself, `$HOME` is **not**.
 
 **Why is the `gtk` package in no profile?**
 KDE's `kde-gtk-config` tool generates `colors.css`, `window_decorations.css` and
@@ -833,9 +627,7 @@ a wall, so the repo's copy was one login away from being overwritten in place.
 The `@import "colors.css"` at the top of `gtk.css` went with it. Nothing was
 lost: `gtk.css` defines every colour it uses itself and referenced none of the
 `*_breeze` names that file declares, so the import only ever pulled in dead
-weight — and now that the package no longer ships the file, an import of it
-would be a parse error at the startup of every GTK application each time
-`link.sh rice own` cleared caelestia's copy.
+weight.
 
 `gtk-4.0/gtk.css` is a symlink to the `gtk-3.0` one — one file, two locations,
 so the two toolkits cannot drift apart.
@@ -847,7 +639,8 @@ property name` on the startup of every single GTK application. It is gone, and
 the `@import` now sits at the top of the file where CSS requires it to be.
 
 **Compositor `env` blocks do not reach systemd services.**
-`QT_QPA_PLATFORMTHEME=kde` set in `hyprland.conf` / `config.kdl` only reaches
+`QT_QPA_PLATFORMTHEME=kde` set from the compositor config — `hl.env` in
+`looknfeel.lua` here, where it overrides the `gtk3` Omarchy sets — only reaches
 processes the compositor spawns itself. `xdg-desktop-portal-kde` is started by
 systemd on demand, so it never saw it and drew its file dialog in Qt's default
 light palette — the one dialog in the session that ignored rainynight.
@@ -878,12 +671,25 @@ Note also that `[https] proxy` is not a thing git reads; only `http.proxy` (and
 Because the unit file is a symlink, the `disable` step deletes it. If you need to:
 `./link.sh link services && systemctl --user enable ssh-agent`
 
-**The compositors set PATH themselves.**
-Hyprland is launched by `start-hyprland`, not a login shell, so it never sources
-`.zshrc` and its PATH stops at `/usr/bin`. Anything bound to a script from the
-`scripts` package would fail to resolve and die silently — no window, no error.
-`hyprland.conf` therefore carries `env = PATH,$HOME/.local/bin:$PATH`. Bind a
-new script and it will just work; move the scripts elsewhere and it will not.
+**The compositor's PATH is not the shell's, and the order in it matters.**
+Hyprland never sources `.zshrc`, so the `~/.local/bin` that `00-env` prepends is
+not where a keybinding gets it from. The session's PATH has it anyway, further
+back, and Omarchy's `envs.lua` then puts its own `bin` directory in front of
+everything. Two consequences for `bindings.lua`:
+
+- a script from the `scripts` package can be bound by bare name
+  (`power-profile`, `TuxedoRGBKeyboard.sh`) and is found;
+- a script in `~/.local/bin` that **replaces** one of Omarchy's — the
+  `omarchy-audio-output-volume` that `fixes/fix-volume-150.sh` installs — is
+  not, because Omarchy's copy is ahead of it. Those are bound as
+  `~/.local/bin/<name>`, spelled with `~` and never with a home directory
+  written out.
+
+To see what a keybinding will actually run:
+
+```bash
+tr '\0' '\n' < /proc/$(pgrep -x Hyprland)/environ | grep '^PATH='
+```
 
 **The Settings portal backend is pinned per compositor.**
 `xdg-desktop-portal-hyprland` does not implement
@@ -900,19 +706,18 @@ own backend.
 apps look for `$XDG_MENU_PREFIX` + `applications.menu`. A Plasma session sets the
 variable to `plasma-`; under Hyprland it was unset, so the menu was never
 found — `kbuildsycoca6 --menutest` printed 0 entries instead of 138, and every
-KIO "Open With → Other Application…" dialog came up empty. Both compositor
-configs now set `XDG_MENU_PREFIX=plasma-`.
+KIO "Open With → Other Application…" dialog came up empty. `looknfeel.lua` sets
+`XDG_MENU_PREFIX=plasma-`.
 
-**`XDG_CURRENT_DESKTOP` carries a `:KDE` suffix.**
-Entries with `OnlyShowIn=KDE` (System Settings, Info Center, the emoji picker)
-are hidden from every launcher when the variable is plain `Hyprland`.
-The compositor name stays first in the list — `Hyprland:KDE` — so
-xdg-desktop-portal still picks `hyprland-portals.conf`, and
-`xdg-open` still falls back to the generic handler (its `detectDE` only matches
-the exact string `KDE`). Scripts that branch on the variable (`hotkeys`,
-`window-switch`) therefore match with globs, not equality.
+**`XDG_CURRENT_DESKTOP` is plain `Hyprland`.**
+It used to be `Hyprland:KDE`, because entries with `OnlyShowIn=KDE` (System
+Settings, Info Center, the emoji picker) are hidden from every launcher when the
+variable is plain `Hyprland`. That suffix produced portal warnings under Omarchy
+and was taken back off in `looknfeel.lua`, so those entries are hidden again —
+the trade was made knowingly, and this is where to look when System Settings is
+missing from the menu.
 
-**Screenshots go through grim + satty.** Spectacle was tried and does not work
+**Screenshots go through grim, piped into tensaku.** Spectacle was tried and does not work
 here: it drives KWin's own `org.kde.KWin.ScreenShot2` API, and with no KWin
 under Hyprland it produces no file and no error at all.
 
