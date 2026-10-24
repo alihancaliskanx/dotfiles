@@ -17,18 +17,16 @@ fi
 # 2. Update Hyprland bindings
 BINDINGS_FILE="$HOME/.config/hypr/bindings.lua"
 if [ -f "$BINDINGS_FILE" ]; then
+    # The file is a symlink into the dotfiles repo; plain sed -i would replace
+    # it with a copy, so every call follows the link.
     # Make replacements idempotent (remove existing ones first)
-    sed -i "s|/home/$USER/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g" "$BINDINGS_FILE"
-    sed -i 's|~/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g' "$BINDINGS_FILE"
-    sed -i 's/--max-volume 150 //g' "$BINDINGS_FILE"
+    sed -i --follow-symlinks "s|/home/$USER/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g" "$BINDINGS_FILE"
+    sed -i --follow-symlinks 's|~/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g' "$BINDINGS_FILE"
+    sed -i --follow-symlinks 's/--max-volume 150 //g' "$BINDINGS_FILE"
 
     # Call the copy by path: Omarchy's bin directory is ahead of ~/.local/bin
     # on the compositor's PATH
-    sed -i 's|omarchy-audio-output-volume|~/.local/bin/omarchy-audio-output-volume|g' "$BINDINGS_FILE"
-    
-    # Apply max-volume to swayosd-client if present
-    sed -i 's/swayosd-client --output-volume raise/swayosd-client --output-volume raise --max-volume 150/g' "$BINDINGS_FILE"
-    sed -i 's/swayosd-client --output-volume lower/swayosd-client --output-volume lower --max-volume 150/g' "$BINDINGS_FILE"
+    sed -i --follow-symlinks 's|omarchy-audio-output-volume|~/.local/bin/omarchy-audio-output-volume|g' "$BINDINGS_FILE"
     
     # Reload hyprland to apply binding changes
     if command -v hyprctl &> /dev/null; then

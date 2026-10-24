@@ -55,11 +55,13 @@ EOF
 chmod +x ~/.local/bin/omarchy-launch-terminal-tmux_up
 
 # 3. Modify the hyprland bindings in dotfiles
-BINDINGS_FILE="$HOME/Documents/Code/dotfiles/hypr/.config/hypr/bindings.lua"
+# The file is a symlink into the dotfiles repo, wherever that is cloned;
+# --follow-symlinks edits the tracked file instead of replacing the link.
+BINDINGS_FILE="$HOME/.config/hypr/bindings.lua"
 
 if [ -f "$BINDINGS_FILE" ]; then
   # Replace the existing Herdr shortcut with the new tmux_up wrapper
-  sed -i 's/o.bind("SUPER + CTRL + RETURN", "Herdr", { omarchy = "terminal-herdr" })/o.bind("SUPER + CTRL + RETURN", "Tmux Up", "omarchy-launch-terminal-tmux_up")/g' "$BINDINGS_FILE"
+  sed -i --follow-symlinks 's/o.bind("SUPER + CTRL + RETURN", "Herdr", { omarchy = "terminal-herdr" })/o.bind("SUPER + CTRL + RETURN", "Tmux Up", "omarchy-launch-terminal-tmux_up")/g' "$BINDINGS_FILE"
   echo "Updated hyprland bindings in $BINDINGS_FILE"
 else
   echo "Could not find $BINDINGS_FILE"
