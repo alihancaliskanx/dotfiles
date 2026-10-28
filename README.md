@@ -98,8 +98,9 @@ into `$HOME` and some of them patch files Omarchy owns, so an Omarchy update can
 undo one and it has to be run again. `fixes/README.md` has the list;
 `fixes/run-all.sh` runs six of them, and the rest (`fix-tmux_up.sh`,
 `fix-volume-150.sh`, `fix-davinci-resolve.sh`, `fix-antigravity-agent.sh`,
-`remove-old-gemini.sh`) are run one at a time. `fix-debtap-grep.sh` and
-`fix-tuxedo-control-center.sh` use sudo.
+`remove-old-gemini.sh`, `fix-nvidia-hibernate.sh`) are run one at a time.
+`fix-debtap-grep.sh`, `fix-tuxedo-control-center.sh` and
+`fix-nvidia-hibernate.sh` use sudo.
 
 `themes/install-rainynight.sh` hands the theme submodule's repository to
 `omarchy theme install`; `omarchy theme set omarchy-rainynight-theme` applies it.
@@ -470,7 +471,6 @@ bash script under `scripts/.local/bin/`:
 | `windows-vm-smart-launch.sh` `windows-vm-stop.sh` | focus the Windows VM if it is open, start it if not; stop it on purpose (Super+Ctrl+Shift+W) |
 | `code-extensions` | the VS Code extension list: `status` / `save` / `install`   |
 | `pkg-snapshot` | what is installed on this machine: `diff` / `save` / `install`  |
-| `hibernate-setup` | a btrfs swapfile big enough to hibernate into, and the `resume=` to find it again (root, once per machine) |
 | `pam-kwallet-env` | hands the session environment to the ksecretd pam started, so the wallet is unlocked at login instead of asking (run first at startup) |
 | `TuxedoRGBKeyboard.sh` | keyboard backlight: `toggle` / `up` / `down` / `set` / `colour` |
 
@@ -618,18 +618,30 @@ Three references, one file on disk; adopting it as a real file again would put
 as one symlink rather than file by file (`LINK_AS_DIR`), and nothing inside it
 may be a symlink itself.
 
-**Hibernation needs somewhere to go, and zram is not it.** The only swap this
-machine had was `/dev/zram0`, which is a compressed block device living *in* RAM
-— writing RAM into it and then cutting power leaves nothing to come back to. So
-`logind` answered `CanHibernate` with `na`, and a suspend-then-hibernate idle
-action quietly degraded to a plain suspend. `hibernate-setup`
-is the fix: a 32 GiB swapfile in a btrfs subvolume of its own, at priority -2 so
-zram stays the swap everything normally pages to, plus the `resume=` and
-`resume_offset=` on the kernel command line without which the kernel has no idea
-where to look before any filesystem is mounted. The subvolume matters — a btrfs
-snapshot is not recursive, so a nested subvolume is invisible to the snapshots
-snapper takes of `@`, and a swapfile that gets snapshotted or moved is a swapfile
-that cannot be resumed from.
+**Hibernation is Omarchy's, and NVIDIA in the initramfs breaks it.** Omarchy's
+`omarchy-hibernation-setup` set it up at install: a RAM-sized swapfile at
+`/swap/swapfile`, in a btrfs subvolume of its own so snapper's snapshots of `@`
+never catch it, the `resume` hook in mkinitcpio, and `resume=` and
+`resume_offset=` through `/etc/limine-entry-tool.d/resume.conf`. zram stays the
+swap everything pages to; it lives in RAM and cannot hold an image. The system
+menu shows Hibernate only while `omarchy-hibernation-available` succeeds.
+
+What broke it here was NVIDIA. Omarchy's NVIDIA setup loads the nvidia modules
+in the initramfs for early KMS (`/etc/mkinitcpio.conf.d/nvidia.conf`), and
+gpu-screen-recorder sets `NVreg_PreserveVideoMemoryAllocations=1`. The boot
+kernel then reads the whole image, the driver refuses to freeze, and the session
+is thrown away: `PM: hibernation: resume failed (-5)`. The panel on this laptop
+is wired to the Intel iGPU, so early NVIDIA KMS buys nothing;
+`fixes/fix-nvidia-hibernate.sh` moves the drop-in aside and rebuilds the
+initramfs. An Omarchy reinstall writes the drop-in again.
+
+After any resume, from suspend or hibernate, the lock screen ignores the
+keyboard until the touchpad moves or the lock is clicked. The kernel switches VT
+on the way down and back, and Hyprland 0.56 does not give the session-lock
+surface its keyboard focus back; locking and then pressing Ctrl+Alt+F3 and
+Ctrl+Alt+F1 does the same without sleeping. Neither a warp
+(`hl.dsp.cursor.move`) nor a short-lived uinput mouse brought it back in
+testing.
 
 **Why is the `gtk` package in no profile?**
 KDE's `kde-gtk-config` tool generates `colors.css`, `window_decorations.css` and

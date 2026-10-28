@@ -87,8 +87,15 @@ This directory contains scripts that resolve hardware and software incompatibili
   - Sets it as the default handler with `xdg-mime`.
 * **Note:** `xdg-mime` writes `~/.config/mimeapps.list`, which is a symlink into this repository, so the script edits a tracked file. Restart the browser afterwards.
 
-### 14. `run-all.sh`
-* Runs scripts 1 to 6 in sequence. Scripts 7 to 13 are not part of it and are run one at a time.
+### 14. `fix-nvidia-hibernate.sh`
+* **Issue:** Hibernating works, but the next boot throws the image away with `PM: hibernation: resume failed (-5)` and starts a fresh session. Omarchy's NVIDIA setup puts the nvidia modules in the initramfs for early KMS, gpu-screen-recorder sets `NVreg_PreserveVideoMemoryAllocations=1`, and the driver then refuses to freeze while the image is restored.
+* **Solution:**
+  - Moves `/etc/mkinitcpio.conf.d/nvidia.conf` to `nvidia.conf.disabled` and rebuilds the initramfs with `limine-mkinitcpio`. Uses `sudo`.
+  - Does nothing when NVIDIA drives the display (`omarchy-hw-nvidia-display`), where early KMS is needed, and warns if another mkinitcpio file still loads nvidia.
+* **Note:** an Omarchy reinstall writes the drop-in again; run the script again after one. Reboot before testing hibernation.
+
+### 15. `run-all.sh`
+* Runs scripts 1 to 6 in sequence. Scripts 7 to 14 are not part of it and are run one at a time.
 
 ---
 
@@ -112,4 +119,5 @@ This directory contains scripts that resolve hardware and software incompatibili
 ./fixes/remove-old-gemini.sh
 ./fixes/fix-matlab-installer.sh ~/Downloads/matlab_R2026b_Linux.zip
 ./fixes/fix-robodk-browser.sh
+./fixes/fix-nvidia-hibernate.sh
 ```
