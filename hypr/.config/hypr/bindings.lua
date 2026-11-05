@@ -216,7 +216,7 @@ o.bind("XF86AudioMicMute", "Mute microphone", "omarchy-audio-input-mute", { lock
 
 o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise (+1%)", "~/.local/bin/omarchy-audio-output-volume +1", { locked = true, repeating = true })
 o.bind("ALT + XF86AudioLowerVolume", "Volume down precise (-1%)", "~/.local/bin/omarchy-audio-output-volume -1", { locked = true, repeating = true })
-o.bind("SHIFT + XF86AudioMute", "Switch audio output", "~/.local/bin/omarchy-audio-output-switch", { locked = true })
+o.bind("SHIFT + XF86AudioMute", "Switch audio output", "omarchy-audio-output-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPause", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 o.bind("SHIFT + XF86AudioPlay", "Switch media source", "omarchy-audio-source-switch", { locked = true })
 
@@ -264,6 +264,7 @@ o.bind("SUPER + CTRL + H", "Hardware menu", "omarchy-menu toggle hardware")
 -- Quick Panels
 o.bind("SUPER + CTRL + A", "Audio panel", "omarchy-shell shell toggle omarchy.audio")
 o.bind("SUPER + CTRL + B", "Bluetooth panel", "omarchy-shell shell toggle omarchy.bluetooth")
+o.bind("SUPER + ALT + B", "Bluetooth sound control panel", "omarchy-shell shell toggle sups.bluetooth-sound-control")
 o.bind("SUPER + CTRL + D", "Display panel", "omarchy-shell shell toggle omarchy.monitor")
 o.bind("SUPER + CTRL + ALT + D", "Calendar panel", "omarchy-shell shell toggle omarchy.clock")
 o.bind("SUPER + CTRL + W", "Network panel", "omarchy-shell shell toggle omarchy.network")
