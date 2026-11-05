@@ -22,7 +22,6 @@ if [ -f "$BINDINGS_FILE" ]; then
     # Make replacements idempotent (remove existing ones first)
     sed -i --follow-symlinks "s|/home/$USER/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g" "$BINDINGS_FILE"
     sed -i --follow-symlinks 's|~/.local/bin/omarchy-audio-output-volume|omarchy-audio-output-volume|g' "$BINDINGS_FILE"
-    sed -i --follow-symlinks 's/--max-volume 150 //g' "$BINDINGS_FILE"
 
     # Call the copy by path: Omarchy's bin directory is ahead of ~/.local/bin
     # on the compositor's PATH

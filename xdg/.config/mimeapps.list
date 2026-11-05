@@ -15,10 +15,10 @@ text/html=userapp-Zen-DNBXP3.desktop;userapp-Zen-2Z2QP3.desktop;
 text/markdown=org.gnome.TextEditor.desktop;
 text/plain=org.gnome.TextEditor.desktop;
 text/x-cmake=org.gnome.TextEditor.desktop;
-x-scheme-handler/chrome=firefox.desktop;zen.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
+x-scheme-handler/chrome=zen.desktop;firefox.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
 x-scheme-handler/claude=claude.desktop;
-x-scheme-handler/http=firefox.desktop;zen.desktop;app.zen_browser.zen.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
-x-scheme-handler/https=firefox.desktop;zen.desktop;app.zen_browser.zen.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
+x-scheme-handler/http=zen.desktop;firefox.desktop;app.zen_browser.zen.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
+x-scheme-handler/https=zen.desktop;firefox.desktop;app.zen_browser.zen.desktop;userapp-Zen-2Z2QP3.desktop;userapp-Zen-DNBXP3.desktop;
 
 [Default Applications]
 application/json=org.gnome.TextEditor.desktop;

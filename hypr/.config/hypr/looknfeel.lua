@@ -31,3 +31,8 @@ o.window("org.kde.polkit-kde-authentication-agent-1", { float = true })
 o.window("xfreerdp", { tile = true })
 o.window({ title = "^(Open File|Save File|Save As|Open Folder)$" }, { float = true })
 o.window({ title = "^(Picture-in-Picture)$" }, { float = true, pin = true, size = "480 270" })
+
+-- Opt another application in to Omarchy's standard transparency.
+-- Find its class with: hyprctl clients
+-- o.transparent_window("my-app")
+-- o.transparent_window("my-app", "0.9 0.85") -- Custom active/inactive opacity.

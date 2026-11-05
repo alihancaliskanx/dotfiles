@@ -13,19 +13,22 @@
           "verticalFormat": "HH\n—\nmm"
         },
         {
+          "id": "omarchy.elsewhen"
+        },
+        {
           "id": "omarchy.keyboard-layout"
         },
         {
           "id": "omarchy.weather"
         },
         {
-          "id": "omarchy.media"
-        },
-        {
           "id": "omarchy.system-update"
         },
         {
           "id": "omarchy.nightlight"
+        },
+        {
+          "id": "omarchy.media"
         }
       ],
       "left": [
@@ -47,10 +50,10 @@
           "id": "felixzsh.key-visualizer"
         },
         {
-          "id": "omarchy.agents"
+          "id": "apurva.notifications"
         },
         {
-          "id": "apurva.notifications"
+          "id": "omarchy.agents"
         },
         {
           "id": "sups.audio"

@@ -71,7 +71,7 @@ PKGS=(
   # wayland common
   qt5-wayland qt6-wayland
   brightnessctl playerctl pamixer
-  wl-clipboard cliphist grim slurp satty swappy xsettingsd
+  wl-clipboard grim slurp xsettingsd
   # KDE integration outside Plasma: Qt apps read kdeglobals, and kdialog and
   # kio-admin are what KDE apps shell out to. The portal file dialog is pinned
   # to gtk in *-portals.conf, so the kde backend is not what serves it.
@@ -83,7 +83,8 @@ PKGS=(
   papirus-icon-theme
   # libadwaita's stylesheet ported to GTK3, so a GTK3 window takes its colours
   # from the @define-color block in gtk-3.0/gtk.css instead of hardcoding them.
-  # Every other theme ignores the file and stays as it was.
+  # Installing it is not enough: the GTK theme has to be set to adw-gtk3-dark.
+  # Under any other theme a GTK3 window takes only the file's explicit rules.
   adw-gtk-theme
   # gui helpers
   nautilus dolphin pavucontrol nm-connection-editor network-manager-applet
@@ -117,7 +118,7 @@ PKGS=(
 )
 
 # What the hypr package carries a config for, besides the compositor itself.
-WM_SHARED=(hyprlock hypridle xdg-desktop-portal-gtk)
+WM_SHARED=(xdg-desktop-portal-gtk)
 
 case "$PROFILE" in
   hyprland)

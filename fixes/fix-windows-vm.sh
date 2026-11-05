@@ -104,7 +104,7 @@ cat << 'DESKTOP' > "$HOME/.local/share/applications/windows-vm.desktop"
 [Desktop Entry]
 Name=Windows
 Comment=Start Windows VM via Docker and connect with RDP
-Exec=uwsm app -- /home/sups/.local/bin/windows-vm-smart-launch.sh
+Exec=uwsm app -- windows-vm-smart-launch.sh
 Icon=windows
 Terminal=false
 Type=Application

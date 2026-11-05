@@ -22,7 +22,7 @@ skip() { printf '%s- %s (%s missing)%s\n' "$DIM" "$1" "$2" "$RST"; }
 warn() { printf '%s! %s%s\n' "$YLW" "$*" "$RST"; }
 
 # ─── shell ───────────────────────────────────────────────────────────────────
-shell_files=(link.sh install.sh check.sh repo.sh test.sh scripts/.local/bin/*)
+shell_files=(link.sh install.sh check.sh repo.sh test.sh scripts/.local/bin/* fixes/*.sh themes/*.sh)
 err=0
 for f in "${shell_files[@]}"; do
     [ -f "$f" ] || continue
@@ -103,10 +103,12 @@ else
     skip "json" jq
 fi
 
-if command -v stylua >/dev/null; then
+# command -v also finds a stylua without its executable bit (mason's has been
+# like that); running it would report a formatting failure that is not one.
+if [ -x "$(command -v stylua)" ]; then
     stylua --check nvim/ >/dev/null 2>&1 && ok "stylua --check" || bad "stylua --check (run: stylua nvim/)"
 else
-    skip "stylua --check" stylua
+    skip "stylua --check" "executable stylua"
 fi
 
 # ─── repo consistency ────────────────────────────────────────────────────────

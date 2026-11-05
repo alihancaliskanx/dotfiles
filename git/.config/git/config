@@ -11,13 +11,20 @@
 [user]
 	name = alihancaliskanx
 	email = alihancaliskan@workmail.com
+	signingkey = /home/sups/.ssh/anahtar.pub
 [push]
   autoSetupRemote = true
 [credential "https://github.com"]
 	helper = 
-	helper = !/home/sups/.local/share/mise/installs/gh/2.100.0/gh_2.100.0_linux_amd64/bin/gh auth git-credential
+	helper = !gh auth git-credential
 [credential "https://gist.github.com"]
 	helper = 
-	helper = !/home/sups/.local/share/mise/installs/gh/2.100.0/gh_2.100.0_linux_amd64/bin/gh auth git-credential
+	helper = !gh auth git-credential
 [include]
 	path = ~/.config/git/config.local
+[gpg]
+	format = ssh
+[commit]
+	gpgsign = true
+[gpg "ssh"]
+	allowedSignersFile = /home/sups/.config/git/allowed_signers

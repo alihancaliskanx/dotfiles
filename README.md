@@ -45,8 +45,7 @@ not arrive by itself.
 The modules here run after Omarchy's, so they win: `input.lua` is the `tr`
 keyboard and the touchpad, `looknfeel.lua` the gaps, the Qt environment and the
 window rules, `monitors.lua` the scale, `autostart.lua` what this machine starts
-besides the shell (the wallet handoff, kded, hypridle, cliphist, the Tuxedo
-tray).
+besides the shell (the wallet handoff, kded, the Tuxedo tray).
 
 Bindings are written with Omarchy's helper, not `hl.bind` directly:
 
@@ -98,7 +97,8 @@ into `$HOME` and some of them patch files Omarchy owns, so an Omarchy update can
 undo one and it has to be run again. `fixes/README.md` has the list;
 `fixes/run-all.sh` runs six of them, and the rest (`fix-tmux_up.sh`,
 `fix-volume-150.sh`, `fix-davinci-resolve.sh`, `fix-antigravity-agent.sh`,
-`remove-old-gemini.sh`, `fix-nvidia-hibernate.sh`) are run one at a time.
+`remove-old-gemini.sh`, `fix-matlab-installer.sh`, `fix-robodk-browser.sh`,
+`fix-plugin-color-import.sh`, `fix-nvidia-hibernate.sh`) are run one at a time.
 `fix-debtap-grep.sh`, `fix-tuxedo-control-center.sh` and
 `fix-nvidia-hibernate.sh` use sudo.
 
@@ -157,7 +157,7 @@ Example: `desktop/.config/omarchy/shell.toml` → `~/.config/omarchy/shell.toml`
 | Package    | Contents                                                        |
 |------------|-----------------------------------------------------------------|
 | `shell`    | `.zshrc` + `~/.config/zsh/` modules, `.bashrc`, `.p10k.zsh`, `starship.toml` |
-| `hypr`     | `hyprland.lua` + its five modules, `hypridle.conf`, `hyprlock.conf`, the portal pins |
+| `hypr`     | `hyprland.lua` + its five modules, the portal pins              |
 | `desktop`  | `~/.config/omarchy/`, the Windows VM launchers, chromium flags  |
 | `terminal` | alacritty, kitty, ghostty                                       |
 | `nvim`     | LazyVim-based configuration (`lazy-lock.json` included)          |
@@ -283,7 +283,8 @@ with the two pointing at different homes it finds modules it cannot load.
 
 A check whose tool is missing is **skipped, not failed** — the GitHub runner
 (`.github/workflows/check.yml`, on pushes to `main` and `omarchy`) has no
-compositor and no Omarchy to ask. Locally the full set runs; shellcheck and stylua come
+compositor and no Omarchy to ask. A `stylua` on `PATH` without its executable
+bit counts as missing. Locally the full set runs; shellcheck and stylua come
 from mason if they are not installed system-wide:
 
 ```bash
@@ -663,6 +664,12 @@ weight.
 `gtk-4.0/gtk.css` is a symlink to the `gtk-3.0` one — one file, two locations,
 so the two toolkits cannot drift apart.
 
+The two toolkits do not read it the same way. libadwaita (GTK4) takes the named
+colours in the `@define-color` block directly. A GTK3 window takes them only
+under adw-gtk3 (`adw-gtk-theme`, with the GTK theme set to `adw-gtk3-dark`);
+under Adwaita-dark, the theme on this machine, it gets the file's explicit rules
+and nothing else.
+
 **GTK has no `filter` property.** The theme this css came from carried a
 `.svg-icon { filter: invert(…) … }` block, which is web CSS. GTK ignored the
 rule but printed `Theme parsing error: gtk.css:164: 'filter' is not a valid
@@ -771,6 +778,4 @@ Without the guard they tried to run a non-existent binary on every shell startup
 
 **Leftover dead references** (guarded, not deleted):
 the `~/Documents/Code/aurapilot/ardupilot/Tools/autotest` directory does not
-exist — either create it or delete the PATH line in `00-env`. `hyprlock` still
-takes a blurred snapshot of the desktop (`path = screenshot`) rather than the
-wallpaper, which is deliberate: it works on a machine with no image at all.
+exist — either create it or delete the PATH line in `00-env`.
