@@ -1,0 +1,553 @@
+#!/usr/bin/env bash
+#
+# proxyctl — the phone HTTP proxy and the local Tor daemon, from one place.
+#
+#   System traffic is either direct or pushed whole through the proxy by a
+#   transparent tunnel. Tor is never forced on the system: it listens on
+#   127.0.0.1:9050 and programs are pointed at it, or run with `proxyctl run`.
+#
+# Usage:
+#   proxyctl                           menu (gum)
+#   proxyctl status [--json]           what is actually in place
+#   proxyctl addr [host:port]          show or set the proxy address
+#   proxyctl system normal|proxy       direct, or all TCP through the proxy
+#   proxyctl tor exit direct|proxy     how tor reaches its first relay
+#   proxyctl tor newip                 new Tor identity
+#   proxyctl tor rotate SECONDS|off    new identity on a timer
+#   proxyctl setup                     one-time: tor ControlPort + tor group
+#   proxyctl browser                   Tor Browser over the system tor
+#   proxyctl env off|proxy|tor         export lines for the calling shell (eval)
+#   proxyctl run proxy|tor -- CMD...   run one command with those variables
+#
+# The address lives in ~/.config/proxyctl/config and nowhere else.
+
+set -uo pipefail
+
+SELF="$(readlink -f "$0")"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/proxyctl/config"
+TOR_SOCKS="127.0.0.1:9050"
+PROXY_VARS=(http_proxy https_proxy ftp_proxy all_proxy HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY)
+NO_PROXY_LIST="localhost,127.0.0.1,::1,.local"
+
+# The tunnel keeps net-tunnel's names, so a tunnel that script started is
+# recognised as already up instead of being torn down and rebuilt.
+UNIT="net-tunnel-glider"
+NFT_TABLE="net_tunnel"
+REDIR_PORT=12345
+# DoT is TCP/853, so DNS rides the tunnel; the part after "#" is the name the
+# certificate is checked against.
+DOT_SERVERS="1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net"
+
+TORRC="${PROXYCTL_TORRC:-/etc/tor/torrc}"
+TOR_COOKIE="${PROXYCTL_TOR_COOKIE:-/var/lib/tor/control_auth_cookie}"
+TOR_CONTROL="${PROXYCTL_TOR_CONTROL:-127.0.0.1:9051}"
+ROTATE_UNIT="proxyctl-rotate"
+# tor rate-limits NEWNYM to about one every ten seconds.
+ROTATE_MIN=10
+
+SSH_CONF="$HOME/.ssh/config"
+SSH_KEY="${SSH_KEY:-~/.ssh/anahtar}"
+SSH_MARK="# >>> net-proxy github >>>"
+SSH_END="# <<< net-proxy github <<<"
+
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+off()  { printf '  \e[31m✘\e[0m %s\n' "$*"; }
+warn() { printf '  \e[33m!\e[0m %s\n' "$*"; }
+die()  { printf '\e[31m✘ %s\e[0m\n' "$*" >&2; exit 1; }
+
+usage() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; }
+
+# ─── config ──────────────────────────────────────────────────────────────────
+# Parsed, never sourced: the file is user-editable and _root reads it too.
+cfg_get() {
+    [ -r "$CONFIG" ] || return 0
+    local line
+    while IFS= read -r line; do
+        [[ $line == "$1="* ]] && { printf '%s\n' "${line#*=}"; return 0; }
+    done <"$CONFIG"
+}
+
+cfg_set() {
+    mkdir -p "${CONFIG%/*}"
+    local tmp="$CONFIG.tmp" line found=0
+    : >"$tmp"
+    if [ -r "$CONFIG" ]; then
+        while IFS= read -r line; do
+            if [[ $line == "$1="* ]]; then
+                printf '%s=%s\n' "$1" "$2" >>"$tmp"; found=1
+            else
+                printf '%s\n' "$line" >>"$tmp"
+            fi
+        done <"$CONFIG"
+    fi
+    [ "$found" -eq 1 ] || printf '%s=%s\n' "$1" "$2" >>"$tmp"
+    mv "$tmp" "$CONFIG"
+}
+
+valid_addr() {
+    local re='^([0-9]{1,3}(\.[0-9]{1,3}){3}|[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?):([0-9]{1,5})$'
+    [[ $1 =~ $re ]] || return 1
+    local host="${1%:*}" port="${1##*:}" o
+    (( 10#$port >= 1 && 10#$port <= 65535 )) || return 1
+    if [[ $host =~ ^[0-9.]+$ ]]; then
+        for o in ${host//./ }; do (( 10#$o <= 255 )) || return 1; done
+    fi
+}
+
+need_addr() {
+    PROXY_ADDR="$(cfg_get PROXY_ADDR)"
+    valid_addr "$PROXY_ADDR" || die "no proxy address: proxyctl addr host:port"
+}
+
+# Everything that needs root goes through `proxyctl _root`, so one code path
+# is privileged. pkexec is for callers without a terminal (the bar widget).
+as_root() {
+    if [ "$EUID" -eq 0 ]; then
+        root_cmd "$@"
+    elif [ -t 0 ]; then
+        sudo "$SELF" _root "$@"
+    else
+        pkexec "$SELF" _root "$@"
+    fi
+}
+
+proxy_reachable() {
+    timeout 2 bash -c "exec 3<>/dev/tcp/${1%:*}/${1##*:}" 2>/dev/null
+}
+
+# ─── tunnel ──────────────────────────────────────────────────────────────────
+default_iface() { ip route show default 2>/dev/null | awk '{print $5; exit}'; }
+unit_active()   { systemctl is-active --quiet "$UNIT"; }
+port_open()     { ss -ltnH "sport = :$REDIR_PORT" 2>/dev/null | grep -q .; }
+
+unit_forward() {
+    systemctl show -p ExecStart "$UNIT" 2>/dev/null \
+        | grep -o -- '-forward http://[^ ;]*' | head -1 | sed 's#-forward http://##'
+}
+
+# 0 present, 1 absent, 2 cannot be read without a password.
+nft_state() {
+    if [ "$EUID" -eq 0 ]; then
+        nft list table ip "$NFT_TABLE" >/dev/null 2>&1 && return 0 || return 1
+    fi
+    sudo -n true 2>/dev/null || return 2
+    sudo -n nft list table ip "$NFT_TABLE" >/dev/null 2>&1 && return 0 || return 1
+}
+
+tunnel_state() {
+    local n=0 nft
+    unit_active && n=$((n + 1))
+    port_open && n=$((n + 1))
+    nft_state; nft=$?
+    if [ "$nft" -eq 2 ]; then
+        case "$n" in 2) echo up ;; 0) echo down ;; *) echo partial ;; esac
+        return
+    fi
+    [ "$nft" -eq 0 ] && n=$((n + 1))
+    case "$n" in 3) echo up ;; 0) echo down ;; *) echo partial ;; esac
+}
+
+tunnel_up_for() {
+    [ "$(tunnel_state)" = up ] && [ "$(unit_forward)" = "$1" ]
+}
+
+nft_rules() {
+    cat <<EOF
+table ip $NFT_TABLE
+delete table ip $NFT_TABLE
+table ip $NFT_TABLE {
+    chain output {
+        type nat hook output priority -100; policy accept;
+        # glider's own connection to the proxy passes through here too; without
+        # this it would be redirected back into glider.
+        ip daddr $1 return
+        ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
+        meta l4proto tcp redirect to :$REDIR_PORT
+    }
+}
+EOF
+}
+
+root_tunnel_down() {
+    local iface; iface="$(default_iface)"
+    nft delete table ip "$NFT_TABLE" 2>/dev/null
+    systemctl stop "$UNIT" 2>/dev/null
+    systemctl reset-failed "$UNIT" 2>/dev/null
+    [ -n "$iface" ] && resolvectl revert "$iface" 2>/dev/null
+    return 0
+}
+
+root_tunnel_up() {
+    local addr="$1" ip iface glider
+    valid_addr "$addr" || die "not a host:port address: $addr"
+    ip="$(getent ahostsv4 "${addr%:*}" | awk '{print $1; exit}')"
+    [ -n "$ip" ] || die "cannot resolve ${addr%:*}"
+    iface="$(default_iface)"
+    [ -n "$iface" ] || die "no default route — is the network up?"
+    glider="$(command -v glider)" || die "glider is not installed"
+
+    if ! unit_active || [ "$(unit_forward)" != "$addr" ]; then
+        systemctl stop "$UNIT" 2>/dev/null
+        systemctl reset-failed "$UNIT" 2>/dev/null
+        systemd-run --unit="$UNIT" --collect --description="proxyctl: glider → $addr" \
+            "$glider" -listen "redir://127.0.0.1:$REDIR_PORT" -forward "http://$addr" >/dev/null 2>&1 \
+            || { root_tunnel_down; die "glider could not be started: journalctl -u $UNIT -n 30"; }
+        for _ in $(seq 1 25); do port_open && break; sleep 0.2; done
+        port_open || { root_tunnel_down; die "glider is not listening on 127.0.0.1:$REDIR_PORT: journalctl -u $UNIT -n 30"; }
+    fi
+
+    # Rules only after glider listens, or every connection hits a closed port.
+    nft_rules "$ip" | nft -f - || { root_tunnel_down; die "the nft rules could not be loaded; the tunnel is down"; }
+
+    # shellcheck disable=SC2086
+    if resolvectl dns "$iface" $DOT_SERVERS 2>/dev/null \
+       && resolvectl dnsovertls "$iface" yes 2>/dev/null \
+       && resolvectl domain "$iface" '~.' 2>/dev/null; then
+        resolvectl flush-caches 2>/dev/null
+    else
+        warn "resolved could not be configured; DNS may not work"
+    fi
+}
+
+# ─── tor ─────────────────────────────────────────────────────────────────────
+tor_exit_state() {
+    [ -r "$TORRC" ] || { echo none; return; }
+    grep -q '^HTTPSProxy ' "$TORRC" && echo proxy || echo direct
+}
+
+# Replaces the torrc through the existing file and checks it before tor sees
+# it; a file tor rejects is put back as it was.
+torrc_apply() {
+    local new="$1"
+    [ "$new" = "$(cat "$TORRC")" ] && return 1
+    cp -p "$TORRC" "$TORRC.proxyctl.bak"
+    printf '%s\n' "$new" >"$TORRC"
+    if ! tor --verify-config -f "$TORRC" >/dev/null 2>&1; then
+        cat "$TORRC.proxyctl.bak" >"$TORRC"
+        die "tor rejected the new torrc; it was restored"
+    fi
+}
+
+tor_restart() {
+    local since; since="$(date +%s)"
+    systemctl restart tor || die "tor could not be restarted: journalctl -u tor -n 30"
+    for _ in $(seq 1 60); do
+        journalctl -u tor --since "@$since" -o cat 2>/dev/null | grep -q 'Bootstrapped 100%' && return 0
+        sleep 1
+    done
+    warn "tor has not finished bootstrapping yet: journalctl -u tor -f"
+}
+
+root_tor_exit() {
+    local mode="$1" addr="${2:-}" new
+    new="$(grep -v -E '^HTTPS?Proxy ' "$TORRC")"
+    case "$mode" in
+        direct) ;;
+        proxy)  valid_addr "$addr" || die "not a host:port address: $addr"
+                new+=$'\n'"HTTPSProxy $addr" ;;
+        *)      die "tor exit takes direct or proxy" ;;
+    esac
+    torrc_apply "$new" && tor_restart
+    return 0
+}
+
+root_tor_setup() {
+    local user="$1" new line
+    [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || die "not a user name: $user"
+    new="$(cat "$TORRC")"
+    for line in "ControlPort ${TOR_CONTROL}" "CookieAuthentication 1" "CookieAuthFileGroupReadable 1"; do
+        grep -q "^${line%% *} " "$TORRC" || new+=$'\n'"$line"
+    done
+    torrc_apply "$new" && tor_restart
+    usermod -aG tor "$user" || die "could not add $user to the tor group"
+    return 0
+}
+
+# Sends one command after cookie authentication; succeeds when tor accepts both.
+tor_ctl() {
+    [ -r "$TOR_COOKIE" ] || { off "cannot read $TOR_COOKIE: run proxyctl setup, then log in again"; return 1; }
+    local hex reply
+    hex="$(od -An -tx1 "$TOR_COOKIE" | tr -d ' \n')"
+    reply="$(timeout 5 bash -c '
+        exec 3<>"/dev/tcp/${1%:*}/${1##*:}" || exit 1
+        printf "AUTHENTICATE %s\r\n%s\r\nQUIT\r\n" "$2" "$3" >&3
+        cat <&3' _ "$TOR_CONTROL" "$hex" "$1" 2>/dev/null)" || { off "tor control port $TOR_CONTROL is not answering"; return 1; }
+    [ "$(grep -c '^250[ -]' <<<"$reply")" -ge 2 ] || { off "tor refused: $(head -1 <<<"$reply")"; return 1; }
+}
+
+root_cmd() {
+    local action="${1:-}"
+    [ "$#" -gt 0 ] && shift
+    case "$action" in
+        tunnel-up)   root_tunnel_up "${1:-}" ;;
+        tunnel-down) root_tunnel_down ;;
+        tor-exit)    root_tor_exit "${1:-}" "${2:-}" ;;
+        tor-setup)   root_tor_setup "${1:-}" ;;
+        *)           die "unknown root action: $action" ;;
+    esac
+}
+
+# ─── ssh ─────────────────────────────────────────────────────────────────────
+# Port 22 is blocked behind the phone proxy: GitHub is reached on
+# ssh.github.com:443 through an HTTP CONNECT instead. Written through the
+# existing file (`>`), so a symlinked ~/.ssh/config stays a symlink.
+ssh_rule_remove() {
+    [ -f "$SSH_CONF" ] || return 0
+    local kept
+    kept="$(sed "/^$SSH_MARK\$/,/^$SSH_END\$/d" "$SSH_CONF" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+    printf '%s\n' "$kept" >"$SSH_CONF"
+}
+
+ssh_rule_write() {
+    local tunnel
+    if command -v corkscrew >/dev/null; then
+        tunnel="corkscrew ${1%:*} ${1##*:} %h %p"
+    elif command -v ncat >/dev/null; then
+        tunnel="ncat --proxy $1 --proxy-type http %h %p"
+    else
+        warn "neither corkscrew nor ncat is installed; ssh to GitHub is not set up"
+        return 0
+    fi
+    [ -f "$SSH_CONF" ] || { mkdir -p "${SSH_CONF%/*}"; : >"$SSH_CONF"; chmod 600 "$SSH_CONF"; }
+    ssh_rule_remove
+    cat >>"$SSH_CONF" <<EOF
+
+$SSH_MARK
+Host github.com
+    Hostname ssh.github.com
+    Port 443
+    User git
+    IdentityFile $SSH_KEY
+    IdentitiesOnly yes
+    ProxyCommand $tunnel
+$SSH_END
+EOF
+}
+
+# ─── commands ────────────────────────────────────────────────────────────────
+cmd_addr() {
+    if [ "$#" -eq 0 ]; then
+        cfg_get PROXY_ADDR
+        return 0
+    fi
+    valid_addr "$1" || die "not a host:port address: $1"
+    if [ "$(cfg_get SYSTEM)" = proxy ] && unit_active; then
+        proxy_reachable "$1" || die "the proxy is not answering at $1; address unchanged"
+        as_root tunnel-up "$1" || exit 1
+        ssh_rule_write "$1"
+    fi
+    cfg_set PROXY_ADDR "$1"
+}
+
+cmd_system() {
+    case "${1:-}" in
+        proxy)
+            need_addr
+            proxy_reachable "$PROXY_ADDR" || die "the proxy is not answering: $PROXY_ADDR"
+            if ! tunnel_up_for "$PROXY_ADDR"; then
+                as_root tunnel-up "$PROXY_ADDR" || exit 1
+            fi
+            ssh_rule_write "$PROXY_ADDR"
+            cfg_set SYSTEM proxy
+            ok "system → proxy ($PROXY_ADDR)"
+            ;;
+        normal)
+            if [ "$(tunnel_state)" != down ]; then
+                as_root tunnel-down || exit 1
+            fi
+            ssh_rule_remove
+            cfg_set SYSTEM normal
+            ok "system → normal"
+            ;;
+        *) die "system takes normal or proxy" ;;
+    esac
+}
+
+cmd_tor() {
+    local sub="${1:-}"
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+        exit)
+            # Already in place: no password prompt for a change that is not one.
+            local current; current="$(grep -E '^HTTPS?Proxy ' "$TORRC" 2>/dev/null)"
+            case "${1:-}" in
+                proxy)  need_addr
+                        [ "$current" = "HTTPSProxy $PROXY_ADDR" ] || as_root tor-exit proxy "$PROXY_ADDR" || exit 1 ;;
+                direct) [ -z "$current" ] || as_root tor-exit direct || exit 1 ;;
+                *)      die "tor exit takes direct or proxy" ;;
+            esac
+            cfg_set TOR_EXIT "$1"
+            ok "tor exit → $1"
+            ;;
+        newip)
+            tor_ctl "SIGNAL NEWNYM" || exit 1
+            ok "new Tor identity (new connections only)"
+            ;;
+        rotate)
+            case "${1:-}" in
+                off)
+                    systemctl --user stop "$ROTATE_UNIT" 2>/dev/null
+                    cfg_set ROTATE 0
+                    ok "rotation off"
+                    ;;
+                *)
+                    [[ ${1:-} =~ ^[0-9]+$ ]] && (( 10#$1 >= ROTATE_MIN )) \
+                        || die "rotate takes seconds (at least $ROTATE_MIN) or off"
+                    systemctl --user stop "$ROTATE_UNIT" 2>/dev/null
+                    systemd-run --user --unit="$ROTATE_UNIT" --collect "$SELF" tor _rotate-loop "$1" >/dev/null \
+                        || die "the rotation unit could not be started"
+                    cfg_set ROTATE "$((10#$1))"
+                    ok "new Tor identity every $((10#$1)) s"
+                    ;;
+            esac
+            ;;
+        _rotate-loop)
+            [[ ${1:-} =~ ^[0-9]+$ ]] && (( 10#$1 >= ROTATE_MIN )) || die "rotate takes seconds (at least $ROTATE_MIN)"
+            while sleep "$1"; do
+                tor_ctl "SIGNAL NEWNYM" && ok "new Tor identity"
+            done
+            ;;
+        *) die "tor takes exit, newip or rotate" ;;
+    esac
+}
+
+cmd_setup() {
+    as_root tor-setup "$(id -un)" || exit 1
+    ok "tor ControlPort ready; log out and in once so the tor group applies"
+}
+
+cmd_browser() {
+    TOR_PROVIDER=none TOR_SOCKS_PORT="${TOR_SOCKS##*:}" exec torbrowser-launcher "$@"
+}
+
+cmd_env() {
+    local url
+    case "${1:-}" in
+        off)   printf 'unset %s no_proxy NO_PROXY\n' "${PROXY_VARS[*]}"; return 0 ;;
+        proxy) need_addr; url="http://$PROXY_ADDR" ;;
+        tor)   url="socks5h://$TOR_SOCKS" ;;
+        *)     die "env takes off, proxy or tor" ;;
+    esac
+    local v
+    for v in "${PROXY_VARS[@]}"; do printf 'export %s=%s\n' "$v" "$url"; done
+    printf 'export no_proxy=%s\nexport NO_PROXY=%s\n' "$NO_PROXY_LIST" "$NO_PROXY_LIST"
+}
+
+cmd_run() {
+    local mode="${1:-}"
+    [ "${2:-}" = "--" ] && [ "$#" -ge 3 ] || die "usage: proxyctl run proxy|tor -- CMD..."
+    [ "$mode" = proxy ] || [ "$mode" = tor ] || die "run takes proxy or tor"
+    local exports
+    exports="$(cmd_env "$mode")" || exit 1
+    eval "$exports"
+    shift 2
+    exec "$@"
+}
+
+# ─── status ──────────────────────────────────────────────────────────────────
+dns_on() {
+    local iface; iface="$(default_iface)"
+    [ -n "$iface" ] && resolvectl status "$iface" 2>/dev/null | grep -q '+DNSOverTLS'
+}
+ssh_rule_present() { [ -f "$SSH_CONF" ] && grep -qx "$SSH_MARK" "$SSH_CONF"; }
+yes_no()           { "$@" >/dev/null 2>&1 && echo true || echo false; }
+
+rotate_now() {
+    local r; r="$(cfg_get ROTATE)"
+    if systemctl --user is-active --quiet "$ROTATE_UNIT" && [[ $r =~ ^[0-9]+$ ]]; then
+        echo "$((10#$r))"
+    else
+        echo 0
+    fi
+}
+
+cmd_status() {
+    local addr want reach=false tunnel exit_want tor_exit
+    addr="$(cfg_get PROXY_ADDR)"
+    want="$(cfg_get SYSTEM)"; want="${want:-normal}"
+    exit_want="$(cfg_get TOR_EXIT)"
+    tor_exit="$(tor_exit_state)"
+    valid_addr "$addr" && proxy_reachable "$addr" && reach=true
+    tunnel="$(tunnel_state)"
+
+    if [ "${1:-}" = --json ]; then
+        jq -n --arg addr "$addr" --argjson reach "$reach" \
+              --arg want "$want" --argjson tunnel "$([ "$tunnel" = up ] && echo true || echo false)" \
+              --argjson dns "$(yes_no dns_on)" --argjson ssh "$(yes_no ssh_rule_present)" \
+              --argjson active "$(yes_no systemctl is-active --quiet tor)" \
+              --arg exit_want "$exit_want" --arg exit "$tor_exit" \
+              --argjson control "$(yes_no tor_ctl "GETINFO version")" \
+              --argjson rotate "$(rotate_now)" \
+            '{addr: $addr, proxy_reachable: $reach,
+              system: {want: $want, tunnel: $tunnel, dns: $dns, ssh: $ssh},
+              tor: {active: $active, exit_want: $exit_want, exit: $exit, control: $control, rotate: $rotate}}'
+        return
+    fi
+
+    printf 'Proxy address: \e[36m%s\e[0m\n' "${addr:-not set}"
+    if [ "$reach" = true ]; then ok "proxy answers"
+    elif [ -n "$addr" ]; then off "proxy does not answer"; fi
+
+    printf 'System: \e[36m%s\e[0m\n' "$want"
+    case "$want/$tunnel" in
+        proxy/up|normal/down) [ "$tunnel" = up ] && ok "tunnel up" || ok "tunnel down" ;;
+        *) warn "tunnel $tunnel, but the system mode is $want" ;;
+    esac
+    if [ "$want" = proxy ]; then
+        dns_on && ok "DNS over TLS" || warn "DNS over TLS is not set"
+        ssh_rule_present && ok "ssh to GitHub over 443" || warn "ssh rule missing"
+    fi
+
+    printf 'Tor:\n'
+    systemctl is-active --quiet tor && ok "tor running" || off "tor not running"
+    if [ -n "$exit_want" ] && [ "$exit_want" != "$tor_exit" ]; then
+        warn "exit $tor_exit, but proxyctl set $exit_want"
+    else
+        ok "exit $tor_exit"
+    fi
+    tor_ctl "GETINFO version" >/dev/null 2>&1 && ok "control port" || off "control port unavailable (proxyctl setup)"
+    local r; r="$(rotate_now)"
+    [ "$r" -gt 0 ] && ok "new identity every $r s" || off "rotation off"
+}
+
+# ─── tui ─────────────────────────────────────────────────────────────────────
+# Each action runs as its own process, so a failing one returns to the menu.
+cmd_tui() {
+    command -v gum >/dev/null || die "the menu needs gum: sudo pacman -S gum"
+    local choice v
+    while choice="$(gum choose --header "proxyctl" "System mode" "Tor exit" "New Tor IP" \
+                    "IP rotation" "Proxy address" "Open Tor Browser" "Status" "Quit")"; do
+        case "$choice" in
+            "System mode")      v="$(gum choose normal proxy)" && "$SELF" system "$v" ;;
+            "Tor exit")         v="$(gum choose direct proxy)" && "$SELF" tor exit "$v" ;;
+            "New Tor IP")       "$SELF" tor newip ;;
+            "IP rotation")      v="$(gum input --placeholder "seconds (at least $ROTATE_MIN), or off")" && "$SELF" tor rotate "$v" ;;
+            "Proxy address")    v="$(gum input --placeholder host:port --value "$(cfg_get PROXY_ADDR)")" && "$SELF" addr "$v" ;;
+            "Open Tor Browser") setsid -f "$SELF" browser >/dev/null 2>&1 ;;
+            "Status")           "$SELF" status ;;
+            *)                  break ;;
+        esac
+        printf '\n'
+    done
+}
+
+cmd="${1:-}"
+[ "$#" -gt 0 ] && shift
+case "$cmd" in
+    "")
+        if [ -t 0 ] && [ -t 1 ]; then cmd_tui; else usage >&2; exit 1; fi ;;
+    status) cmd_status "$@" ;;
+    addr) cmd_addr "$@" ;;
+    system) cmd_system "$@" ;;
+    tor)  cmd_tor "$@" ;;
+    setup) cmd_setup ;;
+    browser) cmd_browser "$@" ;;
+    _tunnel_state) tunnel_state ;;
+    _root)
+        [ "$EUID" -eq 0 ] || die "_root must run as root"
+        root_cmd "$@" ;;
+    env)  cmd_env "$@" ;;
+    run)  cmd_run "$@" ;;
+    -h|--help|help) usage ;;
+    *)    usage >&2; exit 1 ;;
+esac

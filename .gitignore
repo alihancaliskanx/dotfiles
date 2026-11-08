@@ -15,6 +15,6 @@
 *.bak
 *.bak.*
 
-# The untracked half of the git config: what net-proxy writes, and anything
-# else that belongs to one machine. It lives beside the tracked file in $HOME.
+# The untracked half of the git config: anything that belongs to one
+# machine. It lives beside the tracked file in $HOME.
 config.local

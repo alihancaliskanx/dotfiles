@@ -29,10 +29,6 @@ export TERMINAL=alacritty
 # scripts that read $FILEMANAGER instead of calling xdg-open.
 export FILEMANAGER=dolphin
 
-# Phone (PdaNet) HTTP proxy address. net-proxy, tor-net and the functions in
-# 30-proxy.zsh all read it from here — this is the only place to change it.
-export PROXY_ADDR="${PROXY_ADDR:-192.168.49.1:8000}"
-
 # ssh-agent: the systemd user unit in the services package opens this socket.
 export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 
@@ -56,7 +52,7 @@ export BROWSER="${BROWSER:-omarchy-launch-browser}"
 
 # ── gum ──────────────────────────────────────────────────────────────────────
 # Blue, to match the desktop. gum reads these on every call, so the scripts that
-# use it (tor-control, link.sh) get one look without passing flags each time —
+# use it (proxyctl, link.sh) get one look without passing flags each time —
 # and anything added later inherits it for free.
 export GUM_CHOOSE_CURSOR_FOREGROUND="#89b4fa"
 export GUM_CHOOSE_SELECTED_FOREGROUND="#89b4fa"

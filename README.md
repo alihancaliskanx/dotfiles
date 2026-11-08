@@ -144,10 +144,10 @@ the system, and a second set beside them is two of everything. What goes in is
 the rest of the list — terminals, editors, the network tools the scripts shell
 out to, fonts, applications.
 
-If you are behind a proxy (PdaNet etc.):
+If you are behind a proxy:
 
 ```bash
-PROXY=192.168.49.1:8000 ./install.sh hyprland
+PROXY=host:port ./install.sh hyprland
 ```
 
 If you only want to link the configs and not install packages, `./link.sh` is enough.
@@ -435,7 +435,7 @@ zsh is modular; there is no single huge file:
 
 | Module            | What's in it                                      |
 |-------------------|---------------------------------------------------|
-| `00-env`          | definitions: PATH, EDITOR, `PROXY_ADDR`, env      |
+| `00-env`          | definitions: PATH, EDITOR, env                    |
 | `05-omarchy`      | mise, zoxide, `open` — what Omarchy's bash rc sets up, for zsh |
 | `10-plugins`      | oh-my-zsh, powerlevel10k, fzf                     |
 | `20-aliases`      | aliases                                           |
@@ -462,11 +462,7 @@ bash script under `scripts/.local/bin/`:
 
 | Command        | What it does                                                   |
 |----------------|-----------------------------------------------------------------|
-| `net-proxy`    | turn the proxy on/off for `git`/`docker`/`ssh`/`sart` + `status` |
-| `net-tunnel`   | transparent tunnel for **all** TCP (glider): `on` / `off` / `status` / `check` |
-| `net-auto`     | proxy when the phone answers, direct when it does not — `status` / `watch` |
-| `tor-net`      | Tor's upstream proxy: `proxy` / `direct` / `check` / `status`    |
-| `tor-control`  | Tor ControlPort + NEWNYM (gum TUI)                              |
+| `proxyctl`     | the phone proxy and Tor: system mode, Tor exit, new identity, menu — see below |
 | `gclink`       | clone an AUR package and install it with `makepkg -si`          |
 | `ros-docker`   | enter / create the ROS Noetic container                         |
 | `sha256-check` | verify a file's sha256                                          |
@@ -482,47 +478,52 @@ bash script under `scripts/.local/bin/`:
 
 What stays in the shell is only the **env-modifying** ones — a subprocess cannot
 change its parent's environment, so these cannot be scripts: `proxy_on/off`,
-`tor_on/off`, `ardudev`, `ardupilot_dev`.
+`tor_on/off`, `ardudev`, `ardupilot_dev`. The first four only `eval` what
+`proxyctl env` prints.
 
-The old names are kept as aliases: `gitproxy_on`, `docker_proxy_on`,
-`ssh_proxy_on`, `sart_proxy_on`, `http_tor`, `normal_tor`, `tor_check`,
-`ros_docker`, `sha256_kontrol`. `net-tunnel` has short forms too:
-`tunnel_on`, `tunnel_off`, `tunnel_status`, `tunnel_check`.
+The old names are kept as aliases: `ros_docker`, `sha256_kontrol`.
 
-#### `net-auto` — deciding, instead of remembering
+#### `proxyctl` — the phone proxy and Tor
 
-`net-proxy` is the switch; `net-auto` is what decides. It opens a TCP connection
-to the proxy and applies the answer to everything that needs no root — `git`,
-`ssh`, `sart` — so tethering and plain wifi need no thought:
+One tool for both, from the terminal or from the bar widget
+([omarchy-proxy-control](https://github.com/alihancaliskanx/omarchy-proxy-control),
+linked as `~/.config/omarchy/plugins/sups.proxyctl`). The proxy address is set
+once and lives in `~/.config/proxyctl/config`, which is not in this repo:
 
 ```bash
-net-auto            # probe once and apply
-net-auto status     # what is applied, and whether the proxy answers
-net-auto on|off     # force it, ignoring the probe
+proxyctl addr host:port          # set it; nothing else holds an address
+proxyctl                         # menu (gum)
+proxyctl status                  # what is actually in place, read live
+proxyctl system proxy|normal     # all TCP through the proxy, or direct
+proxyctl tor exit proxy|direct   # how tor reaches its first relay
+proxyctl tor newip               # new Tor identity
+proxyctl tor rotate 20|off       # new identity every 20 s
+proxyctl browser                 # Tor Browser over the system tor
+proxyctl run tor -- curl ...     # one command through tor
 ```
 
-`net-auto.service` (a systemd **user** unit, in the `services` package) runs
-`net-auto watch`, which blocks on `nmcli monitor` and re-decides whenever
-NetworkManager changes anything. Event driven, not polled: an idle laptop does
-nothing at all. Applying is idempotent, so the extra events cost one TCP connect
-and no writes.
+Aliases: `tunnel_on`/`tunnel_off` (system mode), `http_tor`/`normal_tor`
+(Tor exit), `trnt` (rotate), `torb` (Tor Browser), `proxy_status`,
+`tunnel_status`, `tor_check` (status).
 
-The verdict is cached in `~/.cache/net-auto/state`, and both shell modules read
-that file at startup — which is what gives a new terminal the right `http_proxy`.
-Probing in the shell instead would put a TCP timeout in front of every prompt on
-a network with no proxy. `proxy_off` still wins for the rest of that shell.
+The system is never forced through Tor. tor listens on `127.0.0.1:9050`, and a
+program is pointed at it in its own settings, with `tor_on` for one shell, or
+with `proxyctl run tor`. "Tor through the proxy" is `proxyctl tor exit proxy`
+plus one of those.
 
-**docker is deliberately left out.** Turning it on writes into
-`/etc/systemd/system` and restarts the daemon — sudo, and every running
-container dies. That is not something to do behind your back, so
-`net-proxy docker on|off` stays manual; `net-auto status` points it out when it
-disagrees with the rest.
+Nothing switches by itself: a mode changes only when you pick one. What needs
+root (`nft`, the glider unit, `resolvectl`, `/etc/tor/torrc`) goes through one
+internal subcommand, `proxyctl _root`, reached with `sudo` from a terminal and
+`pkexec` from the widget, and is skipped when the state is already right — so
+re-applying a mode asks for no password. `NEWNYM` needs the ControlPort:
+`proxyctl setup` adds it with cookie auth and puts you in the `tor` group (log
+out and in once).
 
-#### `net-tunnel` — for what a proxy cannot be handed to
+#### The system mode `proxy` — for what a proxy cannot be handed to
 
-`net-proxy` sets a proxy per application; `proxy_on` sets it for one shell.
-Neither reaches a program that has no idea what a proxy is. Steam is the
-textbook case, and `proxychains` does not save it either:
+`proxy_on` sets a proxy for one shell. It does not reach a program that has no
+idea what a proxy is. Steam is the textbook case, and `proxychains` does not
+save it either:
 
 - the Steam client is **32-bit** (`ubuntu12_32/steam`), so the 64-bit
   `libproxychains4.so` is refused — `wrong ELF class: ELFCLASS64: ignored` —
@@ -532,18 +533,14 @@ textbook case, and `proxychains` does not save it either:
 - `LD_PRELOAD` hooks `connect()` and nothing else — static binaries and non-TCP
   traffic slip past.
 
-`net-tunnel` works one layer down instead: **glider** (`redir://` listener +
-`http://` forwarder) + an **nftables** `nat output` redirect, so every TCP
-connection on the machine is pushed into the proxy no matter which process opens
-it. In PdaNet WiFi Direct mode UDP/53 does not work at all, so DNS is handed to
-systemd-resolved as **DNS-over-TLS** (TCP/853) — which then rides the same
-tunnel.
-
-```bash
-tunnel_on       # glider + nft + DoT, then plain `steam` just works
-tunnel_check    # DNS + Steam CDN + exit IP
-tunnel_off      # everything removed, back to the original state
-```
+So `proxyctl system proxy` works one layer down: **glider** (`redir://`
+listener + `http://` forwarder) + an **nftables** `nat output` redirect, so
+every TCP connection on the machine is pushed into the proxy no matter which
+process opens it. In WiFi Direct mode UDP/53 does not work at all, so DNS is
+handed to systemd-resolved as **DNS-over-TLS** (TCP/853) — which then rides the
+same tunnel. Port 22 is blocked behind the proxy, so the mode also writes a
+`github.com` block into `~/.ssh/config` that goes to `ssh.github.com:443`
+through corkscrew (or ncat); `normal` removes it.
 
 > **Why glider and not redsocks.** The obvious tool for this is redsocks, and
 > the first version used it — but the blackarch build (`211.19b822e`) cannot
@@ -556,21 +553,15 @@ tunnel_off      # everything removed, back to the original state
 > the repos.
 
 Nothing persistent is written: the transient systemd unit, the nft table and
-the resolved settings are all in RAM and gone after a reboot. Docker containers
-have their own netns and do not pass through the `output` hook — for those it is
-still `net-proxy docker on`.
+the resolved settings are all in RAM and gone after a reboot. The proxy host
+and private ranges are left out of the redirect, so tor's own connection to
+the proxy (`tor exit proxy`) is not proxied twice. Docker containers have
+their own netns and do not pass through the `output` hook.
 
 > The proxy allows CONNECT to 80/443/853 but blocks Steam's own CM ports
 > (27015-27050); Steam notices and falls back to CM-over-443, so the first login
 > can be slow. UDP is not tunnelled: voice chat and P2P will not work,
 > downloads and games will.
-
-The proxy address comes from a single place: **`PROXY_ADDR`** in `00-env`
-(default `192.168.49.1:8000`). The scripts read the same variable:
-
-```bash
-PROXY_ADDR=10.0.0.1:3128 net-proxy git on
-```
 
 ---
 
@@ -580,7 +571,7 @@ PROXY_ADDR=10.0.0.1:3128 net-proxy git on
   stuck, `:Lazy sync`. Versions are pinned by `lazy-lock.json`, don't forget to
   commit it after updating.
 - **powerlevel10k** — to change the prompt: `p10k configure` (it rewrites `~/.p10k.zsh`).
-- **tor-control** — does not work without `gum` (`sudo pacman -S gum`).
+- **proxyctl** — the menu needs `gum` (`sudo pacman -S gum`); the subcommands do not.
 - **ssh-agent** — `systemctl --user enable --now ssh-agent`.
 - **Packages come in two lists.** `install.sh` carries the curated one: what a
   fresh machine *should* have, grouped by what it is for. `extras/pacman-explicit.txt`
@@ -701,7 +692,7 @@ rewritten by KDE and would produce constant conflicts.
 **`~/.config/git/config` is tracked, and what belongs to one machine is not in it.**
 The file is a symlink into this repo, and `git config --global` writes through
 it — so anything set that way shows up in `git diff` and, if you are not
-looking, in a commit. `net-proxy git on` used to put the tethering proxy there.
+looking, in a commit. An older proxy script used to put the tethering proxy there.
 
 The tracked file now ends with
 
@@ -710,7 +701,7 @@ The tracked file now ends with
 	path = ~/.config/git/config.local
 ```
 
-and `net-proxy` writes to that file instead. It is not in the repo and git does
+and machine-specific settings go there instead. It is not in the repo and git does
 not mind when it is missing, so a fresh machine needs nothing. It is also the
 place for anything else that should not be shared: set it with
 
@@ -718,8 +709,7 @@ place for anything else that should not be shared: set it with
 git config --file ~/.config/git/config.local <key> <value>
 ```
 
-`--global` still means the tracked file. `net-proxy git off` clears the proxy
-from both, for the copy an older version left behind.
+`--global` still means the tracked file.
 
 Note also that `[https] proxy` is not a thing git reads; only `http.proxy` (and
 `http.<url>.proxy`) does anything. The `[https]` section is inert.

@@ -7,8 +7,8 @@
 #   ./install.sh hyprland        Hyprland desktop + common packages
 #   ./install.sh kde             common packages only (if KDE is already installed)
 #
-# If you are behind a proxy such as PdaNet:
-#   PROXY=192.168.49.1:8000 ./install.sh hyprland
+# If you are behind a proxy:
+#   PROXY=host:port ./install.sh hyprland
 #   (or it is picked up automatically if http_proxy is already exported)
 
 set -euo pipefail
@@ -55,12 +55,11 @@ PKGS=(
   kitty alacritty ghostty neovim
   # the shell and what .zshrc directly needs
   zsh fzf eza git
-  # network / proxy tools — net-proxy, tor-net, tor-control rely on these.
-  # net-proxy tunnels ssh through corkscrew, or ncat (from nmap) if corkscrew
-  # is not around — the fallback was silently in use on this machine.
-  # net-tunnel is built out of these two: glider does the redir->HTTP-CONNECT
-  # forwarding, nftables holds the redirect table. (Not redsocks — see the
-  # net-tunnel section of the README for why.)
+  # network / proxy tools — proxyctl relies on these. Its ssh rule tunnels
+  # through corkscrew, or ncat (from nmap) if corkscrew is not around. The
+  # system proxy mode is built out of glider (redir->HTTP-CONNECT forwarding)
+  # and nftables (the redirect table). (Not redsocks — see the proxyctl
+  # section of the README for why.) gum draws its menu.
   tor proxychains-ng gum corkscrew nftables glider
   # what the scripts package shells out to and nothing else pulls in: jq
   # (the smart-focus and full-width scripts, the screenshot bindings),

@@ -1,85 +1,45 @@
 # 30-proxy — proxy and Tor.
 #
-# The functions here are ONLY the ones that change the current shell's environment
-# variables; a script cannot do that (a subprocess cannot touch the parent's env).
-# Everything that touches persistent configuration lives in the shared scripts:
-#
-#   net-proxy  git|docker|ssh|sart on|off   →  ~/.local/bin/net-proxy
-#   net-tunnel on|off|status|check          →  ~/.local/bin/net-tunnel
-#   tor-net    proxy|direct|check|status    →  ~/.local/bin/tor-net
-#   tor-control                             →  ControlPort / NEWNYM
-#
-# The address comes from $PROXY_ADDR in 00-env.zsh.
+# Everything lives in `proxyctl` (~/.local/bin/proxyctl); the address is in
+# ~/.config/proxyctl/config. The functions here exist only because a script
+# cannot change the calling shell's environment: they eval `proxyctl env`.
 
 # ── the current shell's env ──────────────────────────────────────────────────
 proxy_on() {
-    local url="http://${PROXY_ADDR}"
-    export http_proxy="$url" https_proxy="$url" ftp_proxy="$url"
-    export HTTP_PROXY="$url" HTTPS_PROXY="$url"
-    export no_proxy="localhost,127.0.0.1,::1,.local"
-    export NO_PROXY="$no_proxy"
-    echo "✅ Proxy active: $PROXY_ADDR"
+    local exports
+    exports="$(proxyctl env proxy)" || return 1
+    eval "$exports"
+    echo "✅ Proxy active: $(proxyctl addr)"
 }
 
 proxy_off() {
-    unset http_proxy https_proxy ftp_proxy all_proxy no_proxy
-    unset HTTP_PROXY HTTPS_PROXY FTP_PROXY ALL_PROXY NO_PROXY
+    eval "$(proxyctl env off)"
     echo "🚫 Proxy off."
 }
 
 tor_on() {
-    local url="socks5h://127.0.0.1:9050"
-    export http_proxy="$url" https_proxy="$url" ftp_proxy="$url" all_proxy="$url"
-    export HTTP_PROXY="$url" HTTPS_PROXY="$url" FTP_PROXY="$url" ALL_PROXY="$url"
-    export no_proxy="localhost,127.0.0.1,::1,.local"
-    export NO_PROXY="$no_proxy"
+    eval "$(proxyctl env tor)"
     echo "🧅 Tor proxy active: 127.0.0.1:9050"
 }
 
 tor_off() { proxy_off }
 
-# Which proxy is on?
-proxy_status() { net-proxy status }
+# ── system and Tor: thin aliases over proxyctl ──────────────────────────────
+alias proxy_status='proxyctl status'
+alias tunnel_on='proxyctl system proxy'     # all TCP through the phone proxy
+alias tunnel_off='proxyctl system normal'
+alias tunnel_status='proxyctl status'
+alias http_tor='proxyctl tor exit proxy'    # tor reaches its relays via the phone proxy
+alias normal_tor='proxyctl tor exit direct'
+alias tor_check='proxyctl status'
+alias trnt='proxyctl tor rotate'            # trnt 20 = new identity every 20 s, trnt off
+alias torb='proxyctl browser'               # Tor Browser over the system Tor
 
-# ── persistent settings: thin wrappers around the shared scripts ─────────────
-# (the old names are kept so muscle memory keeps working)
-alias gitproxy_on='net-proxy git on'
-alias gitproxy_off='net-proxy git off'
-alias docker_proxy_on='net-proxy docker on'
-alias docker_proxy_off='net-proxy docker off'
-alias ssh_proxy_on='net-proxy ssh on'
-alias ssh_proxy_off='net-proxy ssh off'
-alias sart_proxy_on='net-proxy sart on'
-alias sart_proxy_off='net-proxy sart off'
-
-alias http_tor='tor-net proxy'      # route Tor out via the phone proxy
-alias normal_tor='tor-net direct'   # go back to a direct connection
-alias tor_check='tor-net check'
-
-# ── transparent tunnel (Steam, Proton, 32-bit, containers) ───────────────────
-# proxychains cannot reach those — see the header of net-tunnel. With this on,
-# plain `steam` works; no `pc steam`.
-alias tunnel_on='net-tunnel on'
-alias tunnel_off='net-tunnel off'
-alias tunnel_status='net-tunnel status'
-alias tunnel_check='net-tunnel check'
-
-# ── proxychains / tornet ─────────────────────────────────────────────────────
+# ── proxychains ──────────────────────────────────────────────────────────────
 alias pc='proxychains'
 alias pct='proxychains -f ~/.proxychains/tor.conf'   # through Tor (SOCKS5 9050)
-alias trnt='tornet --count 0 --interval'
 alias vmproxy='sudo /usr/local/bin/vm-proxy'         # VM proxy: on/off/status/test
 
 # ── proxy config files ───────────────────────────────────────────────────────
 alias pconfig='sudo nvim /etc/proxychains.conf'
 alias tconfig='sudo nvim /etc/tor/torrc'
-
-# ── follow net-auto ──────────────────────────────────────────────────────────
-# net-auto decides whether the phone proxy is there and writes the answer down;
-# net-auto.service keeps it current on every network change. Reading that file
-# is what makes a new shell start with the right http_proxy — probing here
-# instead would put a TCP timeout in front of every prompt on plain wifi.
-# proxy_off still wins for the rest of that shell's life.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/net-auto/state" ]]; then
-    [[ "$(<"${XDG_CACHE_HOME:-$HOME/.cache}/net-auto/state")" == on ]] && proxy_on >/dev/null
-fi
