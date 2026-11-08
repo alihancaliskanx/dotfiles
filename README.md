@@ -74,12 +74,17 @@ No binding calls fuzzel any more. The "Quit Hyprland?" prompt it drew on
 
 ### `desktop/.config/omarchy`
 
-Omarchy's user directory: `shell.toml` and `shell.json` for the shell,
+Omarchy's user directory: `shell.json` for the shell,
 `extensions/omarchy-menu.jsonc` for entries added to its menu, `hooks/` for the
 scripts it runs on update, boot and theme change (the `.sample` files are
 Omarchy's own examples, inert until renamed), and `branding/`. Its `.gitignore`
 keeps `themes/` and `plugins/` out — both are installed by Omarchy and are not
 this repo's to version.
+
+`~/.config/omarchy/shell.toml` is deliberately not tracked. `omarchy display
+text size` rewrites it with `mv`, and the shell watches it for the change; a
+symlink there is replaced by a real file while the shell keeps watching the
+link's old target, so the new size never shows until the shell restarts.
 
 `shell.json` is written by the shell's settings pages. When it shows up as a
 conflict in `./link.sh status`, there is a real file where the symlink should
@@ -152,7 +157,7 @@ If you only want to link the configs and not install packages, `./link.sh` is en
 ## Packages
 
 Each top-level directory is a "package"; the tree inside it is mirrored exactly into `$HOME`.
-Example: `desktop/.config/omarchy/shell.toml` → `~/.config/omarchy/shell.toml`.
+Example: `desktop/.config/omarchy/shell.json` → `~/.config/omarchy/shell.json`.
 
 | Package    | Contents                                                        |
 |------------|-----------------------------------------------------------------|
