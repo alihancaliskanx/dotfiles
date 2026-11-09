@@ -55,9 +55,16 @@ EXTRA_PACKAGES=(gtk)
 # word: the global theme is selected, its `defaults` is never read, and Plasma
 # falls back to stock *light* Breeze. One symlink for the package root keeps
 # every file inside it. Nothing under these paths may be a symlink either.
+#
+# The terminal directories are here for another reason: Omarchy's text-size
+# command edits alacritty.toml and ghostty's config with plain `sed -i`, which
+# replaces a per-file symlink with a real copy. Inside a linked directory the
+# rewritten file lands in the repo instead.
 LINK_AS_DIR=(
     .local/share/plasma/look-and-feel/my-dotfiles
     .local/share/wallpapers/StarrySky
+    .config/alacritty
+    .config/ghostty
 )
 
 DRY=0
