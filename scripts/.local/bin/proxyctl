@@ -130,7 +130,8 @@ nft_state() {
     if [ "$EUID" -eq 0 ]; then
         nft list table ip "$NFT_TABLE" >/dev/null 2>&1 && return 0 || return 1
     fi
-    sudo -n true 2>/dev/null || return 2
+    # sudo caches credentials per tty; without one the probe can only fail and log.
+    [ -t 0 ] && sudo -n true 2>/dev/null || return 2
     sudo -n nft list table ip "$NFT_TABLE" >/dev/null 2>&1 && return 0 || return 1
 }
 
