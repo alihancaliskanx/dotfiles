@@ -1,34 +1,12 @@
 {
   "bar": {
-    "centerAnchor": "omarchy.clock",
     "layout": {
       "center": [
-        {
-          "id": "omarchy.indicators"
-        },
         {
           "format": "dddd HH:mm",
           "formatAlt": "d MMMM 'W'ww yyyy",
           "id": "omarchy.clock",
           "verticalFormat": "HH\n—\nmm"
-        },
-        {
-          "id": "omarchy.elsewhen"
-        },
-        {
-          "id": "omarchy.keyboard-layout"
-        },
-        {
-          "id": "omarchy.weather"
-        },
-        {
-          "id": "omarchy.system-update"
-        },
-        {
-          "id": "omarchy.nightlight"
-        },
-        {
-          "id": "omarchy.media"
         }
       ],
       "left": [
@@ -47,6 +25,12 @@
           "id": "omarchy.tray"
         },
         {
+          "id": "io.github.michaelsucks.pastel-stats"
+        },
+        {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
           "id": "felixzsh.key-visualizer"
         },
         {
@@ -59,21 +43,80 @@
           "id": "sups.audio"
         },
         {
+          "id": "io.github.ncr.omaphones"
+        },
+        {
+          "id": "sups.bluetooth-sound-control"
+        },
+        {
           "id": "omarchy.power"
         },
         {
           "id": "omarchy.bluetooth"
         },
         {
-          "id": "omarchy.network"
+          "id": "sups.proxyctl"
         },
         {
-          "id": "io.github.shivamnarkar47.omarchy-hotspot"
+          "id": "omarchy.network"
         },
         {
           "id": "omarchy.monitor"
         }
-      ]
+      ],
+      "centerBegin": [
+        {
+          "id": "omarchy.indicators"
+        }
+      ],
+      "centerEnd": [
+        {
+          "id": "omarchy.elsewhen",
+          "cities": [
+            {
+              "name": "Istanbul",
+              "zone": "Europe/Istanbul"
+            },
+            {
+              "name": "Libya",
+              "zone": "Africa/Tripoli",
+              "lat": 28,
+              "lon": 17,
+              "region": "LY"
+            },
+            {
+              "name": "Tokyo",
+              "zone": "Asia/Tokyo"
+            },
+            {
+              "name": "Los Angeles",
+              "zone": "America/Los_Angeles"
+            },
+            {
+              "name": "New York",
+              "zone": "America/New_York"
+            },
+            {
+              "name": "London",
+              "zone": "Europe/London"
+            }
+          ],
+          "offsetMode": "home"
+        },
+        {
+          "id": "omarchy.weather"
+        },
+        {
+          "id": "omarchy.system-update"
+        },
+        {
+          "id": "omarchy.nightlight"
+        },
+        {
+          "id": "omarchy.media"
+        }
+      ],
+      "tray": []
     },
     "position": "top",
     "transparent": false
