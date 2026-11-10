@@ -248,7 +248,9 @@ root_tor_exit() {
                 new+=$'\n'"HTTPSProxy $addr" ;;
         *)      die "tor exit takes direct or proxy" ;;
     esac
-    torrc_apply "$new" && tor_restart
+    if torrc_apply "$new" || ! systemctl is-active --quiet tor; then
+        tor_restart
+    fi
     return 0
 }
 
@@ -256,10 +258,12 @@ root_tor_setup() {
     local user="$1" new line
     [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || die "not a user name: $user"
     new="$(cat "$TORRC")"
-    for line in "ControlPort ${TOR_CONTROL}" "CookieAuthentication 1" "CookieAuthFileGroupReadable 1"; do
+    for line in "DataDirectoryGroupReadable 1" "ControlPort ${TOR_CONTROL}" "CookieAuthentication 1" "CookieAuthFile ${TOR_COOKIE}" "CookieAuthFileGroupReadable 1"; do
         grep -q "^${line%% *} " "$TORRC" || new+=$'\n'"$line"
     done
-    torrc_apply "$new" && tor_restart
+    if torrc_apply "$new" || ! systemctl is-active --quiet tor; then
+        tor_restart
+    fi
     usermod -aG tor "$user" || die "could not add $user to the tor group"
     return 0
 }
@@ -370,11 +374,13 @@ cmd_tor() {
     case "$sub" in
         exit)
             # Already in place: no password prompt for a change that is not one.
-            local current; current="$(grep -E '^HTTPS?Proxy ' "$TORRC" 2>/dev/null)"
+            local current active=0
+            current="$(grep -E '^HTTPS?Proxy ' "$TORRC" 2>/dev/null)"
+            systemctl is-active --quiet tor && active=1
             case "${1:-}" in
                 proxy)  need_addr
-                        [ "$current" = "HTTPSProxy $PROXY_ADDR" ] || as_root tor-exit proxy "$PROXY_ADDR" || exit 1 ;;
-                direct) [ -z "$current" ] || as_root tor-exit direct || exit 1 ;;
+                        { [ "$active" -eq 1 ] && [ "$current" = "HTTPSProxy $PROXY_ADDR" ]; } || as_root tor-exit proxy "$PROXY_ADDR" || exit 1 ;;
+                direct) { [ "$active" -eq 1 ] && [ -z "$current" ]; } || as_root tor-exit direct || exit 1 ;;
                 *)      die "tor exit takes direct or proxy" ;;
             esac
             cfg_set TOR_EXIT "$1"
@@ -418,6 +424,10 @@ cmd_setup() {
 }
 
 cmd_browser() {
+    if ! systemctl is-active --quiet tor; then
+        local want; want="$(cfg_get TOR_EXIT)"
+        "$SELF" tor exit "${want:-direct}" || exit 1
+    fi
     TOR_PROVIDER=none TOR_SOCKS_PORT="${TOR_SOCKS##*:}" exec torbrowser-launcher "$@"
 }
 
