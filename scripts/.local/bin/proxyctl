@@ -41,6 +41,7 @@ DOT_SERVERS="1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net"
 TORRC="${PROXYCTL_TORRC:-/etc/tor/torrc}"
 TOR_COOKIE="${PROXYCTL_TOR_COOKIE:-/var/lib/tor/control_auth_cookie}"
 TOR_CONTROL="${PROXYCTL_TOR_CONTROL:-127.0.0.1:9051}"
+TOR_IP_CACHE="${PROXYCTL_TOR_IP_CACHE:-${XDG_RUNTIME_DIR:-/tmp}/proxyctl-tor-ip}"
 ROTATE_UNIT="proxyctl-rotate"
 # tor rate-limits NEWNYM to about one every ten seconds.
 ROTATE_MIN=10
@@ -241,7 +242,8 @@ tor_restart() {
 
 root_tor_exit() {
     local mode="$1" addr="${2:-}" new
-    new="$(grep -v -E '^HTTPS?Proxy ' "$TORRC")"
+    new="$(grep -v -E '^(HTTPS?Proxy|SocksPort) ' "$TORRC")"
+    new+=$'\n'"SocksPort $TOR_SOCKS NoIsolateSOCKSAuth"
     case "$mode" in
         direct) ;;
         proxy)  valid_addr "$addr" || die "not a host:port address: $addr"
@@ -257,7 +259,8 @@ root_tor_exit() {
 root_tor_setup() {
     local user="$1" new line
     [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || die "not a user name: $user"
-    new="$(cat "$TORRC")"
+    new="$(grep -v -E '^SocksPort ' "$TORRC")"
+    new+=$'\n'"SocksPort $TOR_SOCKS NoIsolateSOCKSAuth"
     for line in "DataDirectoryGroupReadable 1" "ControlPort ${TOR_CONTROL}" "CookieAuthentication 1" "CookieAuthFile ${TOR_COOKIE}" "CookieAuthFileGroupReadable 1"; do
         grep -q "^${line%% *} " "$TORRC" || new+=$'\n'"$line"
     done
@@ -278,6 +281,30 @@ tor_ctl() {
         printf "AUTHENTICATE %s\r\n%s\r\nQUIT\r\n" "$2" "$3" >&3
         cat <&3' _ "$TOR_CONTROL" "$hex" "$1" 2>/dev/null)" || { off "tor control port $TOR_CONTROL is not answering"; return 1; }
     [ "$(grep -c '^250[ -]' <<<"$reply")" -ge 2 ] || { off "tor refused: $(head -1 <<<"$reply")"; return 1; }
+}
+
+tor_ip_fetch() {
+    local ip
+    ip="$(curl -fsS --max-time 8 --socks5-hostname "$TOR_SOCKS" https://api.ipify.org 2>/dev/null)" \
+        || ip="$(curl -fsS --max-time 8 --socks5-hostname "$TOR_SOCKS" https://icanhazip.com 2>/dev/null)"
+    ip="${ip//$'\n'/}"
+    ip="${ip//$'\r'/}"
+    if [[ $ip =~ ^[0-9a-fA-F.:]+$ ]]; then
+        printf '%s\n' "$ip" >"$TOR_IP_CACHE.tmp" && mv "$TOR_IP_CACHE.tmp" "$TOR_IP_CACHE"
+        printf '%s\n' "$ip"
+    fi
+}
+
+tor_ip_now() {
+    if ! systemctl is-active --quiet tor; then
+        rm -f "$TOR_IP_CACHE" 2>/dev/null
+        return 0
+    fi
+    if [ -r "$TOR_IP_CACHE" ]; then
+        head -1 "$TOR_IP_CACHE"
+    else
+        ( flock -n 9 && tor_ip_fetch ) 9>"$TOR_IP_CACHE.lock" </dev/null >/dev/null 2>&1 &
+    fi
 }
 
 root_cmd() {
@@ -336,10 +363,19 @@ cmd_addr() {
         return 0
     fi
     valid_addr "$1" || die "not a host:port address: $1"
-    if [ "$(cfg_get SYSTEM)" = proxy ] && unit_active; then
+    local sys_up=0 tor_up=0
+    [ "$(cfg_get SYSTEM)" = proxy ] && unit_active && sys_up=1
+    [ "$(cfg_get TOR_EXIT)" = proxy ] && systemctl is-active --quiet tor && tor_up=1
+    if [ "$sys_up" -eq 1 ] || [ "$tor_up" -eq 1 ]; then
         proxy_reachable "$1" || die "the proxy is not answering at $1; address unchanged"
+    fi
+    if [ "$sys_up" -eq 1 ]; then
         as_root tunnel-up "$1" || exit 1
         ssh_rule_write "$1"
+    fi
+    if [ "$tor_up" -eq 1 ]; then
+        as_root tor-exit proxy "$1" || exit 1
+        tor_ip_fetch >/dev/null 2>&1 || true
     fi
     cfg_set PROXY_ADDR "$1"
 }
@@ -374,25 +410,32 @@ cmd_tor() {
     case "$sub" in
         exit)
             # Already in place: no password prompt for a change that is not one.
-            local current active=0
+            local current socks_ok=0 active=0
             current="$(grep -E '^HTTPS?Proxy ' "$TORRC" 2>/dev/null)"
+            grep -qx "SocksPort $TOR_SOCKS NoIsolateSOCKSAuth" "$TORRC" 2>/dev/null && socks_ok=1
             systemctl is-active --quiet tor && active=1
             case "${1:-}" in
                 proxy)  need_addr
-                        { [ "$active" -eq 1 ] && [ "$current" = "HTTPSProxy $PROXY_ADDR" ]; } || as_root tor-exit proxy "$PROXY_ADDR" || exit 1 ;;
-                direct) { [ "$active" -eq 1 ] && [ -z "$current" ]; } || as_root tor-exit direct || exit 1 ;;
+                        { [ "$active" -eq 1 ] && [ "$socks_ok" -eq 1 ] && [ "$current" = "HTTPSProxy $PROXY_ADDR" ]; } || as_root tor-exit proxy "$PROXY_ADDR" || exit 1 ;;
+                direct) { [ "$active" -eq 1 ] && [ "$socks_ok" -eq 1 ] && [ -z "$current" ]; } || as_root tor-exit direct || exit 1 ;;
                 *)      die "tor exit takes direct or proxy" ;;
             esac
             cfg_set TOR_EXIT "$1"
+            tor_ip_fetch >/dev/null 2>&1 || true
             ok "tor exit → $1"
             ;;
         newip)
+            if ! systemctl is-active --quiet tor; then
+                local want; want="$(cfg_get TOR_EXIT)"
+                "$SELF" tor exit "${want:-direct}" || exit 1
+            fi
             tor_ctl "SIGNAL NEWNYM" || exit 1
-            ok "new Tor identity (new connections only)"
+            local ip; ip="$(tor_ip_fetch)"
+            ok "new Tor identity${ip:+ ($ip)}"
             ;;
         rotate)
             case "${1:-}" in
-                off)
+                off|0)
                     systemctl --user stop "$ROTATE_UNIT" 2>/dev/null
                     cfg_set ROTATE 0
                     ok "rotation off"
@@ -400,8 +443,12 @@ cmd_tor() {
                 *)
                     [[ ${1:-} =~ ^[0-9]+$ ]] && (( 10#$1 >= ROTATE_MIN )) \
                         || die "rotate takes seconds (at least $ROTATE_MIN) or off"
+                    if ! systemctl is-active --quiet tor; then
+                        local want; want="$(cfg_get TOR_EXIT)"
+                        "$SELF" tor exit "${want:-direct}" || exit 1
+                    fi
                     systemctl --user stop "$ROTATE_UNIT" 2>/dev/null
-                    systemd-run --user --unit="$ROTATE_UNIT" --collect "$SELF" tor _rotate-loop "$1" >/dev/null \
+                    systemd-run --user --quiet --unit="$ROTATE_UNIT" --collect "$SELF" tor _rotate-loop "$1" >/dev/null 2>&1 \
                         || die "the rotation unit could not be started"
                     cfg_set ROTATE "$((10#$1))"
                     ok "new Tor identity every $((10#$1)) s"
@@ -411,7 +458,10 @@ cmd_tor() {
         _rotate-loop)
             [[ ${1:-} =~ ^[0-9]+$ ]] && (( 10#$1 >= ROTATE_MIN )) || die "rotate takes seconds (at least $ROTATE_MIN)"
             while sleep "$1"; do
-                tor_ctl "SIGNAL NEWNYM" && ok "new Tor identity"
+                if tor_ctl "SIGNAL NEWNYM"; then
+                    tor_ip_fetch >/dev/null 2>&1 || true
+                    ok "new Tor identity"
+                fi
             done
             ;;
         *) die "tor takes exit, newip or rotate" ;;
@@ -428,7 +478,7 @@ cmd_browser() {
         local want; want="$(cfg_get TOR_EXIT)"
         "$SELF" tor exit "${want:-direct}" || exit 1
     fi
-    TOR_PROVIDER=none TOR_SOCKS_PORT="${TOR_SOCKS##*:}" exec torbrowser-launcher "$@"
+    TOR_SKIP_LAUNCH=1 TOR_SOCKS_PORT="${TOR_SOCKS##*:}" TOR_CONTROL_PORT="${TOR_CONTROL##*:}" TOR_CONTROL_COOKIE_AUTH_FILE="$TOR_COOKIE" exec torbrowser-launcher "$@"
 }
 
 cmd_env() {
@@ -489,9 +539,10 @@ cmd_status() {
               --arg exit_want "$exit_want" --arg exit "$tor_exit" \
               --argjson control "$(yes_no tor_ctl "GETINFO version")" \
               --argjson rotate "$(rotate_now)" \
+              --arg ip "$(tor_ip_now)" \
             '{addr: $addr, proxy_reachable: $reach,
               system: {want: $want, tunnel: $tunnel, dns: $dns, ssh: $ssh},
-              tor: {active: $active, exit_want: $exit_want, exit: $exit, control: $control, rotate: $rotate}}'
+              tor: {active: $active, exit_want: $exit_want, exit: $exit, control: $control, rotate: $rotate, ip: $ip}}'
         return
     fi
 
