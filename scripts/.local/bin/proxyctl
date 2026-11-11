@@ -283,28 +283,63 @@ tor_ctl() {
     [ "$(grep -c '^250[ -]' <<<"$reply")" -ge 2 ] || { off "tor refused: $(head -1 <<<"$reply")"; return 1; }
 }
 
-tor_ip_fetch() {
+tor_circuit_sig() {
+    [ -r "$TOR_COOKIE" ] || return 1
+    local hex reply
+    hex="$(od -An -tx1 "$TOR_COOKIE" | tr -d ' \n')"
+    reply="$(timeout 5 bash -c '
+        exec 3<>"/dev/tcp/${1%:*}/${1##*:}" || exit 1
+        printf "AUTHENTICATE %s\r\nGETCONF SocksPort\r\nGETINFO circuit-status\r\nQUIT\r\n" "$2" >&3
+        cat <&3' _ "$TOR_CONTROL" "$hex" 2>/dev/null | tr -d '\r')" || return 1
+    if ! grep -q '^250 SocksPort=.*NoIsolateSOCKSAuth' <<<"$reply"; then
+        tor_ctl $'SETCONF SocksPort=0\r\nSETCONF SocksPort="'"$TOR_SOCKS"$' NoIsolateSOCKSAuth"' >/dev/null 2>&1 || true
+    fi
+    awk '$2 == "BUILT" && $0 !~ /IS_INTERNAL/ && $0 ~ /PURPOSE=(GENERAL|CONFLUX_LINKED)/ {
+        n = split($3, hops, ",")
+        printf "%s:%s;", $1, hops[n]
+    }' <<<"$reply"
+}
+
+tor_ip_query() {
     local ip
     ip="$(curl -fsS --max-time 8 --socks5-hostname "$TOR_SOCKS" https://api.ipify.org 2>/dev/null)" \
         || ip="$(curl -fsS --max-time 8 --socks5-hostname "$TOR_SOCKS" https://icanhazip.com 2>/dev/null)"
     ip="${ip//$'\n'/}"
     ip="${ip//$'\r'/}"
-    if [[ $ip =~ ^[0-9a-fA-F.:]+$ ]]; then
-        printf '%s\n' "$ip" >"$TOR_IP_CACHE.tmp" && mv "$TOR_IP_CACHE.tmp" "$TOR_IP_CACHE"
-        printf '%s\n' "$ip"
-    fi
+    [[ $ip =~ ^[0-9a-fA-F.:]+$ ]] && printf '%s\n' "$ip"
 }
+
+tor_ip_fetch() (
+    flock ${1:-} 9 || return 0
+    local sig ip sig2 ip2
+    sig="$(tor_circuit_sig || true)"
+    ip="$(tor_ip_query)" || return 1
+    printf '%s\n%s\n' "$ip" "$sig" >"$TOR_IP_CACHE.tmp" && mv "$TOR_IP_CACHE.tmp" "$TOR_IP_CACHE"
+    sig2="$(tor_circuit_sig || true)"
+    if [ -n "$sig2" ] && [ "$sig2" != "$sig" ]; then
+        if ip2="$(tor_ip_query)"; then
+            ip="$ip2"
+            printf '%s\n%s\n' "$ip" "$sig2" >"$TOR_IP_CACHE.tmp" && mv "$TOR_IP_CACHE.tmp" "$TOR_IP_CACHE"
+        fi
+    fi
+    printf '%s\n' "$ip"
+) 9>"$TOR_IP_CACHE.lock"
 
 tor_ip_now() {
     if ! systemctl is-active --quiet tor; then
         rm -f "$TOR_IP_CACHE" 2>/dev/null
         return 0
     fi
+    local cached_ip="" cached_sig="" cur_sig=""
     if [ -r "$TOR_IP_CACHE" ]; then
-        head -1 "$TOR_IP_CACHE"
-    else
-        ( flock -n 9 && tor_ip_fetch ) 9>"$TOR_IP_CACHE.lock" </dev/null >/dev/null 2>&1 &
+        { IFS= read -r cached_ip || true; IFS= read -r cached_sig || true; } <"$TOR_IP_CACHE"
     fi
+    cur_sig="$(tor_circuit_sig || true)"
+    if [ -z "$cached_ip" ] || { [ -n "$cur_sig" ] && [ "$cur_sig" != "$cached_sig" ]; }; then
+        tor_ip_fetch -n </dev/null >/dev/null 2>&1 &
+    fi
+    [ -n "$cached_ip" ] && printf '%s\n' "$cached_ip"
+    return 0
 }
 
 root_cmd() {
