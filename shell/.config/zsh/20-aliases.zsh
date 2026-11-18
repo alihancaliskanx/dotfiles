@@ -84,6 +84,8 @@ alias code_path='cd ~/Documents/Code'
 alias qgc='~/Documents/Code/qgroundcontrol/build/Release/QGroundControl > /dev/null 2>&1 &'
 alias stmcube='pc $HOME/st/stm32cubeide_1.19.0/stm32cubeide_wayland'
 alias mavproxy='~/.mavproxy_env/bin/mavproxy.py'
+# ── local llm (qwen-local) ─────────────────────────────────────────────────
+[[ -f "$HOME/Local-LLM-Unsensored/qwen.zsh" ]] && source "$HOME/Local-LLM-Unsensored/qwen.zsh"
 
 # ── windows vm ───────────────────────────────────────────────────────────────
 alias win='~/.local/bin/windows-vm-smart-launch.sh'
