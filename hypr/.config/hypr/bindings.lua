@@ -66,8 +66,8 @@ o.bind("SUPER + ALT + P", "Pseudo window", hl.dsp.window.pseudo())
 o.bind("SUPER + O", "Pop window out (float & pin)", "omarchy-hyprland-window-pop")
 
 o.bind("SUPER + J", "Toggle window split", hl.dsp.layout("togglesplit"))
-o.bind("SUPER + SHIFT + C", "Center window", hl.dsp.layout("centerwindow"))
-o.bind("SUPER + U", "Focus urgent or last", hl.dsp.layout("focusurgentorlast"))
+o.bind("SUPER + SHIFT + C", "Center window", hl.dsp.window.center())
+o.bind("SUPER + U", "Focus urgent or last", hl.dsp.focus({ urgent_or_last = true }))
 o.bind("SUPER + A", "Bring active window to top", hl.dsp.window.bring_to_top())
 
 o.bind("SUPER + CTRL + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
@@ -94,8 +94,9 @@ o.bind("SUPER + CTRL + BACKSPACE", "Toggle single-window square aspect", "omarch
 o.bind("ALT + TAB", "Focus on next window", hl.dsp.window.cycle_next())
 o.bind("ALT + SHIFT + TAB", "Focus on previous window", hl.dsp.window.cycle_next({ next = false }))
 
-o.bind("SUPER + SHIFT + TAB", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
-o.bind("SUPER + CTRL + TAB", "Former workspace", hl.dsp.focus({ workspace = "previous" }))
+o.bind("SUPER + TAB", "Next workspace", hl.dsp.focus({ workspace = "m+1" }))
+o.bind("SUPER + SHIFT + TAB", "Previous workspace", hl.dsp.focus({ workspace = "m-1" }))
+o.bind("SUPER + CTRL + TAB", "Former workspace", hl.dsp.focus({ workspace = "previous_per_monitor" }))
 
 -- ─── 5. Scratchpad ───────────────────────────────────────────────────────────
 o.bind("SUPER + S", "Toggle Scratchpad", hl.dsp.workspace.toggle_special("scratchpad"))
@@ -139,16 +140,16 @@ o.bind("SUPER + SHIFT + RIGHT", "Move window right", hl.dsp.window.move({ direct
 o.bind("SUPER + SHIFT + UP", "Move window up", hl.dsp.window.move({ direction = "u" }))
 o.bind("SUPER + SHIFT + DOWN", "Move window down", hl.dsp.window.move({ direction = "d" }))
 
--- Arrow Keys: Workspaces
-o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
-o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
-o.bind("SUPER + CTRL + UP", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
-o.bind("SUPER + CTRL + DOWN", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
+-- Arrow Keys: Workspaces & Layout
+o.bind("SUPER + CTRL + LEFT", "Previous workspace", hl.dsp.focus({ workspace = "m-1" }))
+o.bind("SUPER + CTRL + RIGHT", "Next workspace", hl.dsp.focus({ workspace = "m+1" }))
+o.bind("SUPER + CTRL + UP", "Toggle window split", hl.dsp.layout("togglesplit"))
+o.bind("SUPER + CTRL + DOWN", "Center window", hl.dsp.window.center())
 
-o.bind("SUPER + CTRL + SHIFT + LEFT", "Move window to prev workspace", hl.dsp.window.move({ workspace = "e-1" }))
-o.bind("SUPER + CTRL + SHIFT + RIGHT", "Move window to next workspace", hl.dsp.window.move({ workspace = "e+1" }))
-o.bind("SUPER + CTRL + SHIFT + UP", "Move window to prev workspace", hl.dsp.window.move({ workspace = "e-1" }))
-o.bind("SUPER + CTRL + SHIFT + DOWN", "Move window to next workspace", hl.dsp.window.move({ workspace = "e+1" }))
+o.bind("SUPER + CTRL + SHIFT + LEFT", "Move window to prev workspace", hl.dsp.window.move({ workspace = "m-1" }))
+o.bind("SUPER + CTRL + SHIFT + RIGHT", "Move window to next workspace", hl.dsp.window.move({ workspace = "m+1" }))
+o.bind("SUPER + CTRL + SHIFT + UP", "Toggle single-window square aspect", "omarchy-hyprland-window-single-square-aspect-toggle")
+o.bind("SUPER + CTRL + SHIFT + DOWN", "Restore window width", "omarchy-hyprland-window-width restore")
 
 -- Arrow Keys: Resize & Swap
 o.bind("SUPER + ALT + LEFT", "Resize left", hl.dsp.window.resize({ x = -60, y = 0, relative = true }), { repeating = true })
@@ -158,8 +159,8 @@ o.bind("SUPER + ALT + DOWN", "Resize down", hl.dsp.window.resize({ x = 0, y = 60
 
 o.bind("SUPER + ALT + SHIFT + LEFT", "Swap window left", hl.dsp.window.swap({ direction = "l" }))
 o.bind("SUPER + ALT + SHIFT + RIGHT", "Swap window right", hl.dsp.window.swap({ direction = "r" }))
-o.bind("SUPER + ALT + SHIFT + UP", "Move window to prev workspace", hl.dsp.window.move({ workspace = "e-1" }))
-o.bind("SUPER + ALT + SHIFT + DOWN", "Move window to next workspace", hl.dsp.window.move({ workspace = "e+1" }))
+o.bind("SUPER + ALT + SHIFT + UP", "Swap window up", hl.dsp.window.swap({ direction = "u" }))
+o.bind("SUPER + ALT + SHIFT + DOWN", "Swap window down", hl.dsp.window.swap({ direction = "d" }))
 
 -- Arrow Keys: Move Into Group
 o.bind("SUPER + CTRL + ALT + LEFT", "Move window to group on left", hl.dsp.window.move({ into_group = "l" }))
@@ -176,10 +177,10 @@ o.bind("SUPER + SHIFT + code:21", "Expand window down", hl.dsp.window.resize({ x
 -- ─── 9. Monitors & Multi-Display ─────────────────────────────────────────────
 o.bind("SUPER + COMMA", "Focus left monitor", hl.dsp.focus({ monitor = "l" }))
 o.bind("SUPER + PERIOD", "Focus right monitor", hl.dsp.focus({ monitor = "r" }))
-o.bind("SUPER + SHIFT + COMMA", "Move workspace to left monitor", hl.dsp.workspace.move({ monitor = "l" }))
-o.bind("SUPER + SHIFT + PERIOD", "Move workspace to right monitor", hl.dsp.workspace.move({ monitor = "r" }))
-o.bind("SUPER + ALT + COMMA", "Move window to left monitor", hl.dsp.window.move({ monitor = "l" }))
-o.bind("SUPER + ALT + PERIOD", "Move window to right monitor", hl.dsp.window.move({ monitor = "r" }))
+o.bind("SUPER + SHIFT + COMMA", "Move workspace to left monitor", o.workspaces.move_to_monitor("l"))
+o.bind("SUPER + SHIFT + PERIOD", "Move workspace to right monitor", o.workspaces.move_to_monitor("r"))
+o.bind("SUPER + ALT + COMMA", "Move window to left monitor", o.workspaces.move_window_to_monitor("l"))
+o.bind("SUPER + ALT + PERIOD", "Move window to right monitor", o.workspaces.move_window_to_monitor("r"))
 
 o.bind("CTRL + ALT + TAB", "Focus on next monitor", hl.dsp.focus({ monitor = "+1" }))
 o.bind("CTRL + ALT + SHIFT + TAB", "Focus on previous monitor", hl.dsp.focus({ monitor = "-1" }))
@@ -192,13 +193,13 @@ o.bind("SUPER + CTRL + ALT + Delete", "Toggle laptop display mirroring", "omarch
 -- ─── 10. Workspaces (1-10) & Mouse ───────────────────────────────────────────
 for ws = 1, 10 do
   local key = tostring(ws % 10)
-  o.bind("SUPER + " .. key, "Switch to workspace " .. ws, hl.dsp.focus({ workspace = tostring(ws) }))
-  o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. ws, hl.dsp.window.move({ workspace = tostring(ws) }))
-  o.bind("SUPER + SHIFT + ALT + " .. key, "Move window silently to workspace " .. ws, hl.dsp.window.move({ workspace = tostring(ws), follow = false }))
+  o.bind("SUPER + " .. key, "Switch to workspace " .. ws, o.workspaces.focus(ws))
+  o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. ws, o.workspaces.move_window(ws))
+  o.bind("SUPER + SHIFT + ALT + " .. key, "Move window silently to workspace " .. ws, o.workspaces.move_window(ws, false))
 end
 
-o.bind("SUPER + mouse_down", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
-o.bind("SUPER + mouse_up", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+o.bind("SUPER + mouse_down", "Next workspace", hl.dsp.focus({ workspace = "m+1" }))
+o.bind("SUPER + mouse_up", "Previous workspace", hl.dsp.focus({ workspace = "m-1" }))
 o.bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true })
 o.bind("SUPER + mouse:273", "Resize window", hl.dsp.window.resize(), { mouse = true })
 
