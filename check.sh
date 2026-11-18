@@ -13,6 +13,9 @@ set -uo pipefail
 REPO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO" || exit 1
 
+# Include Mason tools (stylua, shellcheck) in PATH if present.
+[ -d "$HOME/.local/share/nvim/mason/bin" ] && PATH="$HOME/.local/share/nvim/mason/bin:$PATH"
+
 RED=$'\e[31m'; GRN=$'\e[32m'; YLW=$'\e[33m'; DIM=$'\e[2m'; RST=$'\e[0m'
 fail=0
 
@@ -69,8 +72,10 @@ if command -v Hyprland >/dev/null && [ -f "$omarchy_root/default/hypr/bootstrap.
     tmp_home="$(mktemp -d)"
     mkdir -p "$tmp_home/.config"
     ln -s "$REPO/hypr/.config/hypr" "$tmp_home/.config/hypr"
+    buf=""
+    command -v stdbuf >/dev/null && buf="stdbuf -oL"
     out="$(env -u XDG_STATE_HOME -u XDG_CONFIG_HOME HOME="$tmp_home" \
-        Hyprland --verify-config -c "$tmp_home/.config/hypr/hyprland.lua" 2>&1)"
+        $buf Hyprland --verify-config -c "$tmp_home/.config/hypr/hyprland.lua" 2>&1 || true)"
     rm -f "$tmp_home/.config/hypr"
     rmdir "$tmp_home/.config" "$tmp_home"
     case "$out" in
