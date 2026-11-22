@@ -11,6 +11,7 @@
 #   proxyctl status [--json]           what is actually in place
 #   proxyctl addr [host:port]          show or set the proxy address
 #   proxyctl system normal|proxy       direct, or all TCP through the proxy
+#   proxyctl nodpi on|off              Discord DPI bypass (TLS split)
 #   proxyctl tor exit direct|proxy     how tor reaches its first relay
 #   proxyctl tor newip                 new Tor identity
 #   proxyctl tor rotate SECONDS|off    new identity on a timer
@@ -34,9 +35,17 @@ NO_PROXY_LIST="localhost,127.0.0.1,::1,.local"
 UNIT="net-tunnel-glider"
 NFT_TABLE="net_tunnel"
 REDIR_PORT=12345
+TPROXY_PORT=12347
+UDP_MARK="0x1"
+UDP_RT_TABLE=100
 # DoT is TCP/853, so DNS rides the tunnel; the part after "#" is the name the
 # certificate is checked against.
 DOT_SERVERS="1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net"
+
+NODPI_UNIT="proxyctl-nodpi"
+NODPI_NFT_TABLE="proxyctl_nodpi"
+NODPI_PORT=12346
+NODPI_MARK="0x40000000"
 
 TORRC="${PROXYCTL_TORRC:-/etc/tor/torrc}"
 TOR_COOKIE="${PROXYCTL_TOR_COOKIE:-/var/lib/tor/control_auth_cookie}"
@@ -120,10 +129,32 @@ proxy_reachable() {
 default_iface() { ip route show default 2>/dev/null | awk '{print $5; exit}'; }
 unit_active()   { systemctl is-active --quiet "$UNIT"; }
 port_open()     { ss -ltnH "sport = :$REDIR_PORT" 2>/dev/null | grep -q .; }
+udp_port_open() { ss -lunH "sport = :$TPROXY_PORT" 2>/dev/null | grep -q .; }
 
 unit_forward() {
     systemctl show -p ExecStart "$UNIT" 2>/dev/null \
-        | grep -o -- '-forward http://[^ ;]*' | head -1 | sed 's#-forward http://##'
+        | grep -oE -- '-forward (http|socks5)://[^ ;]*' | head -1 | sed -E 's#-forward (http|socks5)://##'
+}
+
+unit_scheme() {
+    systemctl show -p ExecStart "$UNIT" 2>/dev/null \
+        | grep -oE -- '-forward (http|socks5)://' | head -1 | sed -E 's#-forward (http|socks5)://#\1#'
+}
+
+socks5_udp_supported() {
+    python3 -c '
+import socket, sys
+host, port = sys.argv[1].rsplit(":", 1)
+s = socket.create_connection((host, int(port)), timeout=2)
+s.settimeout(2)
+s.sendall(b"\x05\x01\x00")
+if s.recv(2) != b"\x05\x00":
+    sys.exit(1)
+s.sendall(b"\x05\x03\x00\x01\x00\x00\x00\x00\x00\x00")
+r = s.recv(10)
+s.close()
+sys.exit(0 if len(r) >= 2 and r[0] == 5 and r[1] == 0 else 1)
+' "$1" 2>/dev/null
 }
 
 # 0 present, 1 absent, 2 cannot be read without a password.
@@ -150,10 +181,16 @@ tunnel_state() {
 }
 
 tunnel_up_for() {
-    [ "$(tunnel_state)" = up ] && [ "$(unit_forward)" = "$1" ]
+    [ "$(tunnel_state)" = up ] && [ "$(unit_forward)" = "$1" ] || return 1
+    if socks5_udp_supported "$1"; then
+        [ "$(unit_scheme)" = socks5 ] && udp_port_open
+    else
+        [ "$(unit_scheme)" = http ]
+    fi
 }
 
 nft_rules() {
+    local proxy_ip="$1" with_udp="${2:-0}"
     cat <<EOF
 table ip $NFT_TABLE
 delete table ip $NFT_TABLE
@@ -162,17 +199,46 @@ table ip $NFT_TABLE {
         type nat hook output priority -100; policy accept;
         # glider's own connection to the proxy passes through here too; without
         # this it would be redirected back into glider.
-        ip daddr $1 return
+        ip daddr $proxy_ip return
         ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
         meta l4proto tcp redirect to :$REDIR_PORT
     }
-}
 EOF
+    if [ "$with_udp" -eq 1 ]; then
+        cat <<EOF
+    chain udp_output {
+        type route hook output priority mangle; policy accept;
+        ip daddr $proxy_ip return
+        ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
+        # Keep UDP/443 (QUIC) out of TPROXY so browsers and Discord stay on
+        # TCP/443 where NoDPI splits the TLS ClientHello.
+        udp dport 443 return
+        meta l4proto udp meta mark set $UDP_MARK
+    }
+    chain udp_prerouting {
+        type filter hook prerouting priority mangle; policy accept;
+        iifname "lo" meta mark $UDP_MARK meta l4proto udp tproxy to 127.0.0.1:$TPROXY_PORT accept
+    }
+EOF
+    fi
+    printf '}\n'
+}
+
+udp_route_down() {
+    while ip rule del fwmark "$UDP_MARK" lookup "$UDP_RT_TABLE" 2>/dev/null; do :; done
+    ip route flush table "$UDP_RT_TABLE" 2>/dev/null || true
+}
+
+udp_route_up() {
+    udp_route_down
+    ip rule add fwmark "$UDP_MARK" lookup "$UDP_RT_TABLE" \
+        && ip route replace local 0.0.0.0/0 dev lo table "$UDP_RT_TABLE"
 }
 
 root_tunnel_down() {
     local iface; iface="$(default_iface)"
     nft delete table ip "$NFT_TABLE" 2>/dev/null
+    udp_route_down
     systemctl stop "$UNIT" 2>/dev/null
     systemctl reset-failed "$UNIT" 2>/dev/null
     [ -n "$iface" ] && resolvectl revert "$iface" 2>/dev/null
@@ -180,7 +246,7 @@ root_tunnel_down() {
 }
 
 root_tunnel_up() {
-    local addr="$1" ip iface glider
+    local addr="$1" ip iface glider scheme="http" with_udp=0
     valid_addr "$addr" || die "not a host:port address: $addr"
     ip="$(getent ahostsv4 "${addr%:*}" | awk '{print $1; exit}')"
     [ -n "$ip" ] || die "cannot resolve ${addr%:*}"
@@ -188,18 +254,38 @@ root_tunnel_up() {
     [ -n "$iface" ] || die "no default route — is the network up?"
     glider="$(command -v glider)" || die "glider is not installed"
 
-    if ! unit_active || [ "$(unit_forward)" != "$addr" ]; then
+    if socks5_udp_supported "$addr"; then
+        scheme="socks5"
+        with_udp=1
+    fi
+
+    if ! unit_active || [ "$(unit_forward)" != "$addr" ] || [ "$(unit_scheme)" != "$scheme" ] || { [ "$with_udp" -eq 1 ] && ! udp_port_open; }; then
         systemctl stop "$UNIT" 2>/dev/null
         systemctl reset-failed "$UNIT" 2>/dev/null
-        systemd-run --unit="$UNIT" --collect --description="proxyctl: glider → $addr" \
-            "$glider" -listen "redir://127.0.0.1:$REDIR_PORT" -forward "http://$addr" >/dev/null 2>&1 \
+        local args=(-listen "redir://127.0.0.1:$REDIR_PORT")
+        [ "$with_udp" -eq 1 ] && args+=(-listen "tproxy://127.0.0.1:$TPROXY_PORT")
+        args+=(-forward "${scheme}://$addr")
+        systemd-run --unit="$UNIT" --collect --description="proxyctl: glider → ${scheme}://$addr" \
+            "$glider" "${args[@]}" >/dev/null 2>&1 \
             || { root_tunnel_down; die "glider could not be started: journalctl -u $UNIT -n 30"; }
-        for _ in $(seq 1 25); do port_open && break; sleep 0.2; done
+        for _ in $(seq 1 25); do
+            if port_open && { [ "$with_udp" -eq 0 ] || udp_port_open; }; then break; fi
+            sleep 0.2
+        done
         port_open || { root_tunnel_down; die "glider is not listening on 127.0.0.1:$REDIR_PORT: journalctl -u $UNIT -n 30"; }
+        if [ "$with_udp" -eq 1 ] && ! udp_port_open; then
+            root_tunnel_down; die "glider is not listening on UDP :$TPROXY_PORT: journalctl -u $UNIT -n 30"
+        fi
+    fi
+
+    if [ "$with_udp" -eq 1 ]; then
+        udp_route_up || { root_tunnel_down; die "the UDP policy route could not be added; the tunnel is down"; }
+    else
+        udp_route_down
     fi
 
     # Rules only after glider listens, or every connection hits a closed port.
-    nft_rules "$ip" | nft -f - || { root_tunnel_down; die "the nft rules could not be loaded; the tunnel is down"; }
+    nft_rules "$ip" "$with_udp" | nft -f - || { root_tunnel_down; die "the nft rules could not be loaded; the tunnel is down"; }
 
     # shellcheck disable=SC2086
     if resolvectl dns "$iface" $DOT_SERVERS 2>/dev/null \
@@ -209,6 +295,232 @@ root_tunnel_up() {
     else
         warn "resolved could not be configured; DNS may not work"
     fi
+}
+
+# ─── nodpi ───────────────────────────────────────────────────────────────────
+# Transparent TLS-record-splitting relay on TCP/443 for Discord. Splitting the
+# ClientHello TLS record survives the phone HTTP proxy (unlike packet-level
+# desync, which the proxy's TCP stack reassembles). Its own upstream socket
+# carries SO_MARK so it skips this nat table and rides net_tunnel when system
+# proxy is on, or goes direct when system mode is normal.
+nodpi_unit_active() { systemctl is-active --quiet "$NODPI_UNIT"; }
+nodpi_port_open()   { ss -ltnH "sport = :$NODPI_PORT" 2>/dev/null | grep -q .; }
+
+nodpi_nft_state() {
+    if [ "$EUID" -eq 0 ]; then
+        nft list table ip "$NODPI_NFT_TABLE" >/dev/null 2>&1 && return 0 || return 1
+    fi
+    [ -t 0 ] && sudo -n true 2>/dev/null || return 2
+    sudo -n nft list table ip "$NODPI_NFT_TABLE" >/dev/null 2>&1 && return 0 || return 1
+}
+
+nodpi_state() {
+    local n=0 nft
+    nodpi_unit_active && n=$((n + 1))
+    nodpi_port_open && n=$((n + 1))
+    nodpi_nft_state; nft=$?
+    if [ "$nft" -eq 2 ]; then
+        case "$n" in 2) echo up ;; 0) echo down ;; *) echo partial ;; esac
+        return
+    fi
+    [ "$nft" -eq 0 ] && n=$((n + 1))
+    case "$n" in 3) echo up ;; 0) echo down ;; *) echo partial ;; esac
+}
+
+nodpi_nft_rules() {
+    cat <<EOF
+table ip $NODPI_NFT_TABLE
+delete table ip $NODPI_NFT_TABLE
+table ip $NODPI_NFT_TABLE {
+    chain output {
+        type nat hook output priority -110; policy accept;
+        meta mark and $NODPI_MARK != 0 return
+        ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
+        tcp dport 443 redirect to :$NODPI_PORT
+    }
+}
+EOF
+}
+
+nodpi_relay_code() {
+    cat <<'PYEOF'
+import asyncio, socket, struct, sys
+
+LISTEN_PORT, MARK = int(sys.argv[1]), int(sys.argv[2], 0)
+SOL_IP, SO_ORIGINAL_DST, SO_MARK = 0, 80, 36
+HOSTS = (
+    "discord.com",
+    "discord.gg",
+    "discordapp.com",
+    "discordapp.net",
+    "discord.media",
+    "discordcdn.com",
+    "discord.co",
+    "discordstatus.com",
+    "discord.gift",
+    "discord.new",
+    "discordsays.com",
+)
+
+def host_matches(sni):
+    if not sni:
+        return False
+    s = sni.lower().rstrip(".")
+    return any(s == h or s.endswith("." + h) for h in HOSTS)
+
+def parse_sni(data):
+    if len(data) < 43 or data[0] != 0x16 or data[1] != 0x03:
+        return None
+    rec_len = struct.unpack("!H", data[3:5])[0]
+    if len(data) < 5 + rec_len or data[5] != 0x01:
+        return None
+    p = 43
+    if p >= len(data):
+        return None
+    p += 1 + data[p]
+    if p + 2 > len(data):
+        return None
+    p += 2 + struct.unpack("!H", data[p:p+2])[0]
+    if p >= len(data):
+        return None
+    p += 1 + data[p]
+    if p + 2 > len(data):
+        return None
+    ext_end = p + 2 + struct.unpack("!H", data[p:p+2])[0]
+    p += 2
+    while p + 4 <= ext_end and p + 4 <= len(data):
+        etype, elen = struct.unpack("!HH", data[p:p+4])
+        p += 4
+        if etype == 0 and p + elen <= len(data):
+            q = p + 2
+            while q + 3 <= p + elen:
+                ntype = data[q]
+                nlen = struct.unpack("!H", data[q+1:q+3])[0]
+                if ntype == 0:
+                    return data[q+3:q+3+nlen].decode("ascii", "ignore")
+                q += 3 + nlen
+        p += elen
+    return None
+
+def split_tls(data, cut=2):
+    if len(data) < 5 + cut + 1 or data[0] != 0x16 or data[1] != 0x03:
+        return data
+    ver = data[1:3]
+    rec_len = struct.unpack("!H", data[3:5])[0]
+    if len(data) < 5 + rec_len:
+        return data
+    payload = data[5:5+rec_len]
+    rest = data[5+rec_len:]
+    return b"\x16" + ver + struct.pack("!H", cut) + payload[:cut] + b"\x16" + ver + struct.pack("!H", len(payload) - cut) + payload[cut:] + rest
+
+async def read_first(reader):
+    try:
+        hdr = await asyncio.wait_for(reader.readexactly(5), timeout=30.0)
+    except asyncio.IncompleteReadError as e:
+        return e.partial
+    except asyncio.TimeoutError:
+        return b""
+    if hdr[0] == 0x16 and hdr[1] == 0x03:
+        rec_len = struct.unpack("!H", hdr[3:5])[0]
+        if 1 <= rec_len <= 16384:
+            try:
+                body = await asyncio.wait_for(reader.readexactly(rec_len), timeout=5.0)
+                return hdr + body
+            except asyncio.IncompleteReadError as e:
+                return hdr + e.partial
+            except asyncio.TimeoutError:
+                return hdr
+    return hdr
+
+async def connect_marked(ip, port):
+    loop = asyncio.get_running_loop()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setblocking(False)
+    s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    if MARK:
+        s.setsockopt(socket.SOL_SOCKET, SO_MARK, struct.pack("I", MARK))
+    try:
+        await asyncio.wait_for(loop.sock_connect(s, (ip, port)), timeout=10.0)
+    except Exception:
+        s.close()
+        raise
+    return await asyncio.open_connection(sock=s)
+
+async def pipe(r, w):
+    try:
+        while True:
+            b = await r.read(65536)
+            if not b:
+                break
+            w.write(b)
+            await w.drain()
+        if w.can_write_eof():
+            w.write_eof()
+    except Exception:
+        pass
+
+async def handle(cr, cw):
+    uw = None
+    try:
+        csock = cw.get_extra_info("socket")
+        raw = csock.getsockopt(SOL_IP, SO_ORIGINAL_DST, 16)
+        dst_port = struct.unpack("!H", raw[2:4])[0]
+        dst_ip = socket.inet_ntoa(raw[4:8])
+        if dst_ip.startswith("127.") and dst_port == LISTEN_PORT:
+            return
+        first = await read_first(cr)
+        if not first:
+            return
+        ur, uw = await connect_marked(dst_ip, dst_port)
+        if host_matches(parse_sni(first)):
+            first = split_tls(first, 2)
+        uw.write(first)
+        await uw.drain()
+        await asyncio.gather(pipe(cr, uw), pipe(ur, cw))
+    except (ConnectionResetError, BrokenPipeError, TimeoutError, asyncio.TimeoutError):
+        pass
+    except Exception as e:
+        print(f"nodpi-relay error: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+    finally:
+        for w in (cw, uw):
+            if w is not None:
+                try:
+                    w.close()
+                except Exception:
+                    pass
+
+async def main():
+    srv = await asyncio.start_server(handle, "127.0.0.1", LISTEN_PORT, reuse_address=True)
+    async with srv:
+        await srv.serve_forever()
+
+asyncio.run(main())
+PYEOF
+}
+
+root_nodpi_down() {
+    nft delete table ip "$NODPI_NFT_TABLE" 2>/dev/null
+    systemctl stop "$NODPI_UNIT" 2>/dev/null
+    systemctl reset-failed "$NODPI_UNIT" 2>/dev/null
+    return 0
+}
+
+root_nodpi_up() {
+    local py code
+    py="$(command -v python3)" || die "python3 is not installed"
+    code="$(nodpi_relay_code)"
+
+    if ! nodpi_unit_active || ! nodpi_port_open; then
+        systemctl stop "$NODPI_UNIT" 2>/dev/null
+        systemctl reset-failed "$NODPI_UNIT" 2>/dev/null
+        systemd-run --unit="$NODPI_UNIT" --collect --description="proxyctl: NoDPI TLS-split relay" \
+            "$py" -u -c "$code" "$NODPI_PORT" "$NODPI_MARK" >/dev/null 2>&1 \
+            || { root_nodpi_down; die "NoDPI relay could not be started: journalctl -u $NODPI_UNIT -n 30"; }
+        for _ in $(seq 1 25); do nodpi_port_open && break; sleep 0.2; done
+        nodpi_port_open || { root_nodpi_down; die "NoDPI relay is not listening on 127.0.0.1:$NODPI_PORT: journalctl -u $NODPI_UNIT -n 30"; }
+    fi
+
+    nodpi_nft_rules | nft -f - || { root_nodpi_down; die "the NoDPI nft rules could not be loaded"; }
 }
 
 # ─── tor ─────────────────────────────────────────────────────────────────────
@@ -348,6 +660,8 @@ root_cmd() {
     case "$action" in
         tunnel-up)   root_tunnel_up "${1:-}" ;;
         tunnel-down) root_tunnel_down ;;
+        nodpi-up)    root_nodpi_up ;;
+        nodpi-down)  root_nodpi_down ;;
         tor-exit)    root_tor_exit "${1:-}" "${2:-}" ;;
         tor-setup)   root_tor_setup "${1:-}" ;;
         *)           die "unknown root action: $action" ;;
@@ -436,6 +750,27 @@ cmd_system() {
             ok "system → normal"
             ;;
         *) die "system takes normal or proxy" ;;
+    esac
+}
+
+cmd_nodpi() {
+    case "${1:-}" in
+        on)
+            command -v python3 >/dev/null || die "python3 is not installed"
+            if [ "$(nodpi_state)" != up ]; then
+                as_root nodpi-up || exit 1
+            fi
+            cfg_set NODPI on
+            ok "NoDPI → on"
+            ;;
+        off)
+            if [ "$(nodpi_state)" != down ]; then
+                as_root nodpi-down || exit 1
+            fi
+            cfg_set NODPI off
+            ok "NoDPI → off"
+            ;;
+        *) die "nodpi takes on or off" ;;
     esac
 }
 
@@ -558,9 +893,11 @@ rotate_now() {
 }
 
 cmd_status() {
-    local addr want reach=false tunnel exit_want tor_exit
+    local addr want reach=false tunnel nodpi_want nodpi exit_want tor_exit
     addr="$(cfg_get PROXY_ADDR)"
     want="$(cfg_get SYSTEM)"; want="${want:-normal}"
+    nodpi_want="$(cfg_get NODPI)"; nodpi_want="${nodpi_want:-off}"
+    nodpi="$(nodpi_state)"
     exit_want="$(cfg_get TOR_EXIT)"
     tor_exit="$(tor_exit_state)"
     valid_addr "$addr" && proxy_reachable "$addr" && reach=true
@@ -569,14 +906,17 @@ cmd_status() {
     if [ "${1:-}" = --json ]; then
         jq -n --arg addr "$addr" --argjson reach "$reach" \
               --arg want "$want" --argjson tunnel "$([ "$tunnel" = up ] && echo true || echo false)" \
+              --argjson udp "$(yes_no udp_port_open)" \
               --argjson dns "$(yes_no dns_on)" --argjson ssh "$(yes_no ssh_rule_present)" \
+              --arg nodpi_want "$nodpi_want" --argjson nodpi_active "$([ "$nodpi" = up ] && echo true || echo false)" \
               --argjson active "$(yes_no systemctl is-active --quiet tor)" \
               --arg exit_want "$exit_want" --arg exit "$tor_exit" \
               --argjson control "$(yes_no tor_ctl "GETINFO version")" \
               --argjson rotate "$(rotate_now)" \
               --arg ip "$(tor_ip_now)" \
             '{addr: $addr, proxy_reachable: $reach,
-              system: {want: $want, tunnel: $tunnel, dns: $dns, ssh: $ssh},
+              system: {want: $want, tunnel: $tunnel, udp: $udp, dns: $dns, ssh: $ssh},
+              nodpi: {want: $nodpi_want, active: $nodpi_active},
               tor: {active: $active, exit_want: $exit_want, exit: $exit, control: $control, rotate: $rotate, ip: $ip}}'
         return
     fi
@@ -591,9 +931,16 @@ cmd_status() {
         *) warn "tunnel $tunnel, but the system mode is $want" ;;
     esac
     if [ "$want" = proxy ]; then
+        udp_port_open && ok "UDP tunnel (SOCKS5)" || off "UDP tunnel off (HTTP-only)"
         dns_on && ok "DNS over TLS" || warn "DNS over TLS is not set"
         ssh_rule_present && ok "ssh to GitHub over 443" || warn "ssh rule missing"
     fi
+
+    printf 'NoDPI: \e[36m%s\e[0m\n' "$nodpi_want"
+    case "$nodpi_want/$nodpi" in
+        on/up|off/down) [ "$nodpi" = up ] && ok "relay up" || ok "relay down" ;;
+        *) warn "relay $nodpi, but NoDPI is $nodpi_want" ;;
+    esac
 
     printf 'Tor:\n'
     systemctl is-active --quiet tor && ok "tor running" || off "tor not running"
@@ -612,10 +959,11 @@ cmd_status() {
 cmd_tui() {
     command -v gum >/dev/null || die "the menu needs gum: sudo pacman -S gum"
     local choice v
-    while choice="$(gum choose --header "proxyctl" "System mode" "Tor exit" "New Tor IP" \
+    while choice="$(gum choose --header "proxyctl" "System mode" "NoDPI" "Tor exit" "New Tor IP" \
                     "IP rotation" "Proxy address" "Open Tor Browser" "Status" "Quit")"; do
         case "$choice" in
             "System mode")      v="$(gum choose normal proxy)" && "$SELF" system "$v" ;;
+            "NoDPI")            v="$(gum choose off on)" && "$SELF" nodpi "$v" ;;
             "Tor exit")         v="$(gum choose direct proxy)" && "$SELF" tor exit "$v" ;;
             "New Tor IP")       "$SELF" tor newip ;;
             "IP rotation")      v="$(gum input --placeholder "seconds (at least $ROTATE_MIN), or off")" && "$SELF" tor rotate "$v" ;;
@@ -636,6 +984,7 @@ case "$cmd" in
     status) cmd_status "$@" ;;
     addr) cmd_addr "$@" ;;
     system) cmd_system "$@" ;;
+    nodpi)  cmd_nodpi "$@" ;;
     tor)  cmd_tor "$@" ;;
     setup) cmd_setup ;;
     browser) cmd_browser "$@" ;;

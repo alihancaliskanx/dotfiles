@@ -494,7 +494,8 @@ once and lives in `~/.config/proxyctl/config`, which is not in this repo:
 proxyctl addr host:port          # set it; nothing else holds an address
 proxyctl                         # menu (gum)
 proxyctl status                  # what is actually in place, read live
-proxyctl system proxy|normal     # all TCP through the proxy, or direct
+proxyctl system proxy|normal     # TCP (and UDP via SOCKS5) through the proxy, or direct
+proxyctl nodpi on|off            # Discord DPI bypass (TLS ClientHello record split)
 proxyctl tor exit proxy|direct   # how tor reaches its first relay
 proxyctl tor newip               # new Tor identity
 proxyctl tor rotate 20|off       # new identity every 20 s
@@ -534,13 +535,24 @@ save it either:
   traffic slip past.
 
 So `proxyctl system proxy` works one layer down: **glider** (`redir://`
-listener + `http://` forwarder) + an **nftables** `nat output` redirect, so
-every TCP connection on the machine is pushed into the proxy no matter which
-process opens it. In WiFi Direct mode UDP/53 does not work at all, so DNS is
-handed to systemd-resolved as **DNS-over-TLS** (TCP/853) — which then rides the
-same tunnel. Port 22 is blocked behind the proxy, so the mode also writes a
-`github.com` block into `~/.ssh/config` that goes to `ssh.github.com:443`
-through corkscrew (or ncat); `normal` removes it.
+listener + `http://` or `socks5://` forwarder) + an **nftables** `nat output`
+redirect, so every TCP connection on the machine is pushed into the proxy no
+matter which process opens it. When the proxy supports SOCKS5 `UDP ASSOCIATE`
+(such as TetherFuseNet with Preferred Network set to none), glider also opens a
+`tproxy://` UDP listener and `net_tunnel` routes non-443 UDP into it through a
+loopback policy table so voice chat and STUN work without a VPN (UDP/443 stays
+excluded so QUIC does not bypass `NoDPI`). DNS is still handed to
+systemd-resolved as **DNS-over-TLS** (TCP/853), which rides the TCP tunnel.
+Port 22 is blocked behind the proxy, so the mode also writes a `github.com`
+block into `~/.ssh/config` that goes to `ssh.github.com:443` through corkscrew
+(or ncat); `normal` removes it.
+
+`proxyctl nodpi on` runs an independent transparent TLS-record-splitting relay
+on `127.0.0.1:12346` (`table ip proxyctl_nodpi` at priority `-110`, ahead of
+`net_tunnel`). For Discord SNIs it splits the TLS `ClientHello` record at byte
+2 so the bypass survives TCP reassembly at the phone proxy, and marks its
+upstream socket (`0x40000000`) so it skips `proxyctl_nodpi` and rides
+`net_tunnel` in `proxy` mode or goes direct in `normal` mode.
 
 > **Why glider and not redsocks.** The obvious tool for this is redsocks, and
 > the first version used it — but the blackarch build (`211.19b822e`) cannot
@@ -560,8 +572,8 @@ their own netns and do not pass through the `output` hook.
 
 > The proxy allows CONNECT to 80/443/853 but blocks Steam's own CM ports
 > (27015-27050); Steam notices and falls back to CM-over-443, so the first login
-> can be slow. UDP is not tunnelled: voice chat and P2P will not work,
-> downloads and games will.
+> can be slow. UDP works when the proxy supports SOCKS5 `UDP ASSOCIATE`; against
+> an HTTP-only proxy `proxyctl` falls back to TCP-only.
 
 ---
 
