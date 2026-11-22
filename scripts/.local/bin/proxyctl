@@ -361,12 +361,14 @@ HOSTS = (
     "discord.new",
     "discordsays.com",
 )
+AUTO_HOSTS = set()
+AUTO_HOSTS_MAX = 500
 
 def host_matches(sni):
     if not sni:
         return False
     s = sni.lower().rstrip(".")
-    return any(s == h or s.endswith("." + h) for h in HOSTS)
+    return s in AUTO_HOSTS or any(s == h or s.endswith("." + h) for h in HOSTS)
 
 def parse_sni(data):
     if len(data) < 43 or data[0] != 0x16 or data[1] != 0x03:
@@ -471,11 +473,45 @@ async def handle(cr, cw):
         first = await read_first(cr)
         if not first:
             return
+        sni = parse_sni(first)
+        if host_matches(sni):
+            ur, uw = await connect_marked(dst_ip, dst_port)
+            uw.write(split_tls(first, 2))
+            await uw.drain()
+            await asyncio.gather(pipe(cr, uw), pipe(ur, cw))
+            return
+
         ur, uw = await connect_marked(dst_ip, dst_port)
-        if host_matches(parse_sni(first)):
-            first = split_tls(first, 2)
         uw.write(first)
         await uw.drain()
+        if sni:
+            resp = b""
+            try:
+                resp = await asyncio.wait_for(ur.read(16384), timeout=3.0)
+            except (ConnectionResetError, BrokenPipeError, TimeoutError, asyncio.TimeoutError):
+                resp = b""
+            if resp:
+                cw.write(resp)
+                await cw.drain()
+                await asyncio.gather(pipe(cr, uw), pipe(ur, cw))
+                return
+            try:
+                uw.close()
+            except Exception:
+                pass
+            uw = None
+            if cw.is_closing():
+                return
+            ur, uw = await connect_marked(dst_ip, dst_port)
+            uw.write(split_tls(first, 2))
+            await uw.drain()
+            resp = await asyncio.wait_for(ur.read(16384), timeout=5.0)
+            if not resp:
+                return
+            if resp[0] == 0x16 and len(AUTO_HOSTS) < AUTO_HOSTS_MAX:
+                AUTO_HOSTS.add(sni.lower().rstrip("."))
+            cw.write(resp)
+            await cw.drain()
         await asyncio.gather(pipe(cr, uw), pipe(ur, cw))
     except (ConnectionResetError, BrokenPipeError, TimeoutError, asyncio.TimeoutError):
         pass
