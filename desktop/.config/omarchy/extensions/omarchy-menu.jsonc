@@ -5,5 +5,17 @@
     "label": "Antigravity",
     "checked": "[[ \"$(omarchy-default-agent)\" == \"antigravity\" ]]",
     "action": "omarchy-default-agent antigravity"
+  },
+  "trigger.toggle.startup-layout-on": {
+    "icon": "󰖲",
+    "label": "Startup Layout On",
+    "when": "[[ \"$(startup-layout status)\" == \"off\" ]]",
+    "action": "startup-layout toggle"
+  },
+  "trigger.toggle.startup-layout-off": {
+    "icon": "󰖲",
+    "label": "Startup Layout Off",
+    "when": "[[ \"$(startup-layout status)\" == \"on\" ]]",
+    "action": "startup-layout toggle"
   }
 }

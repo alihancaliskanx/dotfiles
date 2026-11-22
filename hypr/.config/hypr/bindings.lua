@@ -26,7 +26,7 @@ o.bind("SUPER + SHIFT + N", "Editor (Neovim)", { omarchy = "editor" })
 o.bind("CTRL + ALT + SPACE", "Claude Desktop", "claude-desktop")
 
 -- Music & Media Apps
-o.bind("SUPER + M", "Spotify", "flatpak run com.spotify.Client")
+o.bind("SUPER + D", "Discord", { launch = "discord", focus = "^discord$" })
 o.bind("SUPER + SHIFT + M", "Music (Spotify)", { omarchy = "spotify" })
 o.bind("SUPER + SHIFT + ALT + M", "Music TUI (cliamp)", { tui = "cliamp", focus = true })
 
@@ -71,6 +71,8 @@ o.bind("SUPER + U", "Focus urgent or last", hl.dsp.focus({ urgent_or_last = true
 o.bind("SUPER + A", "Bring active window to top", hl.dsp.window.bring_to_top())
 
 o.bind("SUPER + CTRL + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
+o.bind("SUPER + ALT + L", "Toggle startup layout", "startup-layout toggle")
+o.bind("SUPER + SHIFT + ALT + L", "Run startup layout now", "startup-layout now")
 o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 o.bind("SUPER + K", "Keybindings cheat sheet", "omarchy-menu-keybindings")
 o.bind("SUPER + ALT + K", "Tmux keybindings", "omarchy-menu-tmux-keybindings")

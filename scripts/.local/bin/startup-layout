@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+#
+# startup-layout — launch the default workspace layout at login, with a toggle.
+#
+# Usage:
+#   startup-layout run       launch layout if enabled (called from autostart.lua)
+#   startup-layout now       launch layout immediately regardless of toggle
+#   startup-layout toggle    toggle automatic launch at login
+#   startup-layout status    print on or off
+
+set -uo pipefail
+
+STATE_FILE="${STARTUP_LAYOUT_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/startup-layout/disabled}"
+
+# workspace | window class | command
+ENTRIES=(
+    "1|Alacritty|omarchy-launch-terminal-tmux_up"
+    "2|zen|zen-browser"
+    "9|Spotify|spotify"
+    "10|discord|discord"
+)
+
+is_enabled() { [ ! -e "$STATE_FILE" ]; }
+
+notify() {
+    command -v notify-send >/dev/null && notify-send -a "Startup Layout" "$1" "${2:-}" >/dev/null 2>&1 || true
+}
+
+find_window() {
+    local class="$1"
+    hyprctl clients -j 2>/dev/null | jq -r --arg c "$class" '
+        first(.[] | select((.class == $c or .initialClass == $c) and ((.title // "") | test("Updater"; "i") | not)))
+        | "\(.address)\t\(.workspace.id)"
+    ' 2>/dev/null
+}
+
+launch_entry() {
+    local ws="$1" class="$2" cmd="$3" info addr cur_ws
+    info="$(find_window "$class")"
+    if [ -n "$info" ]; then
+        IFS=$'\t' read -r addr cur_ws <<<"$info"
+        if [ "$cur_ws" != "$ws" ]; then
+            hyprctl dispatch movetoworkspacesilent "$ws,address:$addr" >/dev/null 2>&1 || true
+        fi
+        return 0
+    fi
+
+    hyprctl dispatch exec "[workspace $ws silent] $cmd" >/dev/null 2>&1 || return 0
+    (
+        for _ in $(seq 1 50); do
+            sleep 0.5
+            info="$(find_window "$class")"
+            if [ -n "$info" ]; then
+                IFS=$'\t' read -r addr cur_ws <<<"$info"
+                if [ "$cur_ws" != "$ws" ]; then
+                    hyprctl dispatch movetoworkspacesilent "$ws,address:$addr" >/dev/null 2>&1 || true
+                fi
+                break
+            fi
+        done
+    ) &
+}
+
+run_layout() {
+    local entry ws class cmd
+    for entry in "${ENTRIES[@]}"; do
+        IFS='|' read -r ws class cmd <<<"$entry"
+        launch_entry "$ws" "$class" "$cmd"
+    done
+    wait
+}
+
+case "${1:-status}" in
+    run)
+        is_enabled || exit 0
+        run_layout
+        ;;
+    now)
+        run_layout
+        ;;
+    toggle)
+        if is_enabled; then
+            mkdir -p "${STATE_FILE%/*}"
+            : >"$STATE_FILE"
+            notify "Startup Layout: OFF" "Disabled at next login"
+            echo off
+        else
+            rm -f "$STATE_FILE"
+            notify "Startup Layout: ON" "Enabled at next login"
+            echo on
+        fi
+        ;;
+    status)
+        is_enabled && echo on || echo off
+        ;;
+    *)
+        echo "usage: startup-layout run|now|toggle|status" >&2
+        exit 1
+        ;;
+esac
