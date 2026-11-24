@@ -31,7 +31,6 @@ style = "Bold Italic"
 [window]
 dynamic_padding = true
 decorations = "None"
-opacity = 0.95
 
 [window.padding]
 x = 12
