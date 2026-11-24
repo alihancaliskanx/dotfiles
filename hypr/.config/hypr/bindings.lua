@@ -27,6 +27,7 @@ o.bind("CTRL + ALT + SPACE", "Claude Desktop", "claude-desktop")
 
 -- Music & Media Apps
 o.bind("SUPER + D", "Discord", { launch = "discord", focus = "^discord$" })
+o.bind("SUPER + M", "Spotify", { omarchy = "spotify" })
 o.bind("SUPER + SHIFT + M", "Music (Spotify)", { omarchy = "spotify" })
 o.bind("SUPER + SHIFT + ALT + M", "Music TUI (cliamp)", { tui = "cliamp", focus = true })
 
