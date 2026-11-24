@@ -34,18 +34,28 @@ find_window() {
     ' 2>/dev/null
 }
 
+move_to_ws() {
+    local ws="$1" addr="$2"
+    hyprctl dispatch "hl.dsp.window.move({ workspace = \"$ws\", follow = false, window = \"address:$addr\" })" >/dev/null 2>&1 || true
+}
+
+exec_on_ws() {
+    local ws="$1" cmd="$2"
+    hyprctl dispatch "hl.dsp.exec_cmd(\"$cmd\", { workspace = \"$ws silent\" })" >/dev/null 2>&1
+}
+
 launch_entry() {
     local ws="$1" class="$2" cmd="$3" info addr cur_ws
     info="$(find_window "$class")"
     if [ -n "$info" ]; then
         IFS=$'\t' read -r addr cur_ws <<<"$info"
         if [ "$cur_ws" != "$ws" ]; then
-            hyprctl dispatch movetoworkspacesilent "$ws,address:$addr" >/dev/null 2>&1 || true
+            move_to_ws "$ws" "$addr"
         fi
         return 0
     fi
 
-    hyprctl dispatch exec "[workspace $ws silent] $cmd" >/dev/null 2>&1 || return 0
+    exec_on_ws "$ws" "$cmd" || return 0
     (
         for _ in $(seq 1 50); do
             sleep 0.5
@@ -53,7 +63,7 @@ launch_entry() {
             if [ -n "$info" ]; then
                 IFS=$'\t' read -r addr cur_ws <<<"$info"
                 if [ "$cur_ws" != "$ws" ]; then
-                    hyprctl dispatch movetoworkspacesilent "$ws,address:$addr" >/dev/null 2>&1 || true
+                    move_to_ws "$ws" "$addr"
                 fi
                 break
             fi
