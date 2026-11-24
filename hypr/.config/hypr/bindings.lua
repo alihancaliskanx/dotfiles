@@ -26,7 +26,18 @@ o.bind("SUPER + SHIFT + N", "Editor (Neovim)", { omarchy = "editor" })
 o.bind("CTRL + ALT + SPACE", "Claude Desktop", "claude-desktop")
 
 -- Music & Media Apps
+local function discord_shortcut(key)
+  return function()
+    hl.dispatch(hl.dsp.send_key_state({ mods = "CTRL + SHIFT", key = key, state = "down", window = "class:^discord$" }))
+    hl.timer(function()
+      hl.dispatch(hl.dsp.send_key_state({ mods = "CTRL + SHIFT", key = key, state = "up", window = "class:^discord$" }))
+    end, { timeout = 50, type = "oneshot" })
+  end
+end
+
 o.bind("SUPER + D", "Discord", { launch = "discord", focus = "^discord$" })
+o.bind("SUPER + ALT + M", "Discord mute", discord_shortcut("M"), { locked = true })
+o.bind("SUPER + ALT + D", "Discord deafen", discord_shortcut("D"), { locked = true })
 o.bind("SUPER + M", "Spotify", { omarchy = "spotify" })
 o.bind("SUPER + SHIFT + M", "Music (Spotify)", { omarchy = "spotify" })
 o.bind("SUPER + SHIFT + ALT + M", "Music TUI (cliamp)", { tui = "cliamp", focus = true })
