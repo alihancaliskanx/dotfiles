@@ -10,10 +10,10 @@
 
 set -eo pipefail
 
-omarchy-shell osd show '{"icon":"󰐥","message":"Stopping Windows VM..."}' 2>/dev/null || true
+omarchy-shell -q osd show '{"icon":"󰐥","message":"Windows · Stop"}' 2>/dev/null || true
 
 # 1. Close FreeRDP window if open
-pkill -f "xfreerdp.*127.0.0.1:3389" 2>/dev/null || true
+pkill -x xfreerdp3 2>/dev/null || pkill -f "xfreerdp.*127.0.0.1:3389" 2>/dev/null || true
 
 # 2. Stop the container
 COMPOSE_FILE="/var/lib/omarchy/windows/docker-compose.yml"
@@ -27,5 +27,5 @@ else
   docker stop omarchy-windows 2>/dev/null || true
 fi
 
-omarchy-shell osd show '{"icon":"󰍲","message":"Windows VM Stopped"}' 2>/dev/null || true
+omarchy-shell -q osd show '{"icon":"󰍲","message":"Windows · Off"}' 2>/dev/null || true
 echo "Windows VM stopped successfully."

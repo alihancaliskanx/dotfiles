@@ -3,12 +3,10 @@
 # fixes/fix-windows-vm.sh
 # ------------------------------------------------------------------------------
 # Fixes Windows VM reconnection and window management issues:
-# 1. Installs windows-vm-smart-launch.sh and configures windows-vm.desktop.
-#    - If Windows VM window is already open -> Focuses it immediately.
-#    - If VM is stopped -> Starts it in background.
-#    - Never kills the VM on window close (instant reconnection).
+# 1. Links/installs windows-vm-smart-launch.sh and windows-vm.desktop (never
+#    overwrites existing dotfiles symlinks).
 # 2. Ensures Hyprland tiles xfreerdp windows automatically instead of floating.
-# 3. Validates Docker daemon connectivity.
+# 3. Checks for stale Docker proxy drop-in.
 # ------------------------------------------------------------------------------
 
 set -euo pipefail
@@ -17,100 +15,36 @@ INFO='\033[0;34m[INFO]\033[0m'
 SUCCESS='\033[0;32m[OK]\033[0m'
 WARN='\033[0;33m[WARN]\033[0m'
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SRC_LAUNCHER="$REPO_ROOT/scripts/.local/bin/windows-vm-smart-launch.sh"
+SRC_DESKTOP="$REPO_ROOT/desktop/.local/share/applications/windows-vm.desktop"
+
 echo -e "${INFO} Applying Windows VM Smart Launcher & Window Rules fix..."
 
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
 
-# 1. Install smart launcher script
-cat << 'LAUNCHER' > "$HOME/.local/bin/windows-vm-smart-launch.sh"
-#!/usr/bin/env bash
-set -eo pipefail
-
-if command -v hyprctl >/dev/null 2>&1; then
-  if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "xfreerdp")' >/dev/null 2>&1; then
-    hyprctl dispatch focuswindow "class:xfreerdp"
-    exit 0
-  fi
+# 1. Install smart launcher script (skip overwriting if already symlinked)
+DST_LAUNCHER="$HOME/.local/bin/windows-vm-smart-launch.sh"
+if [[ -L "$DST_LAUNCHER" ]]; then
+  echo -e "${SUCCESS} $DST_LAUNCHER is already symlinked (kept intact)"
+elif [[ -f "$SRC_LAUNCHER" ]]; then
+  cp "$SRC_LAUNCHER" "$DST_LAUNCHER"
+  chmod +x "$DST_LAUNCHER"
+  echo -e "${SUCCESS} Installed $DST_LAUNCHER from repo"
+else
+  echo -e "${WARN} Source launcher not found at $SRC_LAUNCHER"
 fi
 
-CREDENTIALS_FILE="$HOME/.config/windows/credentials"
-WIN_USER="sups"
-WIN_PASS="183461"
-if [[ -f "$CREDENTIALS_FILE" ]]; then
-  WIN_USER=$(grep -E "^USERNAME=" "$CREDENTIALS_FILE" | cut -d= -f2- || echo "sups")
-  WIN_PASS=$(grep -E "^PASSWORD=" "$CREDENTIALS_FILE" | cut -d= -f2- || echo "183461")
+# 2. Install desktop entry (skip overwriting if already symlinked)
+DST_DESKTOP="$HOME/.local/share/applications/windows-vm.desktop"
+if [[ -L "$DST_DESKTOP" ]]; then
+  echo -e "${SUCCESS} $DST_DESKTOP is already symlinked (kept intact)"
+elif [[ -f "$SRC_DESKTOP" ]]; then
+  cp "$SRC_DESKTOP" "$DST_DESKTOP"
+  echo -e "${SUCCESS} Configured $DST_DESKTOP from repo"
+else
+  echo -e "${WARN} Source desktop file not found at $SRC_DESKTOP"
 fi
-
-COMPOSE_FILE="/var/lib/omarchy/windows/docker-compose.yml"
-if [[ ! -f "$COMPOSE_FILE" ]]; then
-  COMPOSE_FILE="$HOME/.config/windows/docker-compose.yml"
-fi
-
-CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' omarchy-windows 2>/dev/null || echo "stopped")
-if [[ "$CONTAINER_STATUS" != "running" ]]; then
-  omarchy-shell osd show '{"icon":"󰍲","message":"Starting Windows VM..."}' 2>/dev/null || true
-  if [[ -f "$COMPOSE_FILE" ]]; then
-    docker compose -f "$COMPOSE_FILE" up -d
-  else
-    omarchy-windows-vm launch -k &
-  fi
-
-  for i in {1..45}; do
-    if nc -z 127.0.0.1 3389 2>/dev/null; then
-      break
-    fi
-    sleep 1
-  done
-fi
-
-KRB5_CONF="$HOME/.config/windows/krb5.conf"
-mkdir -p "$(dirname "$KRB5_CONF")"
-if [[ ! -f "$KRB5_CONF" ]]; then
-  printf '[libdefaults]\n  dns_lookup_kdc = false\n  dns_lookup_realm = false\n' >"$KRB5_CONF"
-fi
-export KRB5_CONFIG="$KRB5_CONF"
-
-RDP_SCALE=""
-if command -v hyprctl >/dev/null 2>&1; then
-  HYPR_SCALE=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select (.focused == true) | .scale' 2>/dev/null || echo "1")
-  SCALE_PERCENT=$(echo "$HYPR_SCALE" | awk '{print int($1 * 100)}')
-  if ((SCALE_PERCENT >= 170)); then
-    RDP_SCALE="/scale:180"
-  elif ((SCALE_PERCENT >= 130)); then
-    RDP_SCALE="/scale:140"
-  fi
-fi
-
-exec xfreerdp3 \
-  /u:"$WIN_USER" \
-  /p:"$WIN_PASS" \
-  /v:127.0.0.1:3389 \
-  -grab-keyboard \
-  /sound \
-  /microphone \
-  /clipboard \
-  /cert:ignore \
-  /title:"Windows VM - Omarchy" \
-  /dynamic-resolution \
-  /gfx:AVC444 \
-  /floatbar:sticky:off,default:visible,show:fullscreen \
-  $RDP_SCALE
-LAUNCHER
-chmod +x "$HOME/.local/bin/windows-vm-smart-launch.sh"
-echo -e "${SUCCESS} Installed ~/.local/bin/windows-vm-smart-launch.sh"
-
-# 2. Update desktop file
-cat << 'DESKTOP' > "$HOME/.local/share/applications/windows-vm.desktop"
-[Desktop Entry]
-Name=Windows
-Comment=Start Windows VM via Docker and connect with RDP
-Exec=uwsm app -- windows-vm-smart-launch.sh
-Icon=windows
-Terminal=false
-Type=Application
-Categories=System;Virtualization;
-DESKTOP
-echo -e "${SUCCESS} Configured ~/.local/share/applications/windows-vm.desktop"
 
 # 3. Ensure Hyprland window rule for xfreerdp is present
 LOOKNFEEL="$HOME/.config/hypr/looknfeel.lua"
