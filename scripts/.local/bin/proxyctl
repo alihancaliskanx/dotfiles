@@ -15,6 +15,8 @@
 #   proxyctl tor exit direct|proxy     how tor reaches its first relay
 #   proxyctl tor newip                 new Tor identity
 #   proxyctl tor rotate SECONDS|off    new identity on a timer
+#   proxyctl defaults [show|save|apply|set KEY VAL]
+#                                      manage saved defaults
 #   proxyctl setup                     one-time: tor ControlPort + tor group
 #   proxyctl browser                   Tor Browser over the system tor
 #   proxyctl env off|proxy|tor         export lines for the calling shell (eval)
@@ -911,6 +913,127 @@ cmd_run() {
     exec "$@"
 }
 
+# ─── defaults ────────────────────────────────────────────────────────────────
+defaults_saved() {
+    [ -n "$(cfg_get DEFAULT_SYSTEM)" ] || [ -n "$(cfg_get DEFAULT_NODPI)" ] \
+        || [ -n "$(cfg_get DEFAULT_TOR_EXIT)" ] || [ -n "$(cfg_get DEFAULT_ROTATE)" ]
+}
+
+default_system_val() {
+    local v; v="$(cfg_get DEFAULT_SYSTEM)"
+    [ "$v" = proxy ] && echo proxy || echo normal
+}
+
+default_nodpi_val() {
+    local v; v="$(cfg_get DEFAULT_NODPI)"
+    [ "$v" = on ] && echo on || echo off
+}
+
+default_tor_exit_val() {
+    local v; v="$(cfg_get DEFAULT_TOR_EXIT)"
+    [ "$v" = proxy ] && echo proxy || echo direct
+}
+
+default_rotate_val() {
+    local v; v="$(cfg_get DEFAULT_ROTATE)"
+    if [[ $v =~ ^[0-9]+$ ]] && (( 10#$v >= ROTATE_MIN )); then
+        echo "$((10#$v))"
+    else
+        echo 0
+    fi
+}
+
+cmd_defaults() {
+    local sub="${1:-show}"
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+        show)
+            local sys nodpi tor_exit rot tag="built-in"
+            defaults_saved && tag="saved"
+            sys="$(default_system_val)"
+            nodpi="$(default_nodpi_val)"
+            tor_exit="$(default_tor_exit_val)"
+            rot="$(default_rotate_val)"
+            printf 'Defaults (\e[36m%s\e[0m):\n' "$tag"
+            ok "system: $sys"
+            ok "nodpi: $nodpi"
+            ok "tor exit: $tor_exit"
+            [ "$rot" -gt 0 ] && ok "tor rotate: ${rot} s" || ok "tor rotate: off"
+            ;;
+        save)
+            local sys=normal nodpi=off tor_exit=direct rot
+            [ "$(tunnel_state)" = up ] && sys=proxy
+            [ "$(nodpi_state)" = up ] && nodpi=on
+            [ "$(tor_exit_state)" = proxy ] && tor_exit=proxy
+            rot="$(rotate_now)"
+            cfg_set DEFAULT_SYSTEM "$sys"
+            cfg_set DEFAULT_NODPI "$nodpi"
+            cfg_set DEFAULT_TOR_EXIT "$tor_exit"
+            cfg_set DEFAULT_ROTATE "$rot"
+            ok "defaults saved (system=$sys, nodpi=$nodpi, tor=$tor_exit, rotate=$rot)"
+            ;;
+        set)
+            local key="${1:-}" val="${2:-}"
+            [ -n "$key" ] && [ -n "$val" ] || die "usage: proxyctl defaults set system|nodpi|tor-exit|rotate VALUE"
+            case "$key" in
+                system)
+                    [ "$val" = normal ] || [ "$val" = proxy ] || die "default system takes normal or proxy"
+                    cfg_set DEFAULT_SYSTEM "$val"
+                    ok "default system → $val"
+                    ;;
+                nodpi)
+                    [ "$val" = on ] || [ "$val" = off ] || die "default nodpi takes on or off"
+                    cfg_set DEFAULT_NODPI "$val"
+                    ok "default nodpi → $val"
+                    ;;
+                tor-exit|tor)
+                    [ "$val" = direct ] || [ "$val" = proxy ] || die "default tor exit takes direct or proxy"
+                    cfg_set DEFAULT_TOR_EXIT "$val"
+                    ok "default tor exit → $val"
+                    ;;
+                rotate)
+                    case "$val" in
+                        off|0)
+                            cfg_set DEFAULT_ROTATE 0
+                            ok "default tor rotate → off"
+                            ;;
+                        *)
+                            [[ $val =~ ^[0-9]+$ ]] && (( 10#$val >= ROTATE_MIN )) \
+                                || die "default rotate takes seconds (at least $ROTATE_MIN) or off"
+                            cfg_set DEFAULT_ROTATE "$((10#$val))"
+                            ok "default tor rotate → $((10#$val)) s"
+                            ;;
+                    esac
+                    ;;
+                *) die "defaults set key must be system, nodpi, tor-exit or rotate" ;;
+            esac
+            ;;
+        apply)
+            local sys nodpi tor_exit rot
+            sys="$(default_system_val)"
+            nodpi="$(default_nodpi_val)"
+            tor_exit="$(default_tor_exit_val)"
+            rot="$(default_rotate_val)"
+            cmd_system "$sys" || exit 1
+            cmd_nodpi "$nodpi" || exit 1
+            if systemctl is-active --quiet tor || [ "$tor_exit" = proxy ] || [ "$rot" -gt 0 ]; then
+                cmd_tor exit "$tor_exit" || exit 1
+            else
+                cfg_set TOR_EXIT "$tor_exit"
+            fi
+            if [ "$rot" -gt 0 ]; then
+                cmd_tor rotate "$rot" || exit 1
+            elif [ "$(rotate_now)" -gt 0 ]; then
+                cmd_tor rotate off || exit 1
+            else
+                cfg_set ROTATE 0
+            fi
+            ok "defaults applied"
+            ;;
+        *) die "defaults takes show, save, apply or set" ;;
+    esac
+}
+
 # ─── status ──────────────────────────────────────────────────────────────────
 dns_on() {
     local iface; iface="$(default_iface)"
@@ -930,6 +1053,7 @@ rotate_now() {
 
 cmd_status() {
     local addr want reach=false tunnel nodpi_want nodpi exit_want tor_exit
+    local def_saved=false def_sys def_nodpi def_tor_exit def_rotate
     addr="$(cfg_get PROXY_ADDR)"
     want="$(cfg_get SYSTEM)"; want="${want:-normal}"
     nodpi_want="$(cfg_get NODPI)"; nodpi_want="${nodpi_want:-off}"
@@ -938,6 +1062,11 @@ cmd_status() {
     tor_exit="$(tor_exit_state)"
     valid_addr "$addr" && proxy_reachable "$addr" && reach=true
     tunnel="$(tunnel_state)"
+    defaults_saved && def_saved=true
+    def_sys="$(default_system_val)"
+    def_nodpi="$(default_nodpi_val)"
+    def_tor_exit="$(default_tor_exit_val)"
+    def_rotate="$(default_rotate_val)"
 
     if [ "${1:-}" = --json ]; then
         jq -n --arg addr "$addr" --argjson reach "$reach" \
@@ -950,10 +1079,14 @@ cmd_status() {
               --argjson control "$(yes_no tor_ctl "GETINFO version")" \
               --argjson rotate "$(rotate_now)" \
               --arg ip "$(tor_ip_now)" \
+              --argjson def_saved "$def_saved" --arg def_sys "$def_sys" \
+              --arg def_nodpi "$def_nodpi" --arg def_tor_exit "$def_tor_exit" \
+              --argjson def_rotate "$def_rotate" \
             '{addr: $addr, proxy_reachable: $reach,
               system: {want: $want, tunnel: $tunnel, udp: $udp, dns: $dns, ssh: $ssh},
               nodpi: {want: $nodpi_want, active: $nodpi_active},
-              tor: {active: $active, exit_want: $exit_want, exit: $exit, control: $control, rotate: $rotate, ip: $ip}}'
+              tor: {active: $active, exit_want: $exit_want, exit: $exit, control: $control, rotate: $rotate, ip: $ip},
+              defaults: {saved: $def_saved, system: $def_sys, nodpi: $def_nodpi, tor_exit: $def_tor_exit, rotate: $def_rotate}}'
         return
     fi
 
@@ -988,15 +1121,38 @@ cmd_status() {
     tor_ctl "GETINFO version" >/dev/null 2>&1 && ok "control port" || off "control port unavailable (proxyctl setup)"
     local r; r="$(rotate_now)"
     [ "$r" -gt 0 ] && ok "new identity every $r s" || off "rotation off"
+
+    printf 'Defaults: \e[36m%s\e[0m (system=%s, nodpi=%s, tor=%s, rotate=%s)\n' \
+        "$([ "$def_saved" = true ] && echo saved || echo built-in)" \
+        "$def_sys" "$def_nodpi" "$def_tor_exit" "$([ "$def_rotate" -gt 0 ] && echo "${def_rotate}s" || echo off)"
 }
 
 # ─── tui ─────────────────────────────────────────────────────────────────────
 # Each action runs as its own process, so a failing one returns to the menu.
+cmd_tui_defaults() {
+    local sub v
+    while sub="$(gum choose --header "proxyctl · defaults" "Apply defaults" "Save current as defaults" \
+                 "Set default system mode" "Set default NoDPI" "Set default Tor exit" \
+                 "Set default IP rotation" "Show defaults" "Back")"; do
+        case "$sub" in
+            "Apply defaults")           "$SELF" defaults apply ;;
+            "Save current as defaults") "$SELF" defaults save ;;
+            "Set default system mode")  v="$(gum choose normal proxy)" && "$SELF" defaults set system "$v" ;;
+            "Set default NoDPI")        v="$(gum choose off on)" && "$SELF" defaults set nodpi "$v" ;;
+            "Set default Tor exit")     v="$(gum choose direct proxy)" && "$SELF" defaults set tor-exit "$v" ;;
+            "Set default IP rotation")  v="$(gum input --placeholder "seconds (at least $ROTATE_MIN), or off")" && "$SELF" defaults set rotate "$v" ;;
+            "Show defaults")            "$SELF" defaults show ;;
+            *)                          break ;;
+        esac
+        printf '\n'
+    done
+}
+
 cmd_tui() {
     command -v gum >/dev/null || die "the menu needs gum: sudo pacman -S gum"
     local choice v
     while choice="$(gum choose --header "proxyctl" "System mode" "NoDPI" "Tor exit" "New Tor IP" \
-                    "IP rotation" "Proxy address" "Open Tor Browser" "Status" "Quit")"; do
+                    "IP rotation" "Proxy address" "Defaults" "Open Tor Browser" "Status" "Quit")"; do
         case "$choice" in
             "System mode")      v="$(gum choose normal proxy)" && "$SELF" system "$v" ;;
             "NoDPI")            v="$(gum choose off on)" && "$SELF" nodpi "$v" ;;
@@ -1004,6 +1160,7 @@ cmd_tui() {
             "New Tor IP")       "$SELF" tor newip ;;
             "IP rotation")      v="$(gum input --placeholder "seconds (at least $ROTATE_MIN), or off")" && "$SELF" tor rotate "$v" ;;
             "Proxy address")    v="$(gum input --placeholder host:port --value "$(cfg_get PROXY_ADDR)")" && "$SELF" addr "$v" ;;
+            "Defaults")         cmd_tui_defaults ;;
             "Open Tor Browser") setsid -f "$SELF" browser >/dev/null 2>&1 ;;
             "Status")           "$SELF" status ;;
             *)                  break ;;
@@ -1022,6 +1179,7 @@ case "$cmd" in
     system) cmd_system "$@" ;;
     nodpi)  cmd_nodpi "$@" ;;
     tor)  cmd_tor "$@" ;;
+    defaults) cmd_defaults "$@" ;;
     setup) cmd_setup ;;
     browser) cmd_browser "$@" ;;
     _tunnel_state) tunnel_state ;;
