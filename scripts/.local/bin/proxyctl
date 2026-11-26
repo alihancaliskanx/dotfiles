@@ -93,6 +93,13 @@ cfg_set() {
         done <"$CONFIG"
     fi
     [ "$found" -eq 1 ] || printf '%s=%s\n' "$1" "$2" >>"$tmp"
+    if [ "$EUID" -eq 0 ]; then
+        if [ -e "$CONFIG" ]; then
+            chown --reference="$CONFIG" "$tmp" 2>/dev/null || true
+        else
+            chown --reference="${CONFIG%/*}" "$tmp" 2>/dev/null || true
+        fi
+    fi
     mv "$tmp" "$CONFIG"
 }
 
@@ -771,13 +778,20 @@ cmd_system() {
     case "${1:-}" in
         proxy)
             need_addr
-            proxy_reachable "$PROXY_ADDR" || die "the proxy is not answering: $PROXY_ADDR"
-            if ! tunnel_up_for "$PROXY_ADDR"; then
-                as_root tunnel-up "$PROXY_ADDR" || exit 1
-            fi
-            ssh_rule_write "$PROXY_ADDR"
             cfg_set SYSTEM proxy
-            ok "system → proxy ($PROXY_ADDR)"
+            if proxy_reachable "$PROXY_ADDR"; then
+                if ! tunnel_up_for "$PROXY_ADDR"; then
+                    as_root tunnel-up "$PROXY_ADDR" || exit 1
+                fi
+                ssh_rule_write "$PROXY_ADDR"
+                ok "system → proxy ($PROXY_ADDR)"
+            else
+                if [ "$(tunnel_state)" != down ]; then
+                    as_root tunnel-down || exit 1
+                fi
+                ssh_rule_remove
+                warn "system → proxy (waiting for $PROXY_ADDR)"
+            fi
             ;;
         normal)
             if [ "$(tunnel_state)" != down ]; then
@@ -1034,6 +1048,65 @@ cmd_defaults() {
     esac
 }
 
+reconcile_system_once() {
+    local fail_file="${1:-${XDG_RUNTIME_DIR:-/tmp}/proxyctl-probe-fails}"
+    local want addr fails=0
+    want="$(cfg_get SYSTEM)"
+    addr="$(cfg_get PROXY_ADDR)"
+    if [ "$want" != proxy ] || ! valid_addr "$addr"; then
+        printf '0\n' >"$fail_file"
+        return 0
+    fi
+    if proxy_reachable "$addr"; then
+        printf '0\n' >"$fail_file"
+        if ! tunnel_up_for "$addr"; then
+            as_root tunnel-up "$addr" || return 1
+            ssh_rule_write "$addr"
+        fi
+    else
+        if [ "$(tunnel_state)" != down ]; then
+            [ -r "$fail_file" ] && fails="$(<"$fail_file")"
+            [[ $fails =~ ^[0-9]+$ ]] || fails=0
+            fails=$((fails + 1))
+            if [ "$fails" -ge 3 ]; then
+                as_root tunnel-down || return 1
+                ssh_rule_remove
+                printf '0\n' >"$fail_file"
+            else
+                printf '%s\n' "$fails" >"$fail_file"
+            fi
+        else
+            printf '0\n' >"$fail_file"
+        fi
+    fi
+}
+
+cmd_boot_apply() {
+    local sys nodpi tor_exit
+    sys="$(default_system_val)"
+    nodpi="$(default_nodpi_val)"
+    tor_exit="$(default_tor_exit_val)"
+    if [ "$sys" = proxy ] && ! valid_addr "$(cfg_get PROXY_ADDR)"; then
+        warn "default system is proxy, but no proxy address is set"
+    else
+        cmd_system "$sys" || true
+    fi
+    cmd_nodpi "$nodpi" || true
+    if systemctl is-active --quiet tor || [ "$tor_exit" = proxy ]; then
+        cmd_tor exit "$tor_exit" || true
+    else
+        cfg_set TOR_EXIT "$tor_exit"
+    fi
+}
+
+cmd_watch() {
+    local fail_file="${1:-${XDG_RUNTIME_DIR:-/tmp}/proxyctl-probe-fails}"
+    cmd_boot_apply
+    while sleep 5; do
+        reconcile_system_once "$fail_file" || true
+    done
+}
+
 # ─── status ──────────────────────────────────────────────────────────────────
 dns_on() {
     local iface; iface="$(default_iface)"
@@ -1180,6 +1253,9 @@ case "$cmd" in
     nodpi)  cmd_nodpi "$@" ;;
     tor)  cmd_tor "$@" ;;
     defaults) cmd_defaults "$@" ;;
+    _boot-apply) cmd_boot_apply ;;
+    _reconcile-once) reconcile_system_once "${1:-}" ;;
+    _watch) cmd_watch "${1:-}" ;;
     setup) cmd_setup ;;
     browser) cmd_browser "$@" ;;
     _tunnel_state) tunnel_state ;;
